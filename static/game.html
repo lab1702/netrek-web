@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netrek Web</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+        }
+        
+        #login {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #111;
+            border: 2px solid #0f0;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        
+        #login h1 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #0f0;
+        }
+        
+        #login input[type="text"] {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            font-family: inherit;
+        }
+        
+        .radio-group {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #0f0;
+            background: #000;
+        }
+        
+        .radio-group-title {
+            color: #0f0;
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+        
+        .radio-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .radio-option {
+            display: flex;
+            align-items: center;
+            color: #0f0;
+            font-size: 14px;
+        }
+        
+        .radio-option input[type="radio"] {
+            margin-right: 6px;
+            accent-color: #0f0;
+        }
+        
+        .radio-option label {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .radio-option input[type="radio"]:not(:disabled) + label:hover {
+            color: #0ff;
+        }
+        
+        .radio-option input[type="radio"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .radio-option input[type="radio"]:disabled + label {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        #login button {
+            width: 100%;
+            padding: 10px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        
+        #login button:hover {
+            background: #0a0;
+        }
+        
+        #game {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #main-display {
+            display: flex;
+            height: calc(100vh - 100px); /* Account for dashboard */
+            justify-content: center;
+            align-items: center;
+            gap: 2px;
+            padding: 20px;
+        }
+        
+        #tactical-view {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #galactic-view {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+            border: 2px solid #808080;
+        }
+        
+        #tactical {
+            background: #000;
+        }
+        
+        #galactic-map {
+            background: #000;
+        }
+        
+        #dashboard {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(to bottom, #1a1a1a, #0a0a0a);
+            border-top: 2px solid #808080;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 -5px 20px rgba(0, 255, 0, 0.1);
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 5px 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 5px;
+            min-width: 80px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #aaa;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            color: #0f0;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+        
+        .bar {
+            width: 100px;
+            height: 8px;
+            background: #222;
+            border: 1px solid #0f0;
+            margin-top: 5px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(to right, #0a0, #0f0);
+            transition: width 0.3s;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+        
+        .damage-fill {
+            background: linear-gradient(to right, #f80, #f00);
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+        }
+        
+        .fuel-fill {
+            background: linear-gradient(to right, #08f, #0ff);
+            box-shadow: 0 0 5px rgba(0, 200, 255, 0.5);
+        }
+        
+        .wtemp-fill {
+            background: linear-gradient(to right, #f40, #f80);
+            box-shadow: 0 0 5px rgba(255, 128, 0, 0.5);
+        }
+        
+        .etemp-fill {
+            background: linear-gradient(to right, #fa0, #ff0);
+            box-shadow: 0 0 5px rgba(255, 200, 0, 0.5);
+        }
+        
+        .speed-fill {
+            background: linear-gradient(to right, #808, #f0f);
+            box-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+        }
+        
+        .armies-fill {
+            background: linear-gradient(to right, #080, #0f0);
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+        
+        #messages {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 250px;
+            bottom: 110px; /* 100px dashboard + 10px spacing */
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #808080;
+            padding: 5px;
+            overflow-y: auto;
+            font-size: 9px;
+            z-index: 10;
+        }
+        
+        .message {
+            margin: 2px 0;
+        }
+        
+        .message.warning {
+            color: #ff0;
+        }
+        
+        .message.team {
+            color: #0ff;
+        }
+        
+        .message.kill {
+            color: #f00;
+        }
+        
+        #player-list {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 250px;
+            bottom: 110px; /* 100px dashboard + 10px spacing */
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #808080;
+            padding: 5px;
+            overflow-y: auto;
+            font-size: 9px;
+            z-index: 10;
+        }
+        
+        .player-entry {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+        }
+        
+        .team-fed { color: #ff0; }
+        .team-rom { color: #f00; }
+        .team-kli { color: #0f0; }
+        .team-ori { color: #0ff; }
+        
+        #controls-help {
+            position: absolute;
+            bottom: 110px;
+            left: 10px;
+            font-size: 11px;
+            color: #888;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px;
+            border: 1px solid #444;
+        }
+        
+        #message-input {
+            display: none;
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0f0;
+            padding: 10px;
+            z-index: 1000;
+        }
+        
+        #message-input input {
+            background: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 5px;
+            width: 400px;
+            font-family: inherit;
+        }
+        
+        #message-input .prompt {
+            color: #0f0;
+            margin-bottom: 5px;
+        }
+        
+        #help-window {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #0f0;
+            padding: 20px;
+            z-index: 1001;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        #help-window h2 {
+            color: #0f0;
+            margin-bottom: 15px;
+            text-align: center;
+            border-bottom: 1px solid #0f0;
+            padding-bottom: 10px;
+        }
+        
+        #help-window .help-section {
+            margin-bottom: 20px;
+        }
+        
+        #help-window .help-section h3 {
+            color: #0f0;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        #help-window .help-item {
+            display: flex;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        #help-window .help-key {
+            color: #ff0;
+            min-width: 80px;
+            font-weight: bold;
+        }
+        
+        #help-window .help-desc {
+            color: #0f0;
+        }
+        
+        #help-window .close-help {
+            margin-top: 15px;
+            text-align: center;
+            color: #999;
+            font-size: 11px;
+        }
+        
+        #practice-panel {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #0f0;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+            z-index: 10000;
+            min-width: 200px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        #practice-panel.show {
+            display: block;
+        }
+        
+        .practice-header {
+            color: #0f0;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .practice-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .practice-buttons button {
+            background: transparent;
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        
+        .practice-buttons button:hover {
+            background: #0f0;
+            color: #000;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        
+        .practice-help {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(0, 255, 0, 0.3);
+            color: #0a0;
+            font-size: 11px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="login">
+        <h1>NETREK WEB</h1>
+        <div id="serverStats" style="color: #0f0; text-align: center; margin-bottom: 15px; font-size: 14px;">
+            <span id="totalPlayers">Loading server...</span>
+        </div>
+        <input type="text" id="playerName" placeholder="Enter your name" maxlength="16" pattern="[a-zA-Z0-9]*" onkeypress="return /[a-zA-Z0-9]/.test(event.key)" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')">
+        
+        <div class="radio-group">
+            <div class="radio-group-title">Select Team</div>
+            <div class="radio-options">
+                <div class="radio-option">
+                    <input type="radio" id="teamFed" name="team" value="1" checked>
+                    <label for="teamFed">Federation <span id="fedCount">(0)</span></label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="teamRom" name="team" value="2">
+                    <label for="teamRom">Romulan <span id="romCount">(0)</span></label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="teamKli" name="team" value="4">
+                    <label for="teamKli">Klingon <span id="kliCount">(0)</span></label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="teamOri" name="team" value="8">
+                    <label for="teamOri">Orion <span id="oriCount">(0)</span></label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="radio-group">
+            <div class="radio-group-title">Select Ship Class</div>
+            <div class="radio-options">
+                <div class="radio-option">
+                    <input type="radio" id="shipSC" name="ship" value="0">
+                    <label for="shipSC">Scout (SC)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="shipDD" name="ship" value="1">
+                    <label for="shipDD">Destroyer (DD)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="shipCA" name="ship" value="2" checked>
+                    <label for="shipCA">Cruiser (CA)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="shipBB" name="ship" value="3">
+                    <label for="shipBB">Battleship (BB)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="shipAS" name="ship" value="4">
+                    <label for="shipAS">Assault (AS)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="shipSB" name="ship" value="5">
+                    <label for="shipSB">Starbase (SB)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="shipGA" name="ship" value="6">
+                    <label for="shipGA">Galaxy (GA)</label>
+                </div>
+            </div>
+        </div>
+        
+        <button onclick="connect()">Enter Game</button>
+        <div style="margin-top: 20px; font-size: 12px; color: #0f0;">
+            <strong>Quick Reference:</strong><br>
+            <span style="color: #ff0;">Movement:</span> Right-click to set course | 0-9: Set speed | !@#: Speed 10-12<br>
+            <span style="color: #ff0;">Combat:</span> Left-click: Torpedo | Middle-click: Phaser | P: Plasma | D: Detonate<br>
+            <span style="color: #ff0;">Systems:</span> S: Shields | C: Cloak | R: Repair | T: Tractor | Y: Pressor<br>
+            <span style="color: #ff0;">Planets:</span> O: Orbit | B: Bomb | Z: Beam up | X: Beam down<br>
+            <span style="color: #ff0;">Info:</span> L: Lock-on | I: Info window | ?: Help | Q: Quit<br>
+            <span style="color: #ff0;">Chat:</span> A: All msg | Shift+T: Team msg | Esc: Cancel<br>
+            <span style="color: #ff0;">Practice:</span> \: Toggle bot panel
+        </div>
+    </div>
+    
+    <div id="game">
+        <div id="main-display">
+            <div id="tactical-view">
+                <canvas id="tactical"></canvas>
+            </div>
+            <div id="galactic-view">
+                <canvas id="galactic-map"></canvas>
+            </div>
+        </div>
+        <div id="messages"></div>
+        <div id="player-list"></div>
+        <div id="dashboard">
+            <div class="stat">
+                <div class="stat-label">SHIELDS</div>
+                <div class="stat-value" id="shields">100</div>
+                <div class="bar"><div class="bar-fill" id="shields-bar" style="width: 100%"></div></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">DAMAGE</div>
+                <div class="stat-value" id="damage" style="color: #fa0">0</div>
+                <div class="bar"><div class="bar-fill damage-fill" id="damage-bar" style="width: 0%"></div></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">FUEL</div>
+                <div class="stat-value" id="fuel" style="color: #0ff">10000</div>
+                <div class="bar"><div class="bar-fill fuel-fill" id="fuel-bar" style="width: 100%"></div></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">WTEMP</div>
+                <div class="stat-value" id="wtemp" style="color: #f80">0</div>
+                <div class="bar"><div class="bar-fill wtemp-fill" id="wtemp-bar" style="width: 0%"></div></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">ETEMP</div>
+                <div class="stat-value" id="etemp" style="color: #ff0">0</div>
+                <div class="bar"><div class="bar-fill etemp-fill" id="etemp-bar" style="width: 0%"></div></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">SPEED</div>
+                <div class="stat-value" id="speed">0</div>
+                <div class="bar"><div class="bar-fill speed-fill" id="speed-bar" style="width: 0%"></div></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">ARMIES</div>
+                <div class="stat-value" id="armies" style="color: #0f0">0</div>
+                <div class="bar"><div class="bar-fill armies-fill" id="armies-bar" style="width: 0%"></div></div>
+            </div>
+            <div class="stat" style="flex: 2">
+                <div class="stat-label">STATUS</div>
+                <div class="stat-value" id="status" style="font-size: 11px"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message-input">
+        <div class="prompt">Enter message:</div>
+        <input type="text" id="message-text" maxlength="80">
+    </div>
+    
+    <div id="help-window">
+        <h2>NETREK CONTROLS</h2>
+        
+        <div class="help-section">
+            <h3>MOVEMENT</h3>
+            <div class="help-item">
+                <span class="help-key">0-9</span>
+                <span class="help-desc">Set speed (0=stop, 9=max)</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">!, @, #</span>
+                <span class="help-desc">Set speed 10, 11, 12 (Shift+1,2,3)</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">Right Click</span>
+                <span class="help-desc">Set course/direction</span>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h3>COMBAT</h3>
+            <div class="help-item">
+                <span class="help-key">Left Click</span>
+                <span class="help-desc">Fire torpedo</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">Middle Click</span>
+                <span class="help-desc">Fire phaser</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">p</span>
+                <span class="help-desc">Fire plasma torpedo</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">d</span>
+                <span class="help-desc">Detonate own torpedoes</span>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h3>SHIP SYSTEMS</h3>
+            <div class="help-item">
+                <span class="help-key">s</span>
+                <span class="help-desc">Toggle shields</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">c</span>
+                <span class="help-desc">Toggle cloak</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">r/R</span>
+                <span class="help-desc">Toggle repair mode</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">t</span>
+                <span class="help-desc">Tractor beam nearest enemy</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">y</span>
+                <span class="help-desc">Pressor beam nearest enemy</span>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h3>PLANETS</h3>
+            <div class="help-item">
+                <span class="help-key">o</span>
+                <span class="help-desc">Orbit planet</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">b</span>
+                <span class="help-desc">Bomb planet (when orbiting)</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">z</span>
+                <span class="help-desc">Beam up armies</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">x</span>
+                <span class="help-desc">Beam down armies</span>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h3>TARGETING</h3>
+            <div class="help-item">
+                <span class="help-key">l</span>
+                <span class="help-desc">Lock on nearest object to cursor</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">i/I</span>
+                <span class="help-desc">Show info for object under cursor</span>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h3>COMMUNICATION</h3>
+            <div class="help-item">
+                <span class="help-key">a</span>
+                <span class="help-desc">Send message to all</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">t/T</span>
+                <span class="help-desc">Send message to team (Shift+t or T)</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">Escape</span>
+                <span class="help-desc">Cancel message</span>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <h3>OTHER</h3>
+            <div class="help-item">
+                <span class="help-key">\</span>
+                <span class="help-desc">Toggle practice panel</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">?</span>
+                <span class="help-desc">Toggle this help window</span>
+            </div>
+            <div class="help-item">
+                <span class="help-key">Q</span>
+                <span class="help-desc">Quit/Self-destruct (capital Q)</span>
+            </div>
+        </div>
+        
+        <div class="close-help">Press ? or Escape to close</div>
+    </div>
+    
+    <div id="practice-panel">
+        <div class="practice-header">Practice Mode</div>
+        <div class="practice-buttons">
+            <button onclick="addBot()">Add Bot</button>
+            <button onclick="fillWithBots()">Fill All Slots</button>
+            <button onclick="removeBot()">Remove Bot</button>
+            <button onclick="clearBots()">Clear All Bots</button>
+        </div>
+        <div class="practice-help">Press \ (backslash) to toggle this panel</div>
+    </div>
+    
+    <script src="convert_bitmaps.js"></script>
+    <script src="planet-renderer.js"></script>
+    <script src="info-window.js"></script>
+    <script src="ship-bitmaps-all-teams.js"></script>
+    <script src="ship-renderer.js"></script>
+    <script src="netrek.js?v=9"></script>
+</body>
+</html>
