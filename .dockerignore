@@ -1,0 +1,33 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+*.md
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Development files
+*.log
+*.tmp
+.DS_Store
+
+# Test files
+*_test.go
+test/
+
+# Build artifacts
+netrek-web
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
