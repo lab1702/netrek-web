@@ -12,20 +12,20 @@ func formatPlayerName(p *game.Player) string {
 	teamName := ""
 	switch p.Team {
 	case game.TeamFed:
-		teamName = "Fed"
+		teamName = "F"
 	case game.TeamRom:
-		teamName = "Rom"
+		teamName = "R"
 	case game.TeamKli:
-		teamName = "Kli"
+		teamName = "K"
 	case game.TeamOri:
-		teamName = "Ori"
+		teamName = "O"
 	default:
-		teamName = "Ind"
+		teamName = "I"
 	}
 
 	// Player ID is the slot number (0-based in internal, but display as 1-based)
 	slot := p.ID
-	return fmt.Sprintf("%s [%s %d]", p.Name, teamName, slot)
+	return fmt.Sprintf("%s [%s%d]", p.Name, teamName, slot)
 }
 
 // respawnPlayer respawns a dead player at their home planet
