@@ -57,6 +57,7 @@ func isValidOrigin(r *http.Request) bool {
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: isValidOrigin,
+	EnableCompression: true, // Enable per-message deflate compression
 }
 
 // Message types
