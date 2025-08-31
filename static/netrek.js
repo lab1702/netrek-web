@@ -120,6 +120,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 let ws = null;
+let wsCompressionActive = false;
 let gameState = {
     myPlayerID: -1,
     players: [],
@@ -688,6 +689,16 @@ function connect() {
     
     ws.onopen = () => {
         // Connected to server
+        // Check if compression is enabled by examining the WebSocket extensions
+        if (ws.extensions && ws.extensions.includes('permessage-deflate')) {
+            wsCompressionActive = true;
+            console.log('WebSocket compression is ACTIVE (permessage-deflate)');
+        } else {
+            wsCompressionActive = false;
+            console.log('WebSocket compression is NOT active');
+        }
+        updateCompressionIndicator();
+        
         sendMessage({
             type: 'login',
             data: { name: name, team: team, ship: ship }
@@ -1684,6 +1695,21 @@ let lastWarningTime = 0;
 let fps = 0;
 let frameCount = 0;
 let lastFpsUpdate = 0;
+
+function updateCompressionIndicator() {
+    const indicator = document.getElementById('compression-indicator');
+    if (indicator) {
+        if (wsCompressionActive) {
+            indicator.textContent = 'COMPRESSION: ON';
+            indicator.style.color = '#0f0';
+            indicator.title = 'WebSocket compression (permessage-deflate) is active - reduced bandwidth usage';
+        } else {
+            indicator.textContent = 'COMPRESSION: OFF';
+            indicator.style.color = '#888';
+            indicator.title = 'WebSocket compression is not active';
+        }
+    }
+}
 
 function updateDashboard() {
     if (gameState.myPlayerID < 0) return;
