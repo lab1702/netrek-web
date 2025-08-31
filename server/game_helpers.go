@@ -2,8 +2,8 @@ package server
 
 import (
 	"fmt"
-	"math/rand"
 	"github.com/lab1702/netrek-web/game"
+	"math/rand"
 )
 
 // formatPlayerName returns the player name with team and slot info

@@ -2,9 +2,9 @@ package server
 
 import (
 	"fmt"
+	"github.com/lab1702/netrek-web/game"
 	"math"
 	"math/rand"
-	"github.com/lab1702/netrek-web/game"
 )
 
 const (

@@ -3,11 +3,11 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/lab1702/netrek-web/game"
 	"html"
 	"log"
 	"math"
 	"math/rand"
-	"github.com/lab1702/netrek-web/game"
 	"strconv"
 	"strings"
 	"time"

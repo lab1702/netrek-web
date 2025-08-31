@@ -56,7 +56,7 @@ func isValidOrigin(r *http.Request) bool {
 }
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: isValidOrigin,
+	CheckOrigin:       isValidOrigin,
 	EnableCompression: true, // Enable per-message deflate compression
 }
 
@@ -206,6 +206,7 @@ func (s *Server) updateGame() {
 	hasAnyPlayers := false
 
 	// First pass: check player status and handle timeouts
+	hasDisconnectedHumans := false
 	for i := 0; i < game.MaxPlayers; i++ {
 		p := s.gameState.Players[i]
 
@@ -214,6 +215,10 @@ func (s *Server) updateGame() {
 			hasAnyPlayers = true
 			if !p.IsBot && p.Connected {
 				hasHumanPlayers = true
+			}
+			// Check if there are disconnected human players whose slots are still reserved
+			if !p.IsBot && !p.Connected && p.Status == game.StatusAlive {
+				hasDisconnectedHumans = true
 			}
 		}
 
@@ -230,8 +235,9 @@ func (s *Server) updateGame() {
 		}
 	}
 
-	// Clear all bots if no human players are connected
-	if !hasHumanPlayers {
+	// Only clear bots if no human players are connected AND no human slots are reserved
+	// This allows bots to stay when a player closes browser but might reconnect
+	if !hasHumanPlayers && !hasDisconnectedHumans {
 		botCount := 0
 		for i := 0; i < game.MaxPlayers; i++ {
 			p := s.gameState.Players[i]
@@ -243,7 +249,7 @@ func (s *Server) updateGame() {
 			}
 		}
 		if botCount > 0 {
-			log.Printf("Cleared %d bots (no human players connected)", botCount)
+			log.Printf("Cleared %d bots (no human players or reserved slots)", botCount)
 			// After clearing bots, check again if any players remain
 			hasAnyPlayers = false
 			for i := 0; i < game.MaxPlayers; i++ {
