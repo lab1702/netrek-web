@@ -130,6 +130,7 @@ let gameState = {
     phasers: [], // Active phaser beams
     frame: 0,
     lastUpdate: 0,
+    networkDelay: 0,
     interpolation: true,
     quitRequested: false // Track if player has requested to quit
 };
@@ -743,6 +744,14 @@ function handleServerMessage(msg) {
             prevState.torps = gameState.torps.map(t => t ? {...t} : null);
             prevState.plasmas = gameState.plasmas.map(p => p ? {...p} : null);
             
+            // Calculate network delay before updating lastUpdate
+            const now = Date.now();
+            if (gameState.lastUpdate) {
+                gameState.networkDelay = now - gameState.lastUpdate;
+            } else {
+                gameState.networkDelay = 0;
+            }
+            
             gameState.frame = msg.data.frame;
             gameState.players = msg.data.players || [];
             gameState.planets = msg.data.planets || [];
@@ -753,7 +762,7 @@ function handleServerMessage(msg) {
             gameState.winType = msg.data.winType;
             gameState.tMode = msg.data.tMode || false;
             gameState.tRemain = msg.data.tRemain;
-            gameState.lastUpdate = Date.now();
+            gameState.lastUpdate = now;
             
             // Update info window if it's visible
             if (window.infoWindow && window.infoWindow.isVisible()) {
@@ -1709,7 +1718,7 @@ function updateDashboard() {
     updateCompressionIndicator();
     
     // Update network delay
-    const lag = gameState.lastUpdate ? Date.now() - gameState.lastUpdate : 0;
+    const lag = gameState.networkDelay || 0;
     const delayEl = document.getElementById('network-delay');
     if (delayEl) {
         delayEl.textContent = `${lag}ms`;
