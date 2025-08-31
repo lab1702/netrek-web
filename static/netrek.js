@@ -1610,7 +1610,7 @@ function renderGalactic() {
         
         // Show explosions on galactic map
         if (player.status === 3) {
-            ctx.strokeStyle = '#f00';
+            ctx.strokeStyle = teamColors[player.team] || '#f00';
             ctx.globalAlpha = 0.8;
             ctx.beginPath();
             ctx.arc(x, y, 5, 0, Math.PI * 2);
