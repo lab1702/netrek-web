@@ -1377,27 +1377,45 @@ func (c *Client) handleBotCommand(cmd string) {
 		// Fill all available slots with bots
 		// All bots use hard difficulty mode
 
-		// Count free slots
-		freeSlots := 0
-		for _, p := range c.server.gameState.Players {
-			if p.Status == game.StatusFree {
-				freeSlots++
-			}
-		}
-
 		// Distribute bots evenly across teams
 		teams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
 		shipTypes := []int{0, 1, 2, 3, 4} // Scout, Destroyer, Cruiser, Battleship, Assault
 
 		botsAdded := 0
-		for i := 0; i < freeSlots && botsAdded < game.MaxPlayers-4; i++ { // Max 28 bots to leave room for humans
+		// Try to add bots to all available slots (MaxPlayers - 4 to leave room for humans)
+		maxBots := game.MaxPlayers - 4
+		
+		for botsAdded < maxBots {
 			// Round-robin team assignment
 			team := teams[botsAdded%4]
 			// Random ship type
 			ship := shipTypes[rand.Intn(5)]
 
+			// Count current bots before adding
+			currentBots := 0
+			for _, p := range c.server.gameState.Players {
+				if p.IsBot && p.Status != game.StatusFree {
+					currentBots++
+				}
+			}
+			
+			// Try to add bot
 			c.server.AddBot(team, ship)
-			botsAdded++
+			
+			// Check if bot was actually added
+			newBots := 0
+			for _, p := range c.server.gameState.Players {
+				if p.IsBot && p.Status != game.StatusFree {
+					newBots++
+				}
+			}
+			
+			if newBots > currentBots {
+				botsAdded = newBots
+			} else {
+				// No more slots available, stop trying
+				break
+			}
 		}
 
 		// Send confirmation message
