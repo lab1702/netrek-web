@@ -904,20 +904,6 @@ function renderTactical() {
         ctx.restore();
     }
     
-    // Show ping
-    ctx.save();
-    const lag = gameState.lastUpdate ? Date.now() - gameState.lastUpdate : 0;
-    if (lag <= 100) {
-        ctx.fillStyle = '#0f0';  // Green
-    } else if (lag <= 200) {
-        ctx.fillStyle = '#ff0';  // Yellow
-    } else {
-        ctx.fillStyle = '#f00';  // Red
-    }
-    ctx.font = '12px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(`${lag}ms`, width - 10, 20);
-    ctx.restore();
     
     // Show victory screen if game is over
     if (gameState.gameOver) {
@@ -1721,6 +1707,20 @@ function updateDashboard() {
     if (!player) return;
     
     updateCompressionIndicator();
+    
+    // Update network delay
+    const lag = gameState.lastUpdate ? Date.now() - gameState.lastUpdate : 0;
+    const delayEl = document.getElementById('network-delay');
+    if (delayEl) {
+        delayEl.textContent = `${lag}ms`;
+        if (lag <= 100) {
+            delayEl.style.color = '#0f0';  // Green
+        } else if (lag <= 200) {
+            delayEl.style.color = '#ff0';  // Yellow
+        } else {
+            delayEl.style.color = '#f00';  // Red
+        }
+    }
     
     // Update stats
     document.getElementById('shields').textContent = player.shields || 0;
