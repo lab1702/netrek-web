@@ -127,28 +127,14 @@ func (c *Client) handleLogin(data json.RawMessage) {
 		loginData.Name = fmt.Sprintf("Player%d", rand.Intn(1000))
 	}
 
-	// Find a player slot - check for reconnection first
+	// Find a player slot
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
 	playerID := -1
 
-	// First check if this player is reconnecting (same name, team, and ship)
-	for i := 0; i < game.MaxPlayers; i++ {
-		p := c.server.gameState.Players[i]
-		if p.Status == game.StatusAlive && !p.Connected &&
-			p.Name == loginData.Name &&
-			p.Team == loginData.Team &&
-			p.Ship == loginData.Ship {
-			// Found their old slot - reconnect them
-			playerID = i
-			log.Printf("Player %s reconnecting to slot %d", loginData.Name, i)
-			break
-		}
-	}
-
-	// If not reconnecting, check team balance
-	if playerID == -1 {
+	// Check team balance
+	{
 		// Count players per team (only count connected, alive players)
 		teamCounts := make(map[int]int)
 		// Initialize all teams to 0
@@ -204,13 +190,11 @@ func (c *Client) handleLogin(data json.RawMessage) {
 			teamCounts[game.TeamKli], teamCounts[game.TeamOri])
 	}
 
-	// If not reconnecting, find a free slot
-	if playerID == -1 {
-		for i := 0; i < game.MaxPlayers; i++ {
-			if c.server.gameState.Players[i].Status == game.StatusFree {
-				playerID = i
-				break
-			}
+	// Find a free slot
+	for i := 0; i < game.MaxPlayers; i++ {
+		if c.server.gameState.Players[i].Status == game.StatusFree {
+			playerID = i
+			break
 		}
 	}
 
@@ -225,59 +209,47 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	// Set up the player (use pointer to modify in place)
 	p := c.server.gameState.Players[playerID]
 
-	// Check if this is a reconnection or new player
-	isReconnecting := p.Status == game.StatusAlive && !p.Connected &&
-		p.Name == loginData.Name
+	// Initialize new player
+	p.Name = loginData.Name
+	p.Team = loginData.Team
+	p.Ship = loginData.Ship
+	p.Status = game.StatusAlive
 
-	if isReconnecting {
-		// Reconnecting - just restore connection
-		p.Connected = true
-		// Clear the disconnect timestamp
-		p.LastUpdate = time.Time{}
-		// Keep all existing state (position, damage, fuel, etc.)
-	} else {
-		// New player - initialize everything
-		p.Name = loginData.Name
-		p.Team = loginData.Team
-		p.Ship = loginData.Ship
-		p.Status = game.StatusAlive
-
-		// Set starting position near home planet with random offset (like original Netrek)
-		var homeX, homeY float64
-		switch loginData.Team {
-		case game.TeamFed:
-			homeX, homeY = 20000, 80000 // Earth
-		case game.TeamRom:
-			homeX, homeY = 20000, 20000 // Romulus
-		case game.TeamKli:
-			homeX, homeY = 80000, 20000 // Klingus
-		case game.TeamOri:
-			homeX, homeY = 80000, 80000 // Orion
-		default:
-			homeX, homeY = 50000, 50000 // Center
-		}
-
-		// Add random offset between -5000 and +5000 (from original: random() % 10000 - 5000)
-		offsetX := float64(rand.Intn(10000) - 5000)
-		offsetY := float64(rand.Intn(10000) - 5000)
-		p.X = homeX + offsetX
-		p.Y = homeY + offsetY
-
-		// Initialize ship stats
-		shipStats := game.ShipData[loginData.Ship]
-		p.Shields = shipStats.MaxShields
-		p.Damage = 0
-		p.Fuel = shipStats.MaxFuel
-		p.Armies = 0
-		p.WTemp = 0
-		p.ETemp = 0
-		p.Dir = 0
-		p.Speed = 0
-		p.DesDir = 0
-		p.DesSpeed = 0
-		p.Connected = true
-		p.Shields_up = false // Shields DOWN by default
+	// Set starting position near home planet with random offset (like original Netrek)
+	var homeX, homeY float64
+	switch loginData.Team {
+	case game.TeamFed:
+		homeX, homeY = 20000, 80000 // Earth
+	case game.TeamRom:
+		homeX, homeY = 20000, 20000 // Romulus
+	case game.TeamKli:
+		homeX, homeY = 80000, 20000 // Klingus
+	case game.TeamOri:
+		homeX, homeY = 80000, 80000 // Orion
+	default:
+		homeX, homeY = 50000, 50000 // Center
 	}
+
+	// Add random offset between -5000 and +5000 (from original: random() % 10000 - 5000)
+	offsetX := float64(rand.Intn(10000) - 5000)
+	offsetY := float64(rand.Intn(10000) - 5000)
+	p.X = homeX + offsetX
+	p.Y = homeY + offsetY
+
+	// Initialize ship stats
+	shipStats := game.ShipData[loginData.Ship]
+	p.Shields = shipStats.MaxShields
+	p.Damage = 0
+	p.Fuel = shipStats.MaxFuel
+	p.Armies = 0
+	p.WTemp = 0
+	p.ETemp = 0
+	p.Dir = 0
+	p.Speed = 0
+	p.DesDir = 0
+	p.DesSpeed = 0
+	p.Connected = true
+	p.Shields_up = false // Shields DOWN by default
 
 	c.PlayerID = playerID
 
@@ -292,11 +264,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	}
 
 	shipData := game.ShipData[p.Ship]
-	if isReconnecting {
-		log.Printf("Player %s reconnected as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
-	} else {
-		log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
-	}
+	log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
 }
 
 // handleMove processes movement commands

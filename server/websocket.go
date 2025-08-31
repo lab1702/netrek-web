@@ -150,13 +150,17 @@ func (s *Server) Run() {
 				delete(s.clients, client.ID)
 				close(client.send)
 
-				// Mark player as disconnected but keep slot reserved
+				// Immediately free the player slot on disconnect
 				if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
-					s.gameState.Players[client.PlayerID].Connected = false
-					// Track disconnect time for timeout
-					s.gameState.Players[client.PlayerID].LastUpdate = time.Now()
-					// Don't immediately free the slot - keep it reserved for reconnection
-					// Status remains StatusAlive so they can reconnect
+					p := s.gameState.Players[client.PlayerID]
+					// Only free if it's a human player (not a bot)
+					if !p.IsBot {
+						log.Printf("Freeing slot for disconnected player %s", p.Name)
+						p.Status = game.StatusFree
+						p.Name = ""
+						p.Connected = false
+						p.LastUpdate = time.Time{}
+					}
 				}
 			}
 			s.mu.Unlock()
@@ -200,13 +204,11 @@ func (s *Server) updateGame() {
 	s.gameState.Frame++
 	s.gameState.TickCount++
 
-	// Clean up disconnected players that have timed out (1 minute)
-	disconnectTimeout := 1 * time.Minute
+	// Check player status
 	hasHumanPlayers := false
 	hasAnyPlayers := false
 
-	// First pass: check player status and handle timeouts
-	hasDisconnectedHumans := false
+	// First pass: check player status
 	for i := 0; i < game.MaxPlayers; i++ {
 		p := s.gameState.Players[i]
 
@@ -216,29 +218,11 @@ func (s *Server) updateGame() {
 			if !p.IsBot && p.Connected {
 				hasHumanPlayers = true
 			}
-			// Check if there are disconnected human players whose slots are still reserved
-			if !p.IsBot && !p.Connected && p.Status == game.StatusAlive {
-				hasDisconnectedHumans = true
-			}
-		}
-
-		// Handle disconnected player timeout
-		if p.Status == game.StatusAlive && !p.Connected && !p.IsBot {
-			// Check if player has been disconnected for too long
-			if !p.LastUpdate.IsZero() && time.Since(p.LastUpdate) > disconnectTimeout {
-				log.Printf("Player %s timed out after disconnection", p.Name)
-				// Free the slot completely
-				p.Status = game.StatusFree
-				p.Name = ""
-				p.Connected = false
-				p.LastUpdate = time.Time{}
-			}
 		}
 	}
 
-	// Only clear bots if no human players are connected AND no human slots are reserved
-	// This allows bots to stay when a player closes browser but might reconnect
-	if !hasHumanPlayers && !hasDisconnectedHumans {
+	// Clear all bots if no human players are connected
+	if !hasHumanPlayers {
 		botCount := 0
 		for i := 0; i < game.MaxPlayers; i++ {
 			p := s.gameState.Players[i]
