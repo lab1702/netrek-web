@@ -227,9 +227,10 @@ func (s *Server) updateGame() {
 			// Check if player has been disconnected for too long
 			if !p.LastUpdate.IsZero() && time.Since(p.LastUpdate) > disconnectTimeout {
 				log.Printf("Player %s timed out after disconnection", p.Name)
-				// Free the slot
+				// Free the slot completely
 				p.Status = game.StatusFree
 				p.Name = ""
+				p.Connected = false
 				p.LastUpdate = time.Time{}
 			}
 		}
@@ -245,6 +246,7 @@ func (s *Server) updateGame() {
 				p.Status = game.StatusFree
 				p.Name = ""
 				p.IsBot = false
+				p.Connected = false
 				botCount++
 			}
 		}
