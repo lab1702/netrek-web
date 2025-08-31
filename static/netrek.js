@@ -1722,9 +1722,9 @@ function updateDashboard() {
     const delayEl = document.getElementById('network-delay');
     if (delayEl) {
         delayEl.textContent = `${lag}ms`;
-        if (lag <= 100) {
+        if (lag < 150) {
             delayEl.style.color = '#0f0';  // Green
-        } else if (lag <= 200) {
+        } else if (lag < 200) {
             delayEl.style.color = '#ff0';  // Yellow
         } else {
             delayEl.style.color = '#f00';  // Red
