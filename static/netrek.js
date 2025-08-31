@@ -667,6 +667,9 @@ function connect() {
     document.getElementById('login').style.display = 'none';
     document.getElementById('game').style.display = 'block';
     
+    // Update compression indicator immediately
+    updateCompressionIndicator();
+    
     // Initialize game (with async handling)
     init().then(() => {
         // Game initialized successfully
@@ -1700,11 +1703,11 @@ function updateCompressionIndicator() {
     const indicator = document.getElementById('compression-indicator');
     if (indicator) {
         if (wsCompressionActive) {
-            indicator.textContent = 'COMPRESSION: ON';
+            indicator.textContent = 'ON';
             indicator.style.color = '#0f0';
             indicator.title = 'WebSocket compression (permessage-deflate) is active - reduced bandwidth usage';
         } else {
-            indicator.textContent = 'COMPRESSION: OFF';
+            indicator.textContent = 'OFF';
             indicator.style.color = '#888';
             indicator.title = 'WebSocket compression is not active';
         }
@@ -1716,6 +1719,8 @@ function updateDashboard() {
     
     const player = gameState.players[gameState.myPlayerID];
     if (!player) return;
+    
+    updateCompressionIndicator();
     
     // Update stats
     document.getElementById('shields').textContent = player.shields || 0;
