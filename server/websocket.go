@@ -1420,6 +1420,10 @@ func (s *Server) checkTournamentMode() {
 				p.DesSpeed = 0
 				p.SubDir = 0  // Reset fractional turn accumulator
 				p.AccFrac = 0 // Reset fractional acceleration accumulator
+				
+				// Reset kills and deaths for fair tournament start
+				p.Kills = 0
+				p.Deaths = 0
 				p.Shields_up = false
 				p.Cloaked = false
 				p.Tractoring = -1
