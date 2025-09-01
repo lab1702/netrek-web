@@ -1404,7 +1404,7 @@ func (s *Server) checkTournamentMode() {
 		s.gameState.Plasmas = make([]*game.Plasma, 0)
 
 		// Reset all active players to spawn positions
-		for i, p := range s.gameState.Players {
+		for _, p := range s.gameState.Players {
 			if p.Status == game.StatusAlive && p.Connected {
 				// Initialize tournament stats
 				s.gameState.TournamentStats[p.ID] = &game.TournamentPlayerStats{}
