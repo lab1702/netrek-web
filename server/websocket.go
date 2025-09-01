@@ -871,29 +871,41 @@ func (s *Server) updateGame() {
 		if p.Repairing {
 			// Repair only works when stopped or orbiting
 			if p.Speed == 0 || p.Orbiting >= 0 {
-				// Use ship-specific repair rate from original Netrek
-				// Values are per 100 ticks in original, we run at 10 ticks/sec
-				repairRate := shipStats.RepairRate / 100
-				if repairRate < 1 {
-					repairRate = 1 // Minimum repair rate
+				// Track repair progress with accumulator for fractional repairs
+				p.RepairCounter++
+				
+				// Use ship-specific repair rate, scale down for reasonable gameplay
+				// RepairRate values are 80-140, we'll divide by 8 for intervals of 10-17 ticks
+				// This means repairing every 1-1.7 seconds
+				repairInterval := shipStats.RepairRate / 8
+				if repairInterval < 5 {
+					repairInterval = 5 // Minimum interval (0.5 seconds)
 				}
-
-				// Check if at repair planet
+				
+				// Check if at repair planet (halve the interval for double speed)
 				if p.Orbiting >= 0 {
 					planet := s.gameState.Planets[p.Orbiting]
 					if planet.Owner == p.Team && (planet.Flags&game.PlanetRepair) != 0 {
-						repairRate *= 2 // Double rate at repair planets
+						repairInterval = repairInterval / 2
+						if repairInterval < 3 {
+							repairInterval = 3
+						}
 					}
 				}
-
-				// Repair shields (even with shields up)
-				if p.Shields < shipStats.MaxShields {
-					p.Shields = game.Min(p.Shields+repairRate, shipStats.MaxShields)
-				}
-
-				// Repair hull damage (only with shields down)
-				if !p.Shields_up && p.Damage > 0 {
-					p.Damage = game.Max(p.Damage-repairRate/2, 0) // Hull repairs slower
+				
+				// Apply repairs when counter reaches interval
+				if p.RepairCounter >= repairInterval {
+					p.RepairCounter = 0
+					
+					// Repair shields by 3 points (even with shields up)
+					if p.Shields < shipStats.MaxShields {
+						p.Shields = game.Min(p.Shields+3, shipStats.MaxShields)
+					}
+					
+					// Repair hull damage by 2 points (only with shields down)
+					if !p.Shields_up && p.Damage > 0 {
+						p.Damage = game.Max(p.Damage-2, 0)
+					}
 				}
 
 				// Add small fuel consumption for repairs
@@ -902,6 +914,7 @@ func (s *Server) updateGame() {
 				// Cancel repair mode and repair request if moving while not orbiting
 				p.Repairing = false
 				p.RepairRequest = false
+				p.RepairCounter = 0
 			}
 		}
 
@@ -1153,6 +1166,17 @@ func (s *Server) updateGame() {
 	// Update torpedoes
 	newTorps := make([]*game.Torpedo, 0)
 	for _, torp := range s.gameState.Torps {
+		// If torpedo is already exploding, remove it this frame
+		if torp.Status == 3 {
+			// Decrement owner's torpedo count
+			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
+				if owner := s.gameState.Players[torp.Owner]; owner != nil {
+					owner.NumTorps--
+				}
+			}
+			continue
+		}
+
 		// Decrement fuse every tick (now running at 10 ticks/sec)
 		torp.Fuse--
 		if torp.Fuse <= 0 {
@@ -1182,7 +1206,6 @@ func (s *Server) updateGame() {
 		}
 
 		// Check for hits
-		hit := false
 		for i := 0; i < game.MaxPlayers; i++ {
 			p := s.gameState.Players[i]
 			if p.Status != game.StatusAlive || p.ID == torp.Owner {
@@ -1219,21 +1242,14 @@ func (s *Server) updateGame() {
 					// Send death message
 					s.broadcastDeathMessage(p, s.gameState.Players[torp.Owner])
 				}
-				hit = true
+				// Mark torpedo as exploding - it will be removed next frame
+				torp.Status = 3
 				break
 			}
 		}
 
-		if !hit {
-			newTorps = append(newTorps, torp)
-		} else {
-			// Torpedo hit - decrement owner's torpedo count
-			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil {
-					owner.NumTorps--
-				}
-			}
-		}
+		// Keep torpedo in list (even if exploding, so it shows for one frame)
+		newTorps = append(newTorps, torp)
 	}
 	s.gameState.Torps = newTorps
 

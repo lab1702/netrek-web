@@ -46,22 +46,6 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// Shutdown API endpoint
-	shutdownChan := make(chan struct{})
-	http.HandleFunc("/api/shutdown", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		log.Println("Shutdown requested via API")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Server shutting down"))
-		go func() {
-			time.Sleep(100 * time.Millisecond) // Small delay to allow response to be sent
-			close(shutdownChan)
-		}()
-	})
-
 	// Start HTTP server
 	srv := &http.Server{
 		Addr:         ":" + *port,
@@ -83,13 +67,9 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Wait for shutdown signal (either from API or OS signal)
-	select {
-	case <-shutdownChan:
-		log.Println("Shutting down server (API request)...")
-	case sig := <-sigChan:
-		log.Printf("Shutting down server (signal: %v)...", sig)
-	}
+	// Wait for shutdown signal from OS
+	sig := <-sigChan
+	log.Printf("Shutting down server (signal: %v)...", sig)
 
 	// Create a context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

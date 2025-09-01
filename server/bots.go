@@ -552,6 +552,8 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 		Speed:  float64(shipStats.TorpSpeed * 20), // 20 units per tick
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
+		Status: 1,      // Moving
+		Team:   p.Team, // Set team color
 	}
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
@@ -634,6 +636,8 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 		Speed:  float64(shipStats.PlasmaSpeed * 20), // 20 units per tick
 		Damage: shipStats.PlasmaDamage,
 		Fuse:   shipStats.PlasmaFuse, // Use original fuse value directly
+		Status: 1,      // Moving
+		Team:   p.Team, // Set team color
 	}
 
 	s.gameState.Plasmas = append(s.gameState.Plasmas, plasma)
@@ -957,6 +961,8 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 		Speed:  torpSpeed,
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
+		Status: 1,      // Moving
+		Team:   p.Team, // Set team color
 	}
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)

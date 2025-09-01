@@ -1198,20 +1198,20 @@ function renderTactical() {
         
         if (screenX < 0 || screenX > width || screenY < 0 || screenY > height) continue;
         
-        // If torpedo is about to detonate (fuse = 1), show explosion effect
-        if (torp.fuse === 1) {
+        // Show explosion effect when torpedo detonates (fuse = 1) or hits something (status = 3)
+        if (torp.fuse === 1 || torp.status === 3) {
             ctx.fillStyle = '#ff0';
             ctx.globalAlpha = 0.8;
             ctx.beginPath();
-            ctx.arc(screenX, screenY, 15, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 0.4;
             ctx.beginPath();
-            ctx.arc(screenX, screenY, 25, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
         } else {
-            ctx.fillStyle = teamColors[torp.team] || '#f00';
+            ctx.fillStyle = teamColors[torp.team] || '#888';
             ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
         }
     }
@@ -1231,7 +1231,7 @@ function renderTactical() {
         const pulseSize = 8 + Math.sin(gameState.frame * 0.2) * 3;
         
         // Outer glow
-        ctx.fillStyle = teamColors[plasma.team] || '#ff0';
+        ctx.fillStyle = teamColors[plasma.team] || '#888';
         ctx.globalAlpha = 0.3;
         ctx.beginPath();
         ctx.arc(screenX, screenY, pulseSize * 2, 0, Math.PI * 2);
@@ -1496,65 +1496,9 @@ function renderTactical() {
         ctx.fillText(playerLabel, screenX, screenY + 12);
     }
     
-    // Draw lock indicator
-    if (myPlayer && myPlayer.lockType !== 'none' && myPlayer.lockTarget >= 0) {
-        let targetX, targetY;
-        
-        if (myPlayer.lockType === 'player') {
-            const target = gameState.players[myPlayer.lockTarget];
-            if (target && target.status === 2) {
-                targetX = target.x;
-                targetY = target.y;
-            }
-        } else if (myPlayer.lockType === 'planet') {
-            const target = gameState.planets[myPlayer.lockTarget];
-            if (target) {
-                targetX = target.x;
-                targetY = target.y;
-            }
-        }
-        
-        if (targetX !== undefined && targetY !== undefined) {
-            const dx = (targetX - myPlayer.x) * scale;
-            const dy = (targetY - myPlayer.y) * scale;
-            const screenX = centerX + dx;
-            const screenY = centerY + dy;
-            
-            // Lock triangle removed - no longer drawing pointer
-            
-            // Draw box around target if on screen
-            if (screenX > 0 && screenX < width && screenY > 0 && screenY < height) {
-                ctx.strokeStyle = '#ff0';
-                ctx.lineWidth = 1;
-                ctx.globalAlpha = 0.5;
-                ctx.setLineDash([5, 5]);
-                ctx.strokeRect(screenX - 20, screenY - 20, 40, 40);
-                ctx.setLineDash([]);
-            }
-        }
-    }
+    // Lock indicator removed
     
-    // Draw crosshair at mouse
-    ctx.strokeStyle = '#0f0';
-    ctx.globalAlpha = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(controls.mouseX - 10, controls.mouseY);
-    ctx.lineTo(controls.mouseX + 10, controls.mouseY);
-    ctx.moveTo(controls.mouseX, controls.mouseY - 10);
-    ctx.lineTo(controls.mouseX, controls.mouseY + 10);
-    ctx.stroke();
-    
-    // Draw line from ship to mouse for aiming
-    if (myPlayer && myPlayer.status === 2) {
-        ctx.strokeStyle = '#0f0';
-        ctx.globalAlpha = 0.2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(controls.mouseX, controls.mouseY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
+    // Crosshair and aiming line removed
     ctx.globalAlpha = 1;
 }
 
@@ -1647,44 +1591,7 @@ function renderGalactic() {
         ctx.restore();
     }
     
-    // Draw lock indicator on galactic map
-    if (myPlayer && myPlayer.lockType !== 'none' && myPlayer.lockTarget >= 0) {
-        let targetX, targetY;
-        
-        if (myPlayer.lockType === 'player') {
-            const target = gameState.players[myPlayer.lockTarget];
-            if (target && target.status === 2) {
-                targetX = target.x * scale;
-                targetY = target.y * scale;
-            }
-        } else if (myPlayer.lockType === 'planet') {
-            const target = gameState.planets[myPlayer.lockTarget];
-            if (target) {
-                targetX = target.x * scale;
-                targetY = target.y * scale;
-            }
-        }
-        
-        if (targetX !== undefined && targetY !== undefined) {
-            // Draw lock box around target
-            ctx.strokeStyle = '#ff0';
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.8;
-            ctx.setLineDash([3, 3]);
-            ctx.strokeRect(targetX - 8, targetY - 8, 16, 16);
-            ctx.setLineDash([]);
-            
-            // Draw line from player to target
-            const playerX = myPlayer.x * scale;
-            const playerY = myPlayer.y * scale;
-            ctx.globalAlpha = 0.3;
-            ctx.beginPath();
-            ctx.moveTo(playerX, playerY);
-            ctx.lineTo(targetX, targetY);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-        }
-    }
+    // Lock indicator on galactic map removed
 }
 
 let lastWarningTime = 0;

@@ -416,6 +416,7 @@ type Player struct {
 	Cloaked        bool `json:"cloaked"`
 	Repairing      bool `json:"repairing"`     // In repair mode
 	RepairRequest  bool `json:"repairRequest"` // Slowing down to repair
+	RepairCounter  int  `json:"-"`             // Counter for repair timing (not sent to client)
 	Bombing        bool `json:"bombing"`
 	Beaming        bool `json:"beaming"`
 	BeamingUp      bool `json:"beamingUp"`      // True if beaming up, false if beaming down
