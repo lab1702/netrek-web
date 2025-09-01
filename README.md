@@ -13,10 +13,16 @@ A browser-based version of the classic Netrek game. Play instantly in your web b
 ### For Server Owners
 
 ```bash
-# Install and run
+# Install the server
 go install github.com/lab1702/netrek-web@latest
-netrek-web
+```
 
+```bash
+# Run the server
+netrek-web
+```
+
+```bash
 # Or run on custom port
 netrek-web -port 3000
 ```
