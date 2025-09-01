@@ -898,20 +898,7 @@ function renderTactical() {
         }
     }
     
-    // Show tournament mode timer at top
-    if (gameState.tMode && !gameState.gameOver) {
-        ctx.save();
-        ctx.fillStyle = '#ff0';
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center';
-        
-        const minutes = Math.floor(gameState.tRemain / 60);
-        const seconds = gameState.tRemain % 60;
-        const timerText = `TOURNAMENT MODE - ${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
-        
-        ctx.fillText(timerText, width / 2, 30);
-        ctx.restore();
-    }
+    // Tournament mode display moved to dashboard
     
     
     // Show victory screen if game is over
@@ -1703,13 +1690,22 @@ function updateDashboard() {
             statusText = 'Shields Down';
         } else if (player.cloaked) {
             statusText = 'Cloaked';
-        } else if (gameState.tMode) {
-            // Show tournament mode status
-            const minutes = Math.floor(gameState.tRemain / 60);
-            const seconds = gameState.tRemain % 60;
-            statusText = `T-MODE ${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
         statusEl.textContent = statusText;
+    }
+    
+    // Update tournament mode display
+    const tournamentDisplay = document.getElementById('tournament-mode-display');
+    const tournamentTimer = document.getElementById('tournament-timer');
+    if (tournamentDisplay && tournamentTimer) {
+        if (gameState.tMode && !gameState.gameOver) {
+            tournamentDisplay.style.display = 'block';
+            const minutes = Math.floor(gameState.tRemain / 60);
+            const seconds = gameState.tRemain % 60;
+            tournamentTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+            tournamentDisplay.style.display = 'none';
+        }
     }
     
     // Update bars
