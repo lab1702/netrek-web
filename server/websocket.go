@@ -1394,6 +1394,15 @@ func (s *Server) checkTournamentMode() {
 		s.gameState.T_start = s.gameState.Frame
 		s.gameState.T_remain = 1800 // 30 minutes in seconds
 
+		// Reset galaxy to ensure fair start
+		// Re-initialize planets to startup state
+		game.InitPlanets(s.gameState)
+		game.InitINLPlanetFlags(s.gameState)
+		
+		// Clear all torpedoes and plasmas for clean start
+		s.gameState.Torps = make([]*game.Torpedo, 0)
+		s.gameState.Plasmas = make([]*game.Plasma, 0)
+
 		// Initialize tournament stats for all active players
 		for _, p := range s.gameState.Players {
 			if p.Status == game.StatusAlive && p.Connected {
@@ -1405,7 +1414,7 @@ func (s *Server) checkTournamentMode() {
 		s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": "⚔️ TOURNAMENT MODE ACTIVATED! 4v4 minimum reached. 30 minute time limit.",
+				"text": "⚔️ TOURNAMENT MODE ACTIVATED! 4v4 minimum reached. 30 minute time limit. Galaxy reset to initial state.",
 				"type": "info",
 			},
 		}
