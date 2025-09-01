@@ -1403,10 +1403,61 @@ func (s *Server) checkTournamentMode() {
 		s.gameState.Torps = make([]*game.Torpedo, 0)
 		s.gameState.Plasmas = make([]*game.Plasma, 0)
 
-		// Initialize tournament stats for all active players
-		for _, p := range s.gameState.Players {
+		// Reset all active players to spawn positions
+		for i, p := range s.gameState.Players {
 			if p.Status == game.StatusAlive && p.Connected {
+				// Initialize tournament stats
 				s.gameState.TournamentStats[p.ID] = &game.TournamentPlayerStats{}
+				
+				// Reset ship state
+				shipStats := game.ShipData[p.Ship]
+				p.Shields = shipStats.MaxShields
+				p.Damage = 0
+				p.Fuel = shipStats.MaxFuel
+				p.WTemp = 0
+				p.ETemp = 0
+				p.Speed = 0
+				p.DesSpeed = 0
+				p.Shields_up = false
+				p.Cloaked = false
+				p.Tractoring = -1
+				p.Pressoring = -1
+				p.Orbiting = -1
+				p.Bombing = false
+				p.Beaming = false
+				p.BeamingUp = false
+				p.Repairing = false
+				p.RepairRequest = false
+				p.EngineOverheat = false
+				p.OverheatTimer = 0
+				p.Armies = 0 // Clear any armies being carried
+				p.NumTorps = 0
+				p.NumPlasma = 0
+				
+				// Reset position to near home world
+				homeX := float64(game.TeamHomeX[p.Team])
+				homeY := float64(game.TeamHomeY[p.Team])
+				
+				// Add random offset to prevent ships spawning on top of each other
+				offsetX := float64(rand.Intn(10000) - 5000)
+				offsetY := float64(rand.Intn(10000) - 5000)
+				p.X = homeX + offsetX
+				p.Y = homeY + offsetY
+				
+				// Random starting direction
+				p.Dir = rand.Float64() * 2 * math.Pi
+				p.DesDir = p.Dir
+				
+				// Reset alert level
+				p.AlertLevel = "green"
+				
+				// Clear bot-specific state
+				if p.IsBot {
+					p.BotTarget = -1
+					p.BotCooldown = 0
+					p.BotGoalX = 0
+					p.BotGoalY = 0
+				}
 			}
 		}
 
@@ -1414,7 +1465,7 @@ func (s *Server) checkTournamentMode() {
 		s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": "⚔️ TOURNAMENT MODE ACTIVATED! 4v4 minimum reached. 30 minute time limit. Galaxy reset to initial state.",
+				"text": "⚔️ TOURNAMENT MODE ACTIVATED! 4v4 minimum reached. 30 minute time limit. Galaxy and all ships reset for fair start!",
 				"type": "info",
 			},
 		}
