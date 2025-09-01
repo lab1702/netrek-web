@@ -1418,6 +1418,8 @@ func (s *Server) checkTournamentMode() {
 				p.ETemp = 0
 				p.Speed = 0
 				p.DesSpeed = 0
+				p.SubDir = 0  // Reset fractional turn accumulator
+				p.AccFrac = 0 // Reset fractional acceleration accumulator
 				p.Shields_up = false
 				p.Cloaked = false
 				p.Tractoring = -1
@@ -1428,11 +1430,21 @@ func (s *Server) checkTournamentMode() {
 				p.BeamingUp = false
 				p.Repairing = false
 				p.RepairRequest = false
+				p.RepairCounter = 0
 				p.EngineOverheat = false
 				p.OverheatTimer = 0
 				p.Armies = 0 // Clear any armies being carried
 				p.NumTorps = 0
 				p.NumPlasma = 0
+				
+				// Reset lock-on
+				p.LockType = "none"
+				p.LockTarget = -1
+				
+				// Reset death tracking (in case they were exploding)
+				p.ExplodeTimer = 0
+				p.KilledBy = -1
+				p.WhyDead = 0
 				
 				// Reset position to near home world
 				homeX := float64(game.TeamHomeX[p.Team])
