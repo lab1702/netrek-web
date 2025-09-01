@@ -227,9 +227,13 @@ func (s *Server) updateBotHard(p *game.Player) {
 		} else if enemyArmyPlanet != nil {
 			// Second priority: Bomb enemy planets with armies
 			targetPlanet = enemyArmyPlanet
-		} else if takePlanet != nil {
-			// Third priority: Take neutral/enemy planets
+		} else if takePlanet != nil && p.Kills >= game.ArmyKillRequirement {
+			// Third priority: Take neutral/enemy planets (only if we have kills to potentially carry)
 			targetPlanet = takePlanet
+		} else if nearestEnemy != nil && enemyDist < 20000 {
+			// Fourth priority: Find enemies to fight to get kills
+			s.engageCombat(p, nearestEnemy, enemyDist)
+			return
 		}
 
 		if targetPlanet != nil {
@@ -250,12 +254,17 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.BeamingUp = true
 						p.BotCooldown = 50
 					} else {
-						// Can't beam up, find something else to do
+						// Can't beam up (no kills or full), leave orbit and find enemies
 						p.Bombing = false
 						p.Beaming = false
 						p.BeamingUp = false
 						p.Orbiting = -1
 						p.BotCooldown = 10
+						// Look for combat opportunities
+						if nearestEnemy != nil && p.Kills < game.ArmyKillRequirement {
+							s.engageCombat(p, nearestEnemy, enemyDist)
+							return
+						}
 					}
 				} else {
 					// Enemy or neutral planet
@@ -317,6 +326,11 @@ func (s *Server) updateBotHard(p *game.Player) {
 	// NON-TOURNAMENT MODE: Prioritize combat for practice
 	if !s.gameState.T_mode {
 		// Focus on finding and fighting enemies
+		// If bot has no kills, prioritize getting some
+		if p.Kills < game.ArmyKillRequirement && nearestEnemy != nil {
+			s.engageCombat(p, nearestEnemy, enemyDist)
+			return
+		}
 
 		// Advanced target selection for combat practice
 		bestTarget := -1
