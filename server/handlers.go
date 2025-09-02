@@ -605,6 +605,9 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 				target.WhyDead = game.KillPhaser
 				target.Bombing = false // Stop bombing when destroyed
 				target.Orbiting = -1   // Break orbit when destroyed
+				// Clear lock-on when destroyed
+				target.LockType = "none"
+				target.LockTarget = -1
 				target.Deaths++        // Increment death count
 				p.Kills += 1
 				p.KillsStreak += 1
@@ -1567,6 +1570,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	p.DesSpeed = 0
 
 	// Clear all states
+	// Clear lock-on when destroyed
+	p.LockType = "none"
+	p.LockTarget = -1
 	p.Shields_up = false
 	p.Cloaked = false
 	p.Repairing = false

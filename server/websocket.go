@@ -322,6 +322,9 @@ func (s *Server) updateGame() {
 							target.ExplodeTimer = 10
 							target.KilledBy = i
 							target.WhyDead = game.KillExplosion
+							// Clear lock-on when destroyed
+							target.LockType = "none"
+							target.LockTarget = -1
 
 							// Update kill statistics
 							if i >= 0 && i < game.MaxPlayers {
@@ -634,6 +637,9 @@ func (s *Server) updateGame() {
 						p.Bombing = false
 						p.Beaming = false
 						p.Orbiting = -1
+						// Clear lock-on when destroyed
+						p.LockType = "none"
+						p.LockTarget = -1
 						p.Deaths++ // Increment death count
 
 						// Send death message
@@ -889,6 +895,9 @@ func (s *Server) updateGame() {
 						p.KilledBy = -1 // No player killer
 						p.WhyDead = game.KillPlanet
 						p.Deaths++ // Increment death count
+						// Clear lock-on when destroyed
+						p.LockType = "none"
+						p.LockTarget = -1
 
 						// Send death message
 						s.broadcast <- ServerMessage{
@@ -1278,6 +1287,9 @@ func (s *Server) updateGame() {
 					p.Bombing = false // Stop bombing when destroyed
 					p.Beaming = false // Stop beaming when destroyed
 					p.Orbiting = -1   // Break orbit when destroyed
+					// Clear lock-on when destroyed
+					p.LockType = "none"
+					p.LockTarget = -1
 					p.Deaths++        // Increment death count
 					s.gameState.Players[torp.Owner].Kills += 1
 					s.gameState.Players[torp.Owner].KillsStreak += 1
@@ -1358,6 +1370,9 @@ func (s *Server) updateGame() {
 					p.Bombing = false         // Stop bombing when destroyed
 					p.Beaming = false         // Stop beaming when destroyed
 					p.Orbiting = -1           // Break orbit when destroyed
+					// Clear lock-on when destroyed
+					p.LockType = "none"
+					p.LockTarget = -1
 					p.Deaths++                // Increment death count
 					s.gameState.Players[plasma.Owner].Kills += 1
 					s.gameState.Players[plasma.Owner].KillsStreak += 1

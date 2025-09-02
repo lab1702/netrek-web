@@ -602,6 +602,9 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		target.WhyDead = game.KillPhaser
 		target.Bombing = false // Stop bombing when destroyed
 		target.Orbiting = -1   // Break orbit when destroyed
+		// Clear lock-on when destroyed
+		target.LockType = "none"
+		target.LockTarget = -1
 		target.Deaths++        // Increment death count
 		p.Kills += 1
 		p.KillsStreak += 1

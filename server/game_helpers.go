@@ -50,6 +50,30 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.Cloaked = false
 	p.Tractoring = -1
 	p.Pressoring = -1
+	
+	// Reset all action flags
+	p.Repairing = false
+	p.RepairRequest = false
+	p.RepairCounter = 0
+	p.Bombing = false
+	p.Beaming = false
+	p.BeamingUp = false
+	p.Orbiting = -1
+	p.Armies = 0  // Clear any armies being carried
+	p.NumTorps = 0
+	p.NumPlasma = 0
+	
+	// Reset engine overheat state
+	p.EngineOverheat = false
+	p.OverheatTimer = 0
+	
+	// Reset lock-on
+	p.LockType = "none"
+	p.LockTarget = -1
+	
+	// Reset fractional accumulators
+	p.SubDir = 0  // Reset fractional turn accumulator
+	p.AccFrac = 0 // Reset fractional acceleration accumulator
 
 	// Set position near home planet with random offset (like original Netrek)
 	// Original uses: pl->pl_x + (random() % 10000) - 5000
