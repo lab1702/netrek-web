@@ -361,6 +361,59 @@ func (s *Server) updateGame() {
 
 		// Handle dead state - respawn
 		if p.Status == game.StatusDead && p.Connected {
+			// Check if team owns planets during t-mode
+			if s.gameState.T_mode {
+				teamPlanetCount := 0
+				switch p.Team {
+				case game.TeamFed:
+					teamPlanetCount = s.gameState.TeamPlanets[0]
+				case game.TeamRom:
+					teamPlanetCount = s.gameState.TeamPlanets[1]
+				case game.TeamKli:
+					teamPlanetCount = s.gameState.TeamPlanets[2]
+				case game.TeamOri:
+					teamPlanetCount = s.gameState.TeamPlanets[3]
+				}
+				
+				// Cannot respawn if team owns no planets in t-mode
+				if teamPlanetCount == 0 {
+					// Send message to player once (check if not already sent)
+					if p.ExplodeTimer == 0 {
+						p.ExplodeTimer = -1 // Use -1 as flag that message was sent
+						// Find the client for this player
+						for _, client := range s.clients {
+							if client.PlayerID == p.ID {
+								client.send <- ServerMessage{
+									Type: MsgTypeMessage,
+									Data: map[string]interface{}{
+										"text": "Cannot respawn - your team owns no planets in tournament mode!",
+										"type": "error",
+									},
+								}
+								break
+							}
+						}
+					}
+					continue
+				} else if p.ExplodeTimer == -1 {
+					// Team has regained planets - reset flag and notify player
+					p.ExplodeTimer = 0
+					// Find the client for this player
+					for _, client := range s.clients {
+						if client.PlayerID == p.ID {
+							client.send <- ServerMessage{
+								Type: MsgTypeMessage,
+								Data: map[string]interface{}{
+									"text": "Your team has regained planets - respawning enabled!",
+									"type": "info",
+								},
+							}
+							break
+						}
+					}
+				}
+			}
+			
 			// Respawn at home planet
 			s.respawnPlayer(p)
 			continue
@@ -1670,6 +1723,52 @@ func (s *Server) checkVictoryConditions() {
 			}
 		}
 	}
+
+	// Check for domination victory (one team owns all planets that are owned, 
+	// and no enemy players are carrying armies to retake independent planets)
+	if totalPlayers >= 2 && s.gameState.Frame > 100 {
+		// First check if only one team owns planets
+		teamsOwningPlanets := 0
+		teamWithPlanets := -1
+		independentPlanets := 0
+		
+		for _, planet := range s.gameState.Planets {
+			if planet.Owner == game.TeamNone {
+				independentPlanets++
+			}
+		}
+		
+		for i, count := range s.gameState.TeamPlanets {
+			if count > 0 {
+				teamsOwningPlanets++
+				teamWithPlanets = i
+			}
+		}
+		
+		// If only one team owns planets and there are independent planets
+		if teamsOwningPlanets == 1 && teamWithPlanets >= 0 && independentPlanets > 0 {
+			// Check if any enemy players are carrying armies
+			enemyHasArmies := false
+			dominantTeam := 1 << teamWithPlanets
+			
+			for _, p := range s.gameState.Players {
+				// Check if player is alive, on a different team, and carrying armies
+				if p.Status == game.StatusAlive && p.Team != dominantTeam && p.Armies > 0 {
+					enemyHasArmies = true
+					break
+				}
+			}
+			
+			// If no enemies have armies, the dominant team wins
+			if !enemyHasArmies {
+				s.gameState.GameOver = true
+				s.gameState.Winner = dominantTeam
+				s.gameState.WinType = "domination"
+				s.announceVictory()
+				return
+			}
+		}
+	}
 }
 
 // announceVictory sends victory message to all clients
@@ -1691,6 +1790,8 @@ func (s *Server) announceVictory() {
 		message = fmt.Sprintf("🎉 GENOCIDE! %s team has eliminated all enemies! Victory!", teamName)
 	} else if s.gameState.WinType == "conquest" {
 		message = fmt.Sprintf("🎉 CONQUEST! %s team has captured all planets! Victory!", teamName)
+	} else if s.gameState.WinType == "domination" {
+		message = fmt.Sprintf("🏆 DOMINATION! %s team controls all owned planets and enemies have no armies! Victory!", teamName)
 	} else if s.gameState.WinType == "timeout" {
 		message = fmt.Sprintf("⏱️ TIME LIMIT! %s team wins by controlling the most planets!", teamName)
 	}
