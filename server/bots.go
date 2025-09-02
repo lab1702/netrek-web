@@ -222,12 +222,12 @@ func (s *Server) updateBotHard(p *game.Player) {
 		var targetPlanet *game.Planet
 
 		// First priority: Pick up armies if we have kills
-		if p.Kills >= game.ArmyKillRequirement && armyPlanet != nil {
+		if p.KillsStreak >= game.ArmyKillRequirement && armyPlanet != nil {
 			targetPlanet = armyPlanet
 		} else if enemyArmyPlanet != nil {
 			// Second priority: Bomb enemy planets with armies
 			targetPlanet = enemyArmyPlanet
-		} else if takePlanet != nil && p.Kills >= game.ArmyKillRequirement {
+		} else if takePlanet != nil && p.KillsStreak >= game.ArmyKillRequirement {
 			// Third priority: Take neutral/enemy planets (only if we have kills to potentially carry)
 			targetPlanet = takePlanet
 		} else if nearestEnemy != nil && enemyDist < 20000 {
@@ -248,20 +248,20 @@ func (s *Server) updateBotHard(p *game.Player) {
 				if targetPlanet.Owner == p.Team {
 					// Friendly planet - beam up armies (leave at least 1 for defense)
 					// Requires 2 kills to pick up armies in classic Netrek
-					if targetPlanet.Armies > 1 && p.Armies < s.getBotArmyCapacity(p) && p.Kills >= game.ArmyKillRequirement {
+					if targetPlanet.Armies > 1 && p.Armies < s.getBotArmyCapacity(p) && p.KillsStreak >= game.ArmyKillRequirement {
 						p.Bombing = false // Stop bombing if planet is now friendly
 						p.Beaming = true
 						p.BeamingUp = true
 						p.BotCooldown = 50
 					} else {
-						// Can't beam up (no kills or full), leave orbit and find enemies
+						// Can't beam up (no kill streak or full), leave orbit and find enemies
 						p.Bombing = false
 						p.Beaming = false
 						p.BeamingUp = false
 						p.Orbiting = -1
 						p.BotCooldown = 10
 						// Look for combat opportunities
-						if nearestEnemy != nil && p.Kills < game.ArmyKillRequirement {
+						if nearestEnemy != nil && p.KillsStreak < game.ArmyKillRequirement {
 							s.engageCombat(p, nearestEnemy, enemyDist)
 							return
 						}
@@ -327,7 +327,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 	if !s.gameState.T_mode {
 		// Focus on finding and fighting enemies
 		// If bot has no kills, prioritize getting some
-		if p.Kills < game.ArmyKillRequirement && nearestEnemy != nil {
+		if p.KillsStreak < game.ArmyKillRequirement && nearestEnemy != nil {
 			s.engageCombat(p, nearestEnemy, enemyDist)
 			return
 		}

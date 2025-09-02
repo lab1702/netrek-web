@@ -921,9 +921,9 @@ func (c *Client) handleBeam(data json.RawMessage) {
 		} else {
 			// Start beaming up (only if planet has armies and is friendly)
 			// Must leave at least 1 army on the planet
-			// Classic Netrek requires 2 kills to pick up armies
+			// Classic Netrek requires 2 kills since last death to pick up armies
 			if planet.Owner == p.Team && planet.Armies > 1 && p.Armies < shipStats.MaxArmies {
-				if p.Kills >= game.ArmyKillRequirement {
+				if p.KillsStreak >= game.ArmyKillRequirement {
 					p.Beaming = true
 					p.BeamingUp = true
 				} else {
@@ -931,7 +931,7 @@ func (c *Client) handleBeam(data json.RawMessage) {
 					errorMsg := ServerMessage{
 						Type: MsgTypeMessage,
 						Data: map[string]interface{}{
-							"text": fmt.Sprintf("You need %.1f more kills to pick up armies", game.ArmyKillRequirement-p.Kills),
+							"text": fmt.Sprintf("You need %.0f more kills since last death to pick up armies", game.ArmyKillRequirement-p.KillsStreak),
 							"type": "error",
 						},
 					}

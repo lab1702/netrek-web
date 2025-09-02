@@ -658,13 +658,13 @@ func (s *Server) updateGame() {
 					shipStats := game.ShipData[p.Ship]
 
 					if p.BeamingUp {
-						// Beam up mode - requires 2 kills in classic Netrek
-						if planet.Owner == p.Team && planet.Armies > 1 && p.Armies < shipStats.MaxArmies && p.Kills >= game.ArmyKillRequirement {
+						// Beam up mode - requires 2 kills since last death in classic Netrek
+						if planet.Owner == p.Team && planet.Armies > 1 && p.Armies < shipStats.MaxArmies && p.KillsStreak >= game.ArmyKillRequirement {
 							// Beam up 1 army at a time (leave at least 1 for defense)
 							p.Armies++
 							planet.Armies--
 						} else {
-							// Can't beam up anymore (no armies, full, or not enough kills), stop
+							// Can't beam up anymore (no armies, full, or not enough kill streak), stop
 							p.Beaming = false
 							p.BeamingUp = false
 						}
