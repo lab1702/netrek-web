@@ -604,6 +604,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		target.Orbiting = -1   // Break orbit when destroyed
 		target.Deaths++        // Increment death count
 		p.Kills += 1
+		p.KillsStreak += 1
 
 		// Send death message
 		s.broadcastDeathMessage(target, p)

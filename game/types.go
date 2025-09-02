@@ -401,9 +401,10 @@ type Player struct {
 	Shields int     `json:"shields"`
 	Damage  int     `json:"damage"`
 	Fuel    int     `json:"fuel"`
-	Armies  int     `json:"armies"`
-	Kills   float64 `json:"kills"`
-	Deaths  int     `json:"deaths"`
+	Armies      int     `json:"armies"`
+	Kills       float64 `json:"kills"`
+	KillsStreak float64 `json:"killsStreak"` // Second kill counter that resets on death
+	Deaths      int     `json:"deaths"`
 
 	// Weapons
 	WTemp     int `json:"wtemp"` // Weapon temperature

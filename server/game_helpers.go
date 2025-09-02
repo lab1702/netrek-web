@@ -35,6 +35,7 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.ExplodeTimer = 0
 	p.WhyDead = 0
 	p.KilledBy = -1
+	p.KillsStreak = 0 // Reset kill streak on death
 
 	// Reset ship stats
 	shipStats := game.ShipData[p.Ship]

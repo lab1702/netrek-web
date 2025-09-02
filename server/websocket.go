@@ -326,6 +326,7 @@ func (s *Server) updateGame() {
 							// Update kill statistics
 							if i >= 0 && i < game.MaxPlayers {
 								p.Kills++
+								p.KillsStreak++
 							}
 							target.Deaths++
 
@@ -1226,6 +1227,7 @@ func (s *Server) updateGame() {
 					p.Orbiting = -1   // Break orbit when destroyed
 					p.Deaths++        // Increment death count
 					s.gameState.Players[torp.Owner].Kills += 1
+					s.gameState.Players[torp.Owner].KillsStreak += 1
 
 					// Update tournament stats
 					if s.gameState.T_mode {
@@ -1305,6 +1307,7 @@ func (s *Server) updateGame() {
 					p.Orbiting = -1           // Break orbit when destroyed
 					p.Deaths++                // Increment death count
 					s.gameState.Players[plasma.Owner].Kills += 1
+					s.gameState.Players[plasma.Owner].KillsStreak += 1
 
 					// Update tournament stats
 					if s.gameState.T_mode {
@@ -1424,6 +1427,7 @@ func (s *Server) checkTournamentMode() {
 				
 				// Reset kills and deaths for fair tournament start
 				p.Kills = 0
+				p.KillsStreak = 0
 				p.Deaths = 0
 				p.Shields_up = false
 				p.Cloaked = false

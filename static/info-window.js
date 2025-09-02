@@ -126,7 +126,8 @@ class InfoWindow {
         html += `<div style="color: ${this.getTeamColor(player.team)}; font-weight: bold;">`;
         html += `${player.name} (${player.rank || 'Ensign'})`;
         html += '</div>';
-        html += `<div>${shipName} (${player.kills.toFixed(2)} kills)</div>`;
+        const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
+        html += `<div>${shipName} (${Math.floor(player.killsStreak || 0)}/${Math.floor(player.kills)}/${player.deaths || 0}/${kd})</div>`;
         
         // If it's an enemy or we have info
         if (player.team !== gameState.players[gameState.myPlayerID]?.team || 
@@ -267,7 +268,8 @@ class InfoWindow {
             html += `<div style="color: ${this.getTeamColor(updatedTarget.team)}; font-weight: bold;">`;
             html += `${updatedTarget.name} (${updatedTarget.rank || 'Ensign'})`;
             html += '</div>';
-            html += `<div>${shipName} (${updatedTarget.kills.toFixed(2)} kills)</div>`;
+            const kd = updatedTarget.deaths > 0 ? (updatedTarget.kills / updatedTarget.deaths).toFixed(2) : Math.floor(updatedTarget.kills).toFixed(1);
+            html += `<div>${shipName} (${Math.floor(updatedTarget.killsStreak || 0)}/${Math.floor(updatedTarget.kills)}/${updatedTarget.deaths || 0}/${kd})</div>`;
             
             // If it's an enemy or we have info
             if (updatedTarget.team !== gameState.players[gameState.myPlayerID]?.team || 

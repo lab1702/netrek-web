@@ -607,6 +607,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 				target.Orbiting = -1   // Break orbit when destroyed
 				target.Deaths++        // Increment death count
 				p.Kills += 1
+				p.KillsStreak += 1
 
 				// Update tournament stats
 				if c.server.gameState.T_mode {

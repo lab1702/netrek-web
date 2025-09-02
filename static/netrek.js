@@ -1730,7 +1730,7 @@ function updateDashboard() {
 
 function updatePlayerList() {
     const list = document.getElementById('player-list');
-    let html = '<div style="border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;"><span>ID  PLAYERS</span><span>K/D/KD</span></div>';
+    let html = '<div style="border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;"><span>ID  PLAYERS</span><span>KS/K/D/KD</span></div>';
     
     // Map team IDs to letters
     const teamLetters = {
@@ -1766,6 +1766,7 @@ function updatePlayerList() {
         const teamClass = `team-${getTeamName(player.team).toLowerCase()}`;
         const shipType = shipNames[player.ship] || 'XX';
         const kills = player.kills || 0;
+        const killsStreak = player.killsStreak || 0;
         const deaths = player.deaths || 0;
         const kd = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(1);
         
@@ -1778,7 +1779,7 @@ function updatePlayerList() {
         
         html += `<div class="player-entry ${teamClass}" style="display: flex; justify-content: space-between; ${deadStyle}">
             <span><span style="font-family: monospace; margin-right: 4px;">${playerID}</span> ${player.name || 'Player'} (${shipType})</span>
-            <span style="font-size: 9px;">${kills.toFixed(1)}/${deaths}/${kd}</span>
+            <span style="font-size: 9px;">${Math.floor(killsStreak)}/${Math.floor(kills)}/${deaths}/${kd}</span>
         </div>`;
     }
     
