@@ -1408,10 +1408,14 @@ func (s *Server) updateGame() {
 	}
 	s.gameState.Plasmas = newPlasmas
 
-	// Handle planet army repopulation for AGRI planets
-	// AGRI planets generate 1 army every 30 seconds (300 frames at 10 FPS)
+	// Handle planet army repopulation
+	// AGRI planets generate 1 army every 5 seconds (100 frames at 20 FPS)
+	// Non-AGRI planets generate 1 army every 30 seconds (600 frames at 20 FPS)
 	// Only planets with owner (not neutral) can grow armies
-	if s.gameState.Frame%300 == 0 {
+	const maxPlanetArmies = 40
+	
+	// Check AGRI planets every 5 seconds
+	if s.gameState.Frame%100 == 0 {
 		for _, planet := range s.gameState.Planets {
 			if planet == nil {
 				continue
@@ -1419,8 +1423,22 @@ func (s *Server) updateGame() {
 
 			// Check if planet is owned and has AGRI flag
 			if planet.Owner != game.TeamNone && (planet.Flags&game.PlanetAgri) != 0 {
-				// Max armies on a planet is typically 40 in classic Netrek
-				const maxPlanetArmies = 40
+				if planet.Armies < maxPlanetArmies {
+					planet.Armies++
+				}
+			}
+		}
+	}
+	
+	// Check non-AGRI planets every 30 seconds
+	if s.gameState.Frame%600 == 0 {
+		for _, planet := range s.gameState.Planets {
+			if planet == nil {
+				continue
+			}
+
+			// Check if planet is owned and does NOT have AGRI flag
+			if planet.Owner != game.TeamNone && (planet.Flags&game.PlanetAgri) == 0 {
 				if planet.Armies < maxPlanetArmies {
 					planet.Armies++
 				}
