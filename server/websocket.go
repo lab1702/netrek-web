@@ -824,6 +824,7 @@ func (s *Server) updateGame() {
 					Data: map[string]interface{}{
 						"text": fmt.Sprintf("%s's engines have cooled down", formatPlayerName(p)),
 						"type": "info",
+						"from": i, // Include player ID for team color
 					},
 				}
 			}
@@ -853,6 +854,7 @@ func (s *Server) updateGame() {
 					Data: map[string]interface{}{
 						"text": fmt.Sprintf("%s's engines have OVERHEATED!", formatPlayerName(p)),
 						"type": "warning",
+						"from": i, // Include player ID for team color
 					},
 				}
 			}
