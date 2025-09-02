@@ -1633,6 +1633,40 @@ function updateDashboard() {
     document.getElementById('etemp').textContent = player.etemp || 0;
     document.getElementById('speed').textContent = Math.round(player.speed || 0);
     
+    // Update KS/K/D stats
+    const killStreak = Math.floor(player.killsStreak || 0);
+    const kills = Math.floor(player.kills || 0);
+    const deaths = player.deaths || 0;
+    const kdaEl = document.getElementById('kda-stats');
+    if (kdaEl) {
+        kdaEl.textContent = `${killStreak}/${kills}/${deaths}`;
+        // Color based on kill streak
+        if (killStreak >= 5) {
+            kdaEl.style.color = '#ff0'; // Yellow for high streak
+        } else if (killStreak >= 3) {
+            kdaEl.style.color = '#0ff'; // Cyan for medium streak
+        } else {
+            kdaEl.style.color = '#8f8'; // Light green default
+        }
+    }
+    
+    // Update K/D ratio
+    const kdRatioEl = document.getElementById('kd-ratio');
+    if (kdRatioEl) {
+        const kdRatio = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(2);
+        kdRatioEl.textContent = kdRatio;
+        // Color based on K/D ratio
+        if (parseFloat(kdRatio) >= 2.0) {
+            kdRatioEl.style.color = '#ff0'; // Yellow for excellent
+        } else if (parseFloat(kdRatio) >= 1.0) {
+            kdRatioEl.style.color = '#0ff'; // Cyan for positive
+        } else if (parseFloat(kdRatio) >= 0.5) {
+            kdRatioEl.style.color = '#8f8'; // Light green for okay
+        } else {
+            kdRatioEl.style.color = '#f88'; // Light red for poor
+        }
+    }
+    
     // Update speed bar
     const speedBar = document.getElementById('speed-bar');
     if (speedBar && player.ship !== undefined) {
