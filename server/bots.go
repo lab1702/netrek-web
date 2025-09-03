@@ -567,6 +567,11 @@ func (s *Server) defendWhileCarrying(p, enemy *game.Player) {
 
 // fireBotTorpedo fires a torpedo from a bot
 func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return
+	}
+	
 	shipStats := game.ShipData[p.Ship]
 
 	// Calculate lead angle
@@ -603,6 +608,11 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 
 // fireBotPhaser fires a phaser from a bot
 func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return
+	}
+	
 	shipStats := game.ShipData[p.Ship]
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
 
@@ -653,6 +663,11 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 
 // fireBotPlasma fires a plasma torpedo from a bot
 func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return
+	}
+	
 	shipStats := game.ShipData[p.Ship]
 
 	if !shipStats.HasPlasma {
@@ -956,6 +971,11 @@ func (s *Server) getBotArmyCapacity(p *game.Player) int {
 
 // fireBotTorpedoWithLead fires torpedo with advanced leading
 func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return
+	}
+	
 	shipStats := game.ShipData[p.Ship]
 
 	// Calculate intercept similar to borgmove.c BorgTorpEnemy
@@ -1710,6 +1730,11 @@ func (s *Server) shouldFocusFire(p, ally, target *game.Player) bool {
 
 // fireTorpedoSpread fires multiple torpedoes in a spread pattern
 func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return
+	}
+	
 	shipStats := game.ShipData[p.Ship]
 	baseDir := s.calculateEnhancedInterceptCourse(p, target)
 	spreadAngle := math.Pi / 16 // Spread angle between torpedoes
@@ -1745,6 +1770,11 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 
 // fireEnhancedTorpedo fires a torpedo with enhanced prediction
 func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return
+	}
+	
 	fireDir := s.calculateEnhancedInterceptCourse(p, target)
 	shipStats := game.ShipData[p.Ship]
 	
