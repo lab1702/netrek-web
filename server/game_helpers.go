@@ -50,7 +50,7 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.Cloaked = false
 	p.Tractoring = -1
 	p.Pressoring = -1
-	
+
 	// Reset all action flags
 	p.Repairing = false
 	p.RepairRequest = false
@@ -59,18 +59,18 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.Beaming = false
 	p.BeamingUp = false
 	p.Orbiting = -1
-	p.Armies = 0  // Clear any armies being carried
+	p.Armies = 0 // Clear any armies being carried
 	p.NumTorps = 0
 	p.NumPlasma = 0
-	
+
 	// Reset engine overheat state
 	p.EngineOverheat = false
 	p.OverheatTimer = 0
-	
+
 	// Reset lock-on
 	p.LockType = "none"
 	p.LockTarget = -1
-	
+
 	// Reset fractional accumulators
 	p.SubDir = 0  // Reset fractional turn accumulator
 	p.AccFrac = 0 // Reset fractional acceleration accumulator
@@ -175,7 +175,7 @@ func getTeamName(team int) string {
 // broadcastTeamCounts sends current team counts to all connected clients
 func (s *Server) broadcastTeamCounts() {
 	s.gameState.Mu.RLock()
-	
+
 	// Count players per team (only count connected, alive players)
 	teamCounts := map[string]int{
 		"fed": 0,
@@ -183,7 +183,7 @@ func (s *Server) broadcastTeamCounts() {
 		"kli": 0,
 		"ori": 0,
 	}
-	
+
 	totalPlayers := 0
 	for _, p := range s.gameState.Players {
 		if p.Status == game.StatusAlive && p.Connected {
@@ -200,9 +200,9 @@ func (s *Server) broadcastTeamCounts() {
 			}
 		}
 	}
-	
+
 	s.gameState.Mu.RUnlock()
-	
+
 	// Broadcast the update to all clients
 	s.broadcast <- ServerMessage{
 		Type: MsgTypeTeamUpdate,

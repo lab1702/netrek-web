@@ -129,7 +129,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	// Find a player slot
 	c.server.gameState.Mu.Lock()
-	
+
 	playerID := -1
 
 	// Check team balance
@@ -266,10 +266,10 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	shipData := game.ShipData[p.Ship]
 	log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
-	
+
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
-	
+
 	// Broadcast updated team counts to all clients
 	c.server.broadcastTeamCounts()
 }
@@ -615,7 +615,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 				// Clear lock-on when destroyed
 				target.LockType = "none"
 				target.LockTarget = -1
-				target.Deaths++        // Increment death count
+				target.Deaths++ // Increment death count
 				p.Kills += 1
 				p.KillsStreak += 1
 
@@ -1363,7 +1363,7 @@ func (c *Client) handleBotCommand(cmd string) {
 		botsAdded := 0
 		// Try to add bots to all available slots (MaxPlayers - 4 to leave room for humans)
 		maxBots := game.MaxPlayers - 4
-		
+
 		for botsAdded < maxBots {
 			// Round-robin team assignment
 			team := teams[botsAdded%4]
@@ -1377,10 +1377,10 @@ func (c *Client) handleBotCommand(cmd string) {
 					currentBots++
 				}
 			}
-			
+
 			// Try to add bot
 			c.server.AddBot(team, ship)
-			
+
 			// Check if bot was actually added
 			newBots := 0
 			for _, p := range c.server.gameState.Players {
@@ -1388,7 +1388,7 @@ func (c *Client) handleBotCommand(cmd string) {
 					newBots++
 				}
 			}
-			
+
 			if newBots > currentBots {
 				botsAdded = newBots
 			} else {
@@ -1601,10 +1601,10 @@ func (c *Client) handleQuit(data json.RawMessage) {
 			"type": "warning",
 		},
 	}
-	
+
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
-	
+
 	// Broadcast updated team counts to all clients
 	c.server.broadcastTeamCounts()
 

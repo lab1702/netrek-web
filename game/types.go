@@ -398,9 +398,9 @@ type Player struct {
 	AccFrac  int     `json:"-"` // Fractional acceleration accumulator (not sent to client)
 
 	// Ship status
-	Shields int     `json:"shields"`
-	Damage  int     `json:"damage"`
-	Fuel    int     `json:"fuel"`
+	Shields     int     `json:"shields"`
+	Damage      int     `json:"damage"`
+	Fuel        int     `json:"fuel"`
 	Armies      int     `json:"armies"`
 	Kills       float64 `json:"kills"`
 	KillsStreak float64 `json:"killsStreak"` // Second kill counter that resets on death

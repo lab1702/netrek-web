@@ -62,24 +62,24 @@ var upgrader = websocket.Upgrader{
 
 // Message types
 const (
-	MsgTypeLogin    = "login"
-	MsgTypeMove     = "move"
-	MsgTypeFire     = "fire"
-	MsgTypePhaser   = "phaser"
-	MsgTypeShields  = "shields"
-	MsgTypeOrbit    = "orbit"
-	MsgTypeRepair   = "repair"
-	MsgTypeLock     = "lock"
-	MsgTypeBeam     = "beam"
-	MsgTypeBomb     = "bomb"
-	MsgTypeCloak    = "cloak"
-	MsgTypeTractor  = "tractor"
-	MsgTypePressor  = "pressor"
-	MsgTypePlasma   = "plasma"
-	MsgTypeDetonate = "detonate"
-	MsgTypeMessage  = "message"
-	MsgTypeTeamMsg  = "teammsg"
-	MsgTypePrivMsg  = "privmsg"
+	MsgTypeLogin      = "login"
+	MsgTypeMove       = "move"
+	MsgTypeFire       = "fire"
+	MsgTypePhaser     = "phaser"
+	MsgTypeShields    = "shields"
+	MsgTypeOrbit      = "orbit"
+	MsgTypeRepair     = "repair"
+	MsgTypeLock       = "lock"
+	MsgTypeBeam       = "beam"
+	MsgTypeBomb       = "bomb"
+	MsgTypeCloak      = "cloak"
+	MsgTypeTractor    = "tractor"
+	MsgTypePressor    = "pressor"
+	MsgTypePlasma     = "plasma"
+	MsgTypeDetonate   = "detonate"
+	MsgTypeMessage    = "message"
+	MsgTypeTeamMsg    = "teammsg"
+	MsgTypePrivMsg    = "privmsg"
 	MsgTypeQuit       = "quit"
 	MsgTypeUpdate     = "update"
 	MsgTypeError      = "error"
@@ -161,7 +161,7 @@ func (s *Server) Run() {
 						p.Name = ""
 						p.Connected = false
 						p.LastUpdate = time.Time{}
-						
+
 						// Broadcast updated team counts to all clients
 						s.broadcastTeamCounts()
 					}
@@ -381,7 +381,7 @@ func (s *Server) updateGame() {
 				case game.TeamOri:
 					teamPlanetCount = s.gameState.TeamPlanets[3]
 				}
-				
+
 				// Cannot respawn if team owns no planets in t-mode
 				if teamPlanetCount == 0 {
 					// Send message to player once (check if not already sent)
@@ -420,7 +420,7 @@ func (s *Server) updateGame() {
 					}
 				}
 			}
-			
+
 			// Respawn at home planet
 			s.respawnPlayer(p)
 			continue
@@ -942,7 +942,7 @@ func (s *Server) updateGame() {
 			if p.Speed == 0 || p.Orbiting >= 0 {
 				// Track repair progress with accumulator for fractional repairs
 				p.RepairCounter++
-				
+
 				// Use ship-specific repair rate, scale down for reasonable gameplay
 				// RepairRate values are 80-140, we'll divide by 8 for intervals of 10-17 ticks
 				// This means repairing every 1-1.7 seconds
@@ -950,7 +950,7 @@ func (s *Server) updateGame() {
 				if repairInterval < 5 {
 					repairInterval = 5 // Minimum interval (0.5 seconds)
 				}
-				
+
 				// Check if at repair planet (halve the interval for double speed)
 				if p.Orbiting >= 0 {
 					planet := s.gameState.Planets[p.Orbiting]
@@ -961,16 +961,16 @@ func (s *Server) updateGame() {
 						}
 					}
 				}
-				
+
 				// Apply repairs when counter reaches interval
 				if p.RepairCounter >= repairInterval {
 					p.RepairCounter = 0
-					
+
 					// Repair shields by 3 points (even with shields up)
 					if p.Shields < shipStats.MaxShields {
 						p.Shields = game.Min(p.Shields+3, shipStats.MaxShields)
 					}
-					
+
 					// Repair hull damage by 2 points (only with shields down)
 					if !p.Shields_up && p.Damage > 0 {
 						p.Damage = game.Max(p.Damage-2, 0)
@@ -1296,7 +1296,7 @@ func (s *Server) updateGame() {
 					// Clear lock-on when destroyed
 					p.LockType = "none"
 					p.LockTarget = -1
-					p.Deaths++        // Increment death count
+					p.Deaths++ // Increment death count
 					s.gameState.Players[torp.Owner].Kills += 1
 					s.gameState.Players[torp.Owner].KillsStreak += 1
 
@@ -1379,7 +1379,7 @@ func (s *Server) updateGame() {
 					// Clear lock-on when destroyed
 					p.LockType = "none"
 					p.LockTarget = -1
-					p.Deaths++                // Increment death count
+					p.Deaths++ // Increment death count
 					s.gameState.Players[plasma.Owner].Kills += 1
 					s.gameState.Players[plasma.Owner].KillsStreak += 1
 
@@ -1419,7 +1419,7 @@ func (s *Server) updateGame() {
 	// Non-AGRI planets generate 1 army every 30 seconds (600 frames at 20 FPS)
 	// Only planets with owner (not neutral) can grow armies
 	const maxPlanetArmies = 40
-	
+
 	// Check AGRI planets every 5 seconds
 	if s.gameState.Frame%100 == 0 {
 		for _, planet := range s.gameState.Planets {
@@ -1435,7 +1435,7 @@ func (s *Server) updateGame() {
 			}
 		}
 	}
-	
+
 	// Check non-AGRI planets every 30 seconds
 	if s.gameState.Frame%600 == 0 {
 		for _, planet := range s.gameState.Planets {
@@ -1493,7 +1493,7 @@ func (s *Server) checkTournamentMode() {
 		// Re-initialize planets to startup state
 		game.InitPlanets(s.gameState)
 		game.InitINLPlanetFlags(s.gameState)
-		
+
 		// Clear all torpedoes and plasmas for clean start
 		s.gameState.Torps = make([]*game.Torpedo, 0)
 		s.gameState.Plasmas = make([]*game.Plasma, 0)
@@ -1504,7 +1504,7 @@ func (s *Server) checkTournamentMode() {
 			if p.Status == game.StatusAlive && p.Connected {
 				// Initialize tournament stats
 				s.gameState.TournamentStats[p.ID] = &game.TournamentPlayerStats{}
-				
+
 				// Reset ship state
 				shipStats := game.ShipData[p.Ship]
 				p.Shields = shipStats.MaxShields
@@ -1516,7 +1516,7 @@ func (s *Server) checkTournamentMode() {
 				p.DesSpeed = 0
 				p.SubDir = 0  // Reset fractional turn accumulator
 				p.AccFrac = 0 // Reset fractional acceleration accumulator
-				
+
 				// Reset kills and deaths for fair tournament start
 				p.Kills = 0
 				p.KillsStreak = 0
@@ -1537,33 +1537,33 @@ func (s *Server) checkTournamentMode() {
 				p.Armies = 0 // Clear any armies being carried
 				p.NumTorps = 0
 				p.NumPlasma = 0
-				
+
 				// Reset lock-on
 				p.LockType = "none"
 				p.LockTarget = -1
-				
+
 				// Reset death tracking (in case they were exploding)
 				p.ExplodeTimer = 0
 				p.KilledBy = -1
 				p.WhyDead = 0
-				
+
 				// Reset position to near home world
 				homeX := float64(game.TeamHomeX[p.Team])
 				homeY := float64(game.TeamHomeY[p.Team])
-				
+
 				// Add random offset to prevent ships spawning on top of each other
 				offsetX := float64(rand.Intn(10000) - 5000)
 				offsetY := float64(rand.Intn(10000) - 5000)
 				p.X = homeX + offsetX
 				p.Y = homeY + offsetY
-				
+
 				// Random starting direction
 				p.Dir = rand.Float64() * 2 * math.Pi
 				p.DesDir = p.Dir
-				
+
 				// Reset alert level
 				p.AlertLevel = "green"
-				
+
 				// Clear bot-specific state
 				if p.IsBot {
 					p.BotTarget = -1
@@ -1763,33 +1763,33 @@ func (s *Server) checkVictoryConditions() {
 		}
 	}
 
-	// Check for domination victory (one team owns all planets that are owned, 
+	// Check for domination victory (one team owns all planets that are owned,
 	// and no enemy players are carrying armies to retake independent planets)
 	if totalPlayers >= 2 && s.gameState.Frame > 100 {
 		// First check if only one team owns planets
 		teamsOwningPlanets := 0
 		teamWithPlanets := -1
 		independentPlanets := 0
-		
+
 		for _, planet := range s.gameState.Planets {
 			if planet.Owner == game.TeamNone {
 				independentPlanets++
 			}
 		}
-		
+
 		for i, count := range s.gameState.TeamPlanets {
 			if count > 0 {
 				teamsOwningPlanets++
 				teamWithPlanets = i
 			}
 		}
-		
+
 		// If only one team owns planets and there are independent planets
 		if teamsOwningPlanets == 1 && teamWithPlanets >= 0 && independentPlanets > 0 {
 			// Check if any enemy players are carrying armies
 			enemyHasArmies := false
 			dominantTeam := 1 << teamWithPlanets
-			
+
 			for _, p := range s.gameState.Players {
 				// Check if player is alive, on a different team, and carrying armies
 				if p.Status == game.StatusAlive && p.Team != dominantTeam && p.Armies > 0 {
@@ -1797,7 +1797,7 @@ func (s *Server) checkVictoryConditions() {
 					break
 				}
 			}
-			
+
 			// If no enemies have armies, the dominant team wins
 			if !enemyHasArmies {
 				s.gameState.GameOver = true

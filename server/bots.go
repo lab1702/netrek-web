@@ -169,7 +169,19 @@ func (s *Server) updateBotHard(p *game.Player) {
 				p.Orbiting = -1
 				dx := targetPlanet.X - p.X
 				dy := targetPlanet.Y - p.Y
-				p.DesDir = math.Atan2(dy, dx)
+				baseDir := math.Atan2(dy, dx)
+
+				// Apply separation from allies even when moving to objectives
+				separationVector := s.calculateSeparationVector(p)
+				if separationVector.magnitude > 0 {
+					// Blend navigation with separation
+					weight := math.Min(separationVector.magnitude/500.0, 0.3)
+					navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
+					navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
+					p.DesDir = math.Atan2(navY, navX)
+				} else {
+					p.DesDir = baseDir
+				}
 				p.DesSpeed = s.getOptimalSpeed(p, dist)
 				return
 			}
@@ -194,7 +206,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.Orbiting = targetPlanet.ID
 						p.DesSpeed = 0
 					}
-					
+
 					// Check if we need to bomb first
 					if targetPlanet.Armies > 0 {
 						// Enemy planet still has armies - bomb it first
@@ -218,7 +230,18 @@ func (s *Server) updateBotHard(p *game.Player) {
 					p.BeamingUp = false
 					dx := targetPlanet.X - p.X
 					dy := targetPlanet.Y - p.Y
-					p.DesDir = math.Atan2(dy, dx)
+					baseDir := math.Atan2(dy, dx)
+
+					// Apply separation to avoid bunching while moving to objectives
+					separationVector := s.calculateSeparationVector(p)
+					if separationVector.magnitude > 0 {
+						weight := math.Min(separationVector.magnitude/500.0, 0.25)
+						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
+						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
+						p.DesDir = math.Atan2(navY, navX)
+					} else {
+						p.DesDir = baseDir
+					}
 					p.DesSpeed = s.getOptimalSpeed(p, dist)
 
 					// Defend against nearby enemies while carrying
@@ -329,7 +352,18 @@ func (s *Server) updateBotHard(p *game.Player) {
 				p.BeamingUp = false
 				dx := targetPlanet.X - p.X
 				dy := targetPlanet.Y - p.Y
-				p.DesDir = math.Atan2(dy, dx)
+				baseDir := math.Atan2(dy, dx)
+
+				// Apply separation to avoid bunching while moving to objectives
+				separationVector := s.calculateSeparationVector(p)
+				if separationVector.magnitude > 0 {
+					weight := math.Min(separationVector.magnitude/500.0, 0.25)
+					navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
+					navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
+					p.DesDir = math.Atan2(navY, navX)
+				} else {
+					p.DesDir = baseDir
+				}
 				p.DesSpeed = s.getOptimalSpeed(p, dist)
 
 				// Engage enemies if they're threatening our objective
@@ -356,7 +390,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 	if !s.gameState.T_mode {
 		// Dynamic behavior based on situation
 		behavior := s.selectBotBehavior(p)
-		
+
 		switch behavior {
 		case "hunter":
 			// Aggressive enemy hunting
@@ -365,7 +399,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				s.engageCombat(p, target, dist)
 				return
 			}
-			
+
 		case "defender":
 			// Defend friendly planets
 			if planet := s.findPlanetToDefend(p); planet != nil {
@@ -384,7 +418,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				}
 				return
 			}
-			
+
 		case "raider":
 			// Hit and run tactics on enemy infrastructure
 			if planet := s.findPlanetToRaid(p); planet != nil {
@@ -410,13 +444,12 @@ func (s *Server) updateBotHard(p *game.Player) {
 				return
 			}
 		}
-		
+
 		// Fallback to combat if no specific role
 		if nearestEnemy != nil {
 			s.engageCombat(p, nearestEnemy, enemyDist)
 			return
 		}
-
 
 		// Intelligent patrol patterns
 		s.executePatrol(p)
@@ -435,8 +468,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		if p.Orbiting < len(s.gameState.Planets) {
 			planet := s.gameState.Planets[p.Orbiting]
 			// Only leave if planet is friendly, has no armies, or we're in extreme danger
-			if planet.Owner == p.Team || planet.Armies == 0 || 
-			   (dist < 2000 && p.Damage > game.ShipData[p.Ship].MaxDamage/2) {
+			if planet.Owner == p.Team || planet.Armies == 0 ||
+				(dist < 2000 && p.Damage > game.ShipData[p.Ship].MaxDamage/2) {
 				p.Orbiting = -1
 				p.Bombing = false
 				p.Beaming = false
@@ -454,6 +487,9 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 			p.BeamingUp = false
 		}
 	}
+
+	// Check for nearby allies to avoid bunching up
+	separationVector := s.calculateSeparationVector(p)
 
 	// Calculate intercept course with enhanced prediction
 	interceptDir := s.calculateEnhancedInterceptCourse(p, target)
@@ -473,7 +509,21 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Combat maneuvering based on range and ship matchup
 	combatManeuver := s.selectCombatManeuver(p, target, dist)
-	p.DesDir = combatManeuver.direction
+
+	// Apply separation adjustment if allies are too close
+	if separationVector.magnitude > 0 {
+		// Blend the combat direction with separation vector
+		// Weight separation more heavily when allies are very close
+		separationWeight := math.Min(separationVector.magnitude/1000.0, 0.5)
+		combatWeight := 1.0 - separationWeight
+
+		// Combine directions using weighted average
+		desiredX := combatWeight*math.Cos(combatManeuver.direction) + separationWeight*separationVector.x
+		desiredY := combatWeight*math.Sin(combatManeuver.direction) + separationWeight*separationVector.y
+		p.DesDir = math.Atan2(desiredY, desiredX)
+	} else {
+		p.DesDir = combatManeuver.direction
+	}
 	p.DesSpeed = combatManeuver.speed
 
 	// Adjust for damage and energy management
@@ -535,8 +585,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 			targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 			// Calculate if phaser would be a kill shot
 			phaserDamage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
-			wouldKill := target.Damage + int(phaserDamage) >= targetStats.MaxDamage
-			
+			wouldKill := target.Damage+int(phaserDamage) >= targetStats.MaxDamage
+
 			if wouldKill || targetDamageRatio > 0.6 || dist < 1200 || target.Cloaked {
 				s.fireBotPhaser(p, target)
 				p.BotCooldown = 10
@@ -553,9 +603,9 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Enhanced plasma usage for area control
 	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 4000 {
 		// Use plasma for area denial or finishing damaged enemies
-		if (dist < 7000 && dist > 2500 && target.Speed < 4) || 
-		   (targetDamageRatio > 0.7 && dist < 5000) ||
-		   (target.Orbiting >= 0 && dist < 6000) {
+		if (dist < 7000 && dist > 2500 && target.Speed < 4) ||
+			(targetDamageRatio > 0.7 && dist < 5000) ||
+			(target.Orbiting >= 0 && dist < 6000) {
 			s.fireBotPlasma(p, target)
 			p.BotCooldown = 20
 		}
@@ -606,7 +656,7 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 	if p.Cloaked || p.Repairing {
 		return
 	}
-	
+
 	shipStats := game.ShipData[p.Ship]
 
 	// Calculate lead angle
@@ -647,7 +697,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	if p.Cloaked || p.Repairing {
 		return
 	}
-	
+
 	shipStats := game.ShipData[p.Ship]
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
 
@@ -676,7 +726,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		// Clear lock-on when destroyed
 		target.LockType = "none"
 		target.LockTarget = -1
-		target.Deaths++        // Increment death count
+		target.Deaths++ // Increment death count
 		p.Kills += 1
 		p.KillsStreak += 1
 
@@ -702,7 +752,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	if p.Cloaked || p.Repairing {
 		return
 	}
-	
+
 	shipStats := game.ShipData[p.Ship]
 
 	if !shipStats.HasPlasma {
@@ -730,8 +780,8 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 		Speed:  float64(shipStats.PlasmaSpeed * 20), // 20 units per tick
 		Damage: shipStats.PlasmaDamage,
 		Fuse:   shipStats.PlasmaFuse, // Use original fuse value directly
-		Status: 1,      // Moving
-		Team:   p.Team, // Set team color
+		Status: 1,                    // Moving
+		Team:   p.Team,               // Set team color
 	}
 
 	s.gameState.Plasmas = append(s.gameState.Plasmas, plasma)
@@ -1010,7 +1060,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 	if p.Cloaked || p.Repairing {
 		return
 	}
-	
+
 	shipStats := game.ShipData[p.Ship]
 
 	// Calculate intercept similar to borgmove.c BorgTorpEnemy
@@ -1233,16 +1283,16 @@ func (s *Server) findBestPlanetToTake(p *game.Player) *game.Planet {
 // assessPlanetStrategicValue evaluates a planet's strategic importance
 func (s *Server) assessPlanetStrategicValue(planet *game.Planet, team int) float64 {
 	value := 0.0
-	
+
 	// Check proximity to team's core planets
 	nearbyFriendly := 0
 	nearbyEnemy := 0
-	
+
 	for _, other := range s.gameState.Planets {
 		if other.ID == planet.ID {
 			continue
 		}
-		
+
 		dist := game.Distance(planet.X, planet.Y, other.X, other.Y)
 		if dist < 15000 {
 			if other.Owner == team {
@@ -1252,23 +1302,23 @@ func (s *Server) assessPlanetStrategicValue(planet *game.Planet, team int) float
 			}
 		}
 	}
-	
+
 	// Planet that connects friendly territories is valuable
 	if nearbyFriendly > 1 {
 		value += float64(nearbyFriendly) * 0.5
 	}
-	
+
 	// Planet that cuts enemy territories is valuable
 	if nearbyEnemy > 2 {
 		value += float64(nearbyEnemy) * 0.3
 	}
-	
+
 	// Central planets are more valuable for map control
 	distFromCenter := game.Distance(planet.X, planet.Y, game.GalaxyWidth/2, game.GalaxyHeight/2)
 	if distFromCenter < 20000 {
 		value += (20000 - distFromCenter) / 5000
 	}
-	
+
 	return value
 }
 
@@ -1285,12 +1335,12 @@ func (s *Server) countTeamPlanets() map[int]int {
 func (s *Server) isPlanetOnFrontline(planet *game.Planet, team int) bool {
 	hasEnemyNearby := false
 	hasFriendlyNearby := false
-	
+
 	for _, other := range s.gameState.Planets {
 		if other.ID == planet.ID {
 			continue
 		}
-		
+
 		dist := game.Distance(planet.X, planet.Y, other.X, other.Y)
 		if dist < 12000 {
 			if other.Owner == team {
@@ -1300,7 +1350,7 @@ func (s *Server) isPlanetOnFrontline(planet *game.Planet, team int) bool {
 			}
 		}
 	}
-	
+
 	// Frontline has both friendly and enemy planets nearby
 	return hasEnemyNearby && hasFriendlyNearby
 }
@@ -1391,6 +1441,13 @@ type CombatThreat struct {
 	threatLevel     int
 }
 
+// SeparationVector represents the direction and magnitude to separate from allies
+type SeparationVector struct {
+	x         float64
+	y         float64
+	magnitude float64
+}
+
 // assessCombatThreats evaluates all threats to the bot
 func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
 	threat := CombatThreat{
@@ -1408,7 +1465,7 @@ func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
 			if dist < threat.closestTorpDist {
 				threat.closestTorpDist = dist
 			}
-			
+
 			// Check if heading toward us
 			if dist < 3000 {
 				dx := p.X - torp.X
@@ -1447,7 +1504,7 @@ func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
 			if dist < 5000 {
 				threat.nearbyEnemies++
 				threat.threatLevel++
-				
+
 				// Check if enemy is facing us (potential phaser threat)
 				angleToUs := math.Atan2(p.Y-enemy.Y, p.X-enemy.X)
 				angleDiff := math.Abs(enemy.Dir - angleToUs)
@@ -1476,7 +1533,7 @@ type CombatManeuver struct {
 func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) CombatManeuver {
 	shipStats := game.ShipData[p.Ship]
 	targetStats := game.ShipData[target.Ship]
-	
+
 	// Default to intercept
 	maneuver := CombatManeuver{
 		direction: s.calculateEnhancedInterceptCourse(p, target),
@@ -1488,7 +1545,7 @@ func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) Comb
 	speedAdvantage := float64(shipStats.MaxSpeed - targetStats.MaxSpeed)
 	// Use max speed as proxy for maneuverability (scouts turn better than battleships)
 	maneuverAdvantage := speedAdvantage
-	
+
 	if dist < 3000 {
 		// Close range - use angular velocity matching for dogfight
 		if maneuverAdvantage > 0 {
@@ -1524,7 +1581,7 @@ func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) Comb
 // calculateEnhancedInterceptCourse calculates intercept with acceleration prediction
 func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float64 {
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
-	
+
 	// If target is far or cloaked, use basic intercept
 	if dist > 20000 || target.Cloaked || target.Speed < 1 {
 		return math.Atan2(target.Y-p.Y, target.X-p.X)
@@ -1543,7 +1600,7 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 	// Enhanced prediction including acceleration
 	torpSpeed := float64(game.ShipData[p.Ship].TorpSpeed) * 20
 	timeToIntercept := dist / torpSpeed
-	
+
 	// Predict future position with acceleration
 	futureSpeed := target.Speed + targetAccel*timeToIntercept*0.5
 	if futureSpeed < 0 {
@@ -1552,10 +1609,10 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 	if futureSpeed > float64(game.ShipData[target.Ship].MaxSpeed) {
 		futureSpeed = float64(game.ShipData[target.Ship].MaxSpeed)
 	}
-	
+
 	predictX := target.X + futureSpeed*math.Cos(target.Dir)*timeToIntercept*20
 	predictY := target.Y + futureSpeed*math.Sin(target.Dir)*timeToIntercept*20
-	
+
 	// Check if target is likely to turn (near planets or walls)
 	if s.isNearObstacle(target) {
 		// Predict turn away from obstacle
@@ -1563,7 +1620,7 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 		predictX += math.Cos(turnPrediction) * 500
 		predictY += math.Sin(turnPrediction) * 500
 	}
-	
+
 	return math.Atan2(predictY-p.Y, predictX-p.X)
 }
 
@@ -1571,17 +1628,17 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 func (s *Server) isNearObstacle(p *game.Player) bool {
 	// Check walls
 	if p.X < 5000 || p.X > game.GalaxyWidth-5000 ||
-	   p.Y < 5000 || p.Y > game.GalaxyHeight-5000 {
+		p.Y < 5000 || p.Y > game.GalaxyHeight-5000 {
 		return true
 	}
-	
+
 	// Check planets
 	for _, planet := range s.gameState.Planets {
 		if game.Distance(p.X, p.Y, planet.X, planet.Y) < 3000 {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -1589,9 +1646,9 @@ func (s *Server) isNearObstacle(p *game.Player) bool {
 func (s *Server) predictTurnDirection(p *game.Player) float64 {
 	bestDir := p.Dir
 	bestClearance := 0.0
-	
+
 	// Test various turn angles
-	for angle := -math.Pi/2; angle <= math.Pi/2; angle += math.Pi/8 {
+	for angle := -math.Pi / 2; angle <= math.Pi/2; angle += math.Pi / 8 {
 		testDir := p.Dir + angle
 		clearance := s.calculateClearance(p, testDir)
 		if clearance > bestClearance {
@@ -1599,7 +1656,7 @@ func (s *Server) predictTurnDirection(p *game.Player) float64 {
 			bestDir = testDir
 		}
 	}
-	
+
 	return bestDir
 }
 
@@ -1608,12 +1665,12 @@ func (s *Server) calculateClearance(p *game.Player, dir float64) float64 {
 	testDist := 5000.0
 	testX := p.X + math.Cos(dir)*testDist
 	testY := p.Y + math.Sin(dir)*testDist
-	
+
 	// Check walls
 	clearance := math.Min(testX, game.GalaxyWidth-testX)
 	clearance = math.Min(clearance, testY)
 	clearance = math.Min(clearance, game.GalaxyHeight-testY)
-	
+
 	// Check planets
 	for _, planet := range s.gameState.Planets {
 		planetDist := game.Distance(testX, testY, planet.X, planet.Y) - 1000
@@ -1621,7 +1678,7 @@ func (s *Server) calculateClearance(p *game.Player, dir float64) float64 {
 			clearance = planetDist
 		}
 	}
-	
+
 	return clearance
 }
 
@@ -1629,49 +1686,49 @@ func (s *Server) calculateClearance(p *game.Player, dir float64) float64 {
 func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, threats CombatThreat) float64 {
 	bestDir := p.Dir
 	bestScore := -999999.0
-	
+
 	// Test different dodge angles
-	for delta := 0.0; delta < math.Pi; delta += math.Pi/12 {
+	for delta := 0.0; delta < math.Pi; delta += math.Pi / 12 {
 		for sign := -1; sign <= 1; sign += 2 {
 			if delta == 0 && sign == -1 {
 				continue
 			}
-			
+
 			testDir := wantedDir + float64(sign)*delta
-			
+
 			// Score this direction
 			score := 0.0
-			
+
 			// Avoid torpedoes
 			torpDanger := s.calculateTorpedoDanger(p, testDir)
 			score -= torpDanger * 10
-			
+
 			// Avoid plasma
 			if threats.closestPlasma < 5000 {
 				plasmaDanger := 5000 - threats.closestPlasma
 				score -= plasmaDanger
 			}
-			
+
 			// Prefer directions that maintain some angle to target
 			angleDiff := math.Abs(testDir - wantedDir)
 			if angleDiff > math.Pi {
 				angleDiff = 2*math.Pi - angleDiff
 			}
 			score -= angleDiff * 100
-			
+
 			// Check wall proximity
 			clearance := s.calculateClearance(p, testDir)
 			if clearance < 3000 {
 				score -= (3000 - clearance) * 2
 			}
-			
+
 			if score > bestScore {
 				bestScore = score
 				bestDir = testDir
 			}
 		}
 	}
-	
+
 	return bestDir
 }
 
@@ -1679,43 +1736,43 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 	danger := 0.0
 	speed := float64(game.ShipData[p.Ship].MaxSpeed) * 20
-	
+
 	for _, torp := range s.gameState.Torps {
 		if torp.Owner == p.ID || torp.Status != 1 {
 			continue
 		}
-		
+
 		// Simulate movement
 		for t := 0.0; t < 3.0; t += 0.5 {
 			myX := p.X + speed*math.Cos(dir)*t
 			myY := p.Y + speed*math.Sin(dir)*t
 			torpX := torp.X + torp.Speed*math.Cos(torp.Dir)*t
 			torpY := torp.Y + torp.Speed*math.Sin(torp.Dir)*t
-			
+
 			dist := game.Distance(myX, myY, torpX, torpY)
 			if dist < 700 {
 				danger += (700 - dist) / 100
 			}
 		}
 	}
-	
+
 	return danger
 }
 
 // getEvasionSpeed returns optimal speed for evasion
 func (s *Server) getEvasionSpeed(p *game.Player, threats CombatThreat) float64 {
 	shipStats := game.ShipData[p.Ship]
-	
+
 	// High threat - maximum speed
 	if threats.threatLevel > 5 {
 		return float64(shipStats.MaxSpeed)
 	}
-	
+
 	// Medium threat - variable speed for unpredictability
 	if threats.threatLevel > 2 {
 		return float64(shipStats.MaxSpeed) * (0.6 + rand.Float64()*0.4)
 	}
-	
+
 	// Low threat - maintain combat speed
 	return s.getOptimalCombatSpeed(p, 3000)
 }
@@ -1724,11 +1781,11 @@ func (s *Server) getEvasionSpeed(p *game.Player, threats CombatThreat) float64 {
 func (s *Server) findNearbyAlly(p *game.Player, maxDist float64) *game.Player {
 	var nearest *game.Player
 	minDist := maxDist
-	
+
 	for i := range s.gameState.Players {
 		other := s.gameState.Players[i]
-		if other.Status == game.StatusAlive && other.Team == p.Team && 
-		   i != p.ID && other.IsBot {
+		if other.Status == game.StatusAlive && other.Team == p.Team &&
+			i != p.ID && other.IsBot {
 			dist := game.Distance(p.X, p.Y, other.X, other.Y)
 			if dist < minDist {
 				minDist = dist
@@ -1736,7 +1793,7 @@ func (s *Server) findNearbyAlly(p *game.Player, maxDist float64) *game.Player {
 			}
 		}
 	}
-	
+
 	return nearest
 }
 
@@ -1744,22 +1801,22 @@ func (s *Server) findNearbyAlly(p *game.Player, maxDist float64) *game.Player {
 func (s *Server) shouldFocusFire(p, ally, target *game.Player) bool {
 	targetStats := game.ShipData[target.Ship]
 	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
-	
+
 	// Focus fire on damaged enemies
 	if targetDamageRatio > 0.5 {
 		return true
 	}
-	
+
 	// Focus fire on carriers
 	if target.Armies > 0 {
 		return true
 	}
-	
+
 	// Focus fire on high-value targets
 	if target.Kills > 5 {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -1769,20 +1826,20 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	if p.Cloaked || p.Repairing {
 		return
 	}
-	
+
 	shipStats := game.ShipData[p.Ship]
 	baseDir := s.calculateEnhancedInterceptCourse(p, target)
 	spreadAngle := math.Pi / 16 // Spread angle between torpedoes
-	
+
 	for i := 0; i < count; i++ {
 		if p.NumTorps >= game.MaxTorps {
 			break
 		}
-		
+
 		// Calculate spread direction
-		offset := float64(i - count/2) * spreadAngle
+		offset := float64(i-count/2) * spreadAngle
 		fireDir := baseDir + offset
-		
+
 		// Create torpedo
 		torp := &game.Torpedo{
 			ID:     len(s.gameState.Torps),
@@ -1796,7 +1853,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 			Status: 1,
 			Team:   p.Team,
 		}
-		
+
 		s.gameState.Torps = append(s.gameState.Torps, torp)
 		p.NumTorps++
 		p.Fuel -= shipStats.TorpDamage * shipStats.TorpFuelMult
@@ -1809,10 +1866,10 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	if p.Cloaked || p.Repairing {
 		return
 	}
-	
+
 	fireDir := s.calculateEnhancedInterceptCourse(p, target)
 	shipStats := game.ShipData[p.Ship]
-	
+
 	torp := &game.Torpedo{
 		ID:     len(s.gameState.Torps),
 		Owner:  p.ID,
@@ -1825,7 +1882,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 		Status: 1,
 		Team:   p.Team,
 	}
-	
+
 	s.gameState.Torps = append(s.gameState.Torps, torp)
 	p.NumTorps++
 	p.Fuel -= shipStats.TorpDamage * shipStats.TorpFuelMult
@@ -1834,15 +1891,15 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 // managePredictiveShields manages shields with prediction
 func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torpDist float64) {
 	shipStats := game.ShipData[p.Ship]
-	
+
 	// Calculate incoming damage potential
 	incomingDamage := 0
-	
+
 	// Check torpedo threats
 	if torpDist < 2500 {
 		incomingDamage += 45 // Average torpedo damage
 	}
-	
+
 	// Check phaser threat from target
 	if target != nil {
 		targetStats := game.ShipData[target.Ship]
@@ -1859,10 +1916,10 @@ func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torp
 			}
 		}
 	}
-	
+
 	// Shield decision based on damage vs fuel
 	shouldShield := false
-	
+
 	if incomingDamage > 30 && p.Fuel > 1500 {
 		shouldShield = true
 	} else if torpDist < 1500 && p.Fuel > 1000 {
@@ -1870,17 +1927,17 @@ func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torp
 	} else if enemyDist < 2000 && p.Fuel > 2000 {
 		shouldShield = true
 	}
-	
+
 	// Don't shield if very low on fuel
 	if p.Fuel < 800 {
 		shouldShield = false
 	}
-	
+
 	// Don't shield if we're trying to repair
 	if p.Orbiting >= 0 && p.Damage > shipStats.MaxDamage/3 {
 		shouldShield = false
 	}
-	
+
 	p.Shields_up = shouldShield
 }
 
@@ -1890,18 +1947,18 @@ func (s *Server) shouldUseCloaking(p, target *game.Player, dist float64) bool {
 	if dist < 1500 {
 		return false
 	}
-	
+
 	// Cloak for ambush when approaching
 	if dist > 3000 && dist < 7000 && p.Damage < 20 {
 		return true
 	}
-	
+
 	// Cloak to escape when damaged
 	shipStats := game.ShipData[p.Ship]
 	if p.Damage > shipStats.MaxDamage/2 && dist > 2000 {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -1951,18 +2008,18 @@ func (s *Server) selectBotShipType(team int) int {
 			shipCounts[p.Ship]++
 		}
 	}
-	
+
 	// Balanced composition strategy
 	total := 0
 	for _, count := range shipCounts {
 		total += count
 	}
-	
+
 	if total == 0 {
 		// First bot - random
 		return rand.Intn(5)
 	}
-	
+
 	// Prefer destroyers and cruisers for balance
 	if shipCounts[game.ShipDestroyer] < 2 {
 		return int(game.ShipDestroyer)
@@ -1970,12 +2027,12 @@ func (s *Server) selectBotShipType(team int) int {
 	if shipCounts[game.ShipCruiser] < 2 {
 		return int(game.ShipCruiser)
 	}
-	
+
 	// Add assault ship if none exists
 	if shipCounts[game.ShipAssault] == 0 && total > 3 {
 		return int(game.ShipAssault)
 	}
-	
+
 	// Random for variety
 	return rand.Intn(5)
 }
@@ -1986,7 +2043,7 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 	teamPlanets := s.countTeamPlanets()
 	totalPlanets := len(s.gameState.Planets)
 	controlRatio := float64(teamPlanets[p.Team]) / float64(totalPlanets)
-	
+
 	// Count team composition
 	hunters := 0
 	defenders := 0
@@ -1997,7 +2054,7 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 			}
 		}
 	}
-	
+
 	// Dynamic role assignment
 	if controlRatio < 0.2 {
 		// Losing badly - focus on defense and raids
@@ -2023,38 +2080,38 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 	var bestTarget *game.Player
 	bestScore := -999999.0
-	
+
 	for i, other := range s.gameState.Players {
 		if other.Status != game.StatusAlive || other.Team == p.Team || i == p.ID {
 			continue
 		}
-		
+
 		dist := game.Distance(p.X, p.Y, other.X, other.Y)
 		if dist > 25000 {
 			continue // Too far
 		}
-		
+
 		// Multi-factor scoring
 		score := 20000.0 / dist
-		
+
 		// Target prioritization
 		otherStats := game.ShipData[other.Ship]
 		damageRatio := float64(other.Damage) / float64(otherStats.MaxDamage)
-		
+
 		// Prefer damaged enemies
 		score += damageRatio * 4000
-		
+
 		// High priority: carriers
 		if other.Armies > 0 {
 			score += 10000 + float64(other.Armies)*1000
 		}
-		
+
 		// Prefer enemies we can catch
 		speedDiff := float64(game.ShipData[p.Ship].MaxSpeed - otherStats.MaxSpeed)
 		if speedDiff > 0 {
 			score += speedDiff * 200
 		}
-		
+
 		// Avoid cloaked ships unless close
 		if other.Cloaked {
 			if dist > 2000 {
@@ -2063,7 +2120,7 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 				score += 2000 // Decloak them
 			}
 		}
-		
+
 		// Prefer isolated enemies
 		isolated := true
 		for _, ally := range s.gameState.Players {
@@ -2077,13 +2134,13 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 		if isolated {
 			score += 1500
 		}
-		
+
 		if score > bestScore {
 			bestScore = score
 			bestTarget = other
 		}
 	}
-	
+
 	return bestTarget
 }
 
@@ -2091,13 +2148,13 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 	var best *game.Planet
 	bestScore := -999999.0
-	
+
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
 		if planet.Owner != p.Team {
 			continue
 		}
-		
+
 		// Check for threats
 		threatLevel := 0.0
 		for _, enemy := range s.gameState.Players {
@@ -2111,11 +2168,11 @@ func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 				}
 			}
 		}
-		
+
 		if threatLevel > 0 {
 			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			score := threatLevel * 1000 - dist/10
-			
+			score := threatLevel*1000 - dist/10
+
 			// Prioritize important planets
 			if (planet.Flags & game.PlanetAgri) != 0 {
 				score += 500
@@ -2123,14 +2180,14 @@ func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 			if (planet.Flags & game.PlanetRepair) != 0 {
 				score += 300
 			}
-			
+
 			if score > bestScore {
 				bestScore = score
 				best = planet
 			}
 		}
 	}
-	
+
 	return best
 }
 
@@ -2138,18 +2195,18 @@ func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 func (s *Server) findPlanetToRaid(p *game.Player) *game.Planet {
 	var best *game.Planet
 	bestScore := -999999.0
-	
+
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
 		if planet.Owner == p.Team || planet.Owner == 0 {
 			continue
 		}
-		
+
 		dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
 		if dist > 20000 {
 			continue
 		}
-		
+
 		// Look for undefended planets
 		defenders := 0
 		for _, enemy := range s.gameState.Players {
@@ -2159,30 +2216,110 @@ func (s *Server) findPlanetToRaid(p *game.Player) *game.Planet {
 				}
 			}
 		}
-		
+
 		if defenders == 0 && planet.Armies > 2 {
 			score := 10000.0/dist + float64(planet.Armies)*500
-			
+
 			if score > bestScore {
 				bestScore = score
 				best = planet
 			}
 		}
 	}
-	
+
 	return best
+}
+
+// calculateSeparationVector calculates a vector to maintain safe distance from allies
+func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
+	separationVec := SeparationVector{x: 0, y: 0, magnitude: 0}
+
+	// Safe distance to prevent chain explosion damage
+	// Full explosion damage is within 350 units, falls off to 3000 units
+	// We want bots to stay at least 1500 units apart to minimize chain damage
+	minSafeDistance := 1500.0
+	criticalDistance := 800.0 // Emergency separation distance
+
+	nearbyAllies := 0
+	totalRepelX := 0.0
+	totalRepelY := 0.0
+
+	for i, ally := range s.gameState.Players {
+		// Skip self, non-alive, or enemy players
+		if i == p.ID || ally.Status != game.StatusAlive || ally.Team != p.Team {
+			continue
+		}
+
+		dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
+
+		// Only consider allies within potential explosion range
+		if dist < game.ShipExplosionMaxDist {
+			nearbyAllies++
+
+			// Calculate repulsion force - stronger when closer
+			if dist < minSafeDistance && dist > 0 {
+				// Normalized vector away from ally
+				dx := p.X - ally.X
+				dy := p.Y - ally.Y
+
+				// Normalize
+				norm := math.Sqrt(dx*dx + dy*dy)
+				if norm > 0 {
+					dx /= norm
+					dy /= norm
+				}
+
+				// Repulsion strength based on distance
+				var strength float64
+				if dist < criticalDistance {
+					// Emergency separation - very strong repulsion
+					strength = 3.0 * (criticalDistance - dist) / criticalDistance
+				} else {
+					// Normal separation - moderate repulsion
+					strength = (minSafeDistance - dist) / minSafeDistance
+				}
+
+				// Weight more heavily if ally is damaged (more likely to explode)
+				if ally.Damage > 0 {
+					allyShipStats := game.ShipData[ally.Ship]
+					damageRatio := float64(ally.Damage) / float64(allyShipStats.MaxDamage)
+					if damageRatio > 0.5 {
+						strength *= 1.5 // Increase separation from heavily damaged allies
+					}
+				}
+
+				totalRepelX += dx * strength
+				totalRepelY += dy * strength
+			}
+		}
+	}
+
+	// Calculate final separation vector
+	if nearbyAllies > 0 {
+		separationVec.x = totalRepelX
+		separationVec.y = totalRepelY
+		separationVec.magnitude = math.Sqrt(totalRepelX*totalRepelX + totalRepelY*totalRepelY)
+
+		// Normalize the separation vector
+		if separationVec.magnitude > 0 {
+			separationVec.x /= separationVec.magnitude
+			separationVec.y /= separationVec.magnitude
+		}
+	}
+
+	return separationVec
 }
 
 // executePatrol implements intelligent patrol patterns
 func (s *Server) executePatrol(p *game.Player) {
 	shipStats := game.ShipData[p.Ship]
-	
+
 	// Dynamic patrol based on game state
 	if p.BotGoalX == 0 && p.BotGoalY == 0 {
 		// Choose patrol destination based on strategy
 		teamPlanets := s.countTeamPlanets()
 		controlRatio := float64(teamPlanets[p.Team]) / float64(len(s.gameState.Planets))
-		
+
 		if controlRatio < 0.3 {
 			// Defensive patrol near home
 			p.BotGoalX = float64(game.TeamHomeX[p.Team]) + float64(rand.Intn(15000)-7500)
@@ -2198,7 +2335,7 @@ func (s *Server) executePatrol(p *game.Player) {
 					break
 				}
 			}
-			
+
 			if frontlinePlanet != nil {
 				p.BotGoalX = frontlinePlanet.X + float64(rand.Intn(10000)-5000)
 				p.BotGoalY = frontlinePlanet.Y + float64(rand.Intn(10000)-5000)
@@ -2213,18 +2350,30 @@ func (s *Server) executePatrol(p *game.Player) {
 			}
 		}
 	}
-	
+
 	// Navigate to patrol point
 	dx := p.BotGoalX - p.X
 	dy := p.BotGoalY - p.Y
 	dist := math.Hypot(dx, dy)
-	
+
 	if dist < 3000 {
 		// Reached patrol point, set new one
 		p.BotGoalX = 0
 		p.BotGoalY = 0
 	} else {
-		p.DesDir = math.Atan2(dy, dx)
+		baseDir := math.Atan2(dy, dx)
+
+		// Apply separation during patrol to spread bots across the map
+		separationVector := s.calculateSeparationVector(p)
+		if separationVector.magnitude > 0 {
+			// Stronger weight during patrol to ensure better spread
+			weight := math.Min(separationVector.magnitude/300.0, 0.4)
+			navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
+			navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
+			p.DesDir = math.Atan2(navY, navX)
+		} else {
+			p.DesDir = baseDir
+		}
 		p.DesSpeed = float64(shipStats.MaxSpeed) * 0.8 // Sustainable cruise speed
 	}
 }
