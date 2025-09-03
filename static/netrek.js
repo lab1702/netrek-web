@@ -9,6 +9,39 @@ const teamColors = {
     8: '#00ffff'   // Ori - cyan
 };
 
+// Update planet counter display
+function updatePlanetCounter() {
+    if (!gameState.planets) return;
+    
+    // Count planets by team
+    const counts = {
+        0: 0,  // Ind
+        1: 0,  // Fed
+        2: 0,  // Rom
+        4: 0,  // Kli
+        8: 0   // Ori
+    };
+    
+    gameState.planets.forEach(planet => {
+        if (planet && planet.owner !== undefined) {
+            counts[planet.owner] = (counts[planet.owner] || 0) + 1;
+        }
+    });
+    
+    // Update the display
+    const fedElement = document.getElementById('fed-planets');
+    const romElement = document.getElementById('rom-planets');
+    const kliElement = document.getElementById('kli-planets');
+    const oriElement = document.getElementById('ori-planets');
+    const indElement = document.getElementById('ind-planets');
+    
+    if (fedElement) fedElement.textContent = counts[1];
+    if (romElement) romElement.textContent = counts[2];
+    if (kliElement) kliElement.textContent = counts[4];
+    if (oriElement) oriElement.textContent = counts[8];
+    if (indElement) indElement.textContent = counts[0];
+}
+
 // Update team display with the given data
 function updateTeamDisplay(data) {
             // Update total players display
@@ -763,6 +796,9 @@ function handleServerMessage(msg) {
             gameState.gameOver = msg.data.gameOver || false;
             gameState.winner = msg.data.winner;
             gameState.winType = msg.data.winType;
+            
+            // Update planet counter
+            updatePlanetCounter();
             gameState.tMode = msg.data.tMode || false;
             gameState.tRemain = msg.data.tRemain;
             gameState.lastUpdate = now;
@@ -1738,12 +1774,12 @@ function updateDashboard() {
         statusEl.textContent = statusText;
     }
     
-    // Update tournament mode display
-    const tournamentDisplay = document.getElementById('tournament-mode-display');
-    const tournamentTimer = document.getElementById('tournament-timer');
+    // Update tournament mode display in planet counter
+    const tournamentDisplay = document.getElementById('tournament-timer-display');
+    const tournamentTimer = document.getElementById('tournament-timer-value');
     if (tournamentDisplay && tournamentTimer) {
         if (gameState.tMode && !gameState.gameOver) {
-            tournamentDisplay.style.display = 'block';
+            tournamentDisplay.style.display = 'inline-block';
             const minutes = Math.floor(gameState.tRemain / 60);
             const seconds = gameState.tRemain % 60;
             tournamentTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;

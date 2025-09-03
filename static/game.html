@@ -120,6 +120,28 @@
             position: relative;
         }
         
+        #planet-counter {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #808080;
+            padding: 8px 20px;
+            border-radius: 5px;
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 100;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .counter-item {
+            text-shadow: 0 0 5px currentColor;
+        }
+        
         #main-display {
             display: flex;
             height: calc(100vh - 100px); /* Account for dashboard */
@@ -533,6 +555,14 @@
     </div>
     
     <div id="game">
+        <div id="planet-counter">
+            <span id="tournament-timer-display" class="counter-item" style="color: #888888; display: none;">T-MODE <span id="tournament-timer-value">0:00</span></span>
+            <span class="counter-item" style="color: #ffff00;">FED: <span id="fed-planets">0</span></span>
+            <span class="counter-item" style="color: #ff0000;">ROM: <span id="rom-planets">0</span></span>
+            <span class="counter-item" style="color: #00ff00;">KLI: <span id="kli-planets">0</span></span>
+            <span class="counter-item" style="color: #00ffff;">ORI: <span id="ori-planets">0</span></span>
+            <span class="counter-item" style="color: #888888;">IND: <span id="ind-planets">0</span></span>
+        </div>
         <div id="main-display">
             <div id="tactical-view">
                 <canvas id="tactical"></canvas>
@@ -590,10 +620,6 @@
             <div class="stat">
                 <div class="stat-label">K/D</div>
                 <div class="stat-value" id="kd-ratio" style="font-size: 11px; color: #8f8">0.00</div>
-            </div>
-            <div class="stat" id="tournament-mode-display" style="display: none">
-                <div class="stat-label">T-MODE</div>
-                <div class="stat-value" id="tournament-timer" style="color: #ff0; font-size: 14px">0:00</div>
             </div>
             <div class="stat">
                 <div class="stat-label">DELAY</div>
