@@ -233,6 +233,23 @@ func (s *Server) updateBotHard(p *game.Player) {
 		// Not carrying armies - get armies or bomb enemy planets
 		var targetPlanet *game.Planet
 
+		// Check if currently bombing an enemy planet - finish the job first
+		if p.Bombing && p.Orbiting >= 0 && p.Orbiting < len(s.gameState.Planets) {
+			currentPlanet := s.gameState.Planets[p.Orbiting]
+			if currentPlanet.Owner != p.Team && currentPlanet.Owner != game.TeamNone && currentPlanet.Armies > 0 {
+				// Still bombing an enemy planet - continue unless in extreme danger
+				if enemyDist < 2000 && p.Damage > game.ShipData[p.Ship].MaxDamage*2/3 {
+					// Only leave if in extreme danger
+					p.Orbiting = -1
+					p.Bombing = false
+				} else {
+					// Continue bombing
+					p.BotCooldown = 10
+					return
+				}
+			}
+		}
+
 		// First priority: Pick up armies if we have kills
 		if p.KillsStreak >= game.ArmyKillRequirement && armyPlanet != nil {
 			targetPlanet = armyPlanet
@@ -279,9 +296,9 @@ func (s *Server) updateBotHard(p *game.Player) {
 						}
 					}
 				} else {
-					// Enemy or neutral planet
-					if targetPlanet.Owner != game.TeamNone && targetPlanet.Armies > 0 {
-						// Enemy planet with armies - bomb it
+					// Enemy or neutral planet - check if it still needs bombing
+					if targetPlanet.Owner != game.TeamNone && targetPlanet.Owner != p.Team && targetPlanet.Armies > 0 {
+						// Enemy planet with armies - keep bombing it
 						p.Bombing = true
 						p.Beaming = false
 						p.BeamingUp = false
@@ -412,12 +429,30 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	shipStats := game.ShipData[p.Ship]
 	targetStats := game.ShipData[target.Ship]
 
-	// Break orbit when entering combat
+	// Consider breaking orbit when entering combat
 	if p.Orbiting >= 0 {
-		p.Orbiting = -1
-		p.Bombing = false
-		p.Beaming = false
-		p.BeamingUp = false
+		// Only break orbit if the planet doesn't need bombing or threat is extreme
+		if p.Orbiting < len(s.gameState.Planets) {
+			planet := s.gameState.Planets[p.Orbiting]
+			// Only leave if planet is friendly, has no armies, or we're in extreme danger
+			if planet.Owner == p.Team || planet.Armies == 0 || 
+			   (dist < 2000 && p.Damage > game.ShipData[p.Ship].MaxDamage/2) {
+				p.Orbiting = -1
+				p.Bombing = false
+				p.Beaming = false
+				p.BeamingUp = false
+			} else if planet.Owner != p.Team && planet.Armies > 0 && dist > 4000 {
+				// Continue bombing enemy planet if threat is not immediate
+				p.Bombing = true
+				p.BotCooldown = 5
+				return // Stay and bomb
+			}
+		} else {
+			p.Orbiting = -1
+			p.Bombing = false
+			p.Beaming = false
+			p.BeamingUp = false
+		}
 	}
 
 	// Calculate intercept course with enhanced prediction
