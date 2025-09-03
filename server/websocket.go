@@ -80,9 +80,10 @@ const (
 	MsgTypeMessage  = "message"
 	MsgTypeTeamMsg  = "teammsg"
 	MsgTypePrivMsg  = "privmsg"
-	MsgTypeQuit     = "quit"
-	MsgTypeUpdate   = "update"
-	MsgTypeError    = "error"
+	MsgTypeQuit       = "quit"
+	MsgTypeUpdate     = "update"
+	MsgTypeError      = "error"
+	MsgTypeTeamUpdate = "team_update"
 )
 
 // ClientMessage represents a message from client to server
@@ -160,6 +161,9 @@ func (s *Server) Run() {
 						p.Name = ""
 						p.Connected = false
 						p.LastUpdate = time.Time{}
+						
+						// Broadcast updated team counts to all clients
+						s.broadcastTeamCounts()
 					}
 				}
 			}

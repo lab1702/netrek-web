@@ -265,6 +265,9 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	shipData := game.ShipData[p.Ship]
 	log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
+	
+	// Broadcast updated team counts to all clients
+	c.server.broadcastTeamCounts()
 }
 
 // handleMove processes movement commands
@@ -1594,6 +1597,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 			"type": "warning",
 		},
 	}
+	
+	// Broadcast updated team counts to all clients
+	c.server.broadcastTeamCounts()
 
 	// Close the connection after a short delay to allow the explosion to be seen
 	go func() {

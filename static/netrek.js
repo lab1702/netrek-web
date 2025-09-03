@@ -9,11 +9,8 @@ const teamColors = {
     8: '#00ffff'   // Ori - cyan
 };
 
-// Fetch and display team populations
-function updateTeamStats() {
-    fetch('api/teams')
-        .then(response => response.json())
-        .then(data => {
+// Update team display with the given data
+function updateTeamDisplay(data) {
             // Update total players display
             const totalElement = document.getElementById('totalPlayers');
             if (totalElement) {
@@ -96,7 +93,13 @@ function updateTeamStats() {
             if (needNewSelection && firstAvailableIndex !== -1) {
                 teamRadios[firstAvailableIndex].checked = true;
             }
-        })
+}
+
+// Fetch and display team populations  
+function updateTeamStats() {
+    fetch('api/teams')
+        .then(response => response.json())
+        .then(data => updateTeamDisplay(data))
         .catch(error => {
             console.error('Failed to fetch team stats:', error);
             const totalElement = document.getElementById('totalPlayers');
@@ -782,6 +785,13 @@ function handleServerMessage(msg) {
             
             updateDashboard();
             updatePlayerList();
+            break;
+            
+        case 'team_update':
+            // Update team counts on login screen if visible
+            if (document.getElementById('login').style.display !== 'none') {
+                updateTeamDisplay(msg.data);
+            }
             break;
             
         case 'message':

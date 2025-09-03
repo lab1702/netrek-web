@@ -171,3 +171,44 @@ func getTeamName(team int) string {
 		return "Independent"
 	}
 }
+
+// broadcastTeamCounts sends current team counts to all connected clients
+func (s *Server) broadcastTeamCounts() {
+	s.gameState.Mu.RLock()
+	
+	// Count players per team (only count connected, alive players)
+	teamCounts := map[string]int{
+		"fed": 0,
+		"rom": 0,
+		"kli": 0,
+		"ori": 0,
+	}
+	
+	totalPlayers := 0
+	for _, p := range s.gameState.Players {
+		if p.Status == game.StatusAlive && p.Connected {
+			totalPlayers++
+			switch p.Team {
+			case game.TeamFed:
+				teamCounts["fed"]++
+			case game.TeamRom:
+				teamCounts["rom"]++
+			case game.TeamKli:
+				teamCounts["kli"]++
+			case game.TeamOri:
+				teamCounts["ori"]++
+			}
+		}
+	}
+	
+	s.gameState.Mu.RUnlock()
+	
+	// Broadcast the update to all clients
+	s.broadcast <- ServerMessage{
+		Type: MsgTypeTeamUpdate,
+		Data: map[string]interface{}{
+			"total": totalPlayers,
+			"teams": teamCounts,
+		},
+	}
+}
