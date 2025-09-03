@@ -129,8 +129,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	// Find a player slot
 	c.server.gameState.Mu.Lock()
-	defer c.server.gameState.Mu.Unlock()
-
+	
 	playerID := -1
 
 	// Check team balance
@@ -179,6 +178,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 					Type: MsgTypeError,
 					Data: "Team is full. Please join a team with fewer players for balance.",
 				}
+				c.server.gameState.Mu.Unlock()
 				return
 			}
 		}
@@ -203,6 +203,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 			Type: MsgTypeError,
 			Data: "Server full",
 		}
+		c.server.gameState.Mu.Unlock()
 		return
 	}
 
@@ -265,6 +266,9 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	shipData := game.ShipData[p.Ship]
 	log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
+	
+	// Unlock before broadcasting to avoid deadlock
+	c.server.gameState.Mu.Unlock()
 	
 	// Broadcast updated team counts to all clients
 	c.server.broadcastTeamCounts()
@@ -1553,11 +1557,11 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	}
 
 	c.server.gameState.Mu.Lock()
-	defer c.server.gameState.Mu.Unlock()
 
 	p := c.server.gameState.Players[c.PlayerID]
 	if p.Status != game.StatusAlive {
 		// If already dead, just disconnect
+		c.server.gameState.Mu.Unlock()
 		c.conn.Close()
 		return
 	}
@@ -1597,6 +1601,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 			"type": "warning",
 		},
 	}
+	
+	// Unlock before broadcasting to avoid deadlock
+	c.server.gameState.Mu.Unlock()
 	
 	// Broadcast updated team counts to all clients
 	c.server.broadcastTeamCounts()
