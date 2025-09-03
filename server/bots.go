@@ -175,7 +175,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				separationVector := s.calculateSeparationVector(p)
 				if separationVector.magnitude > 0 {
 					// Blend navigation with separation
-					weight := math.Min(separationVector.magnitude/500.0, 0.3)
+					weight := math.Min(separationVector.magnitude/300.0, 0.5) // Increased weight
 					navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
 					navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
 					p.DesDir = math.Atan2(navY, navX)
@@ -235,7 +235,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					// Apply separation to avoid bunching while moving to objectives
 					separationVector := s.calculateSeparationVector(p)
 					if separationVector.magnitude > 0 {
-						weight := math.Min(separationVector.magnitude/500.0, 0.25)
+						weight := math.Min(separationVector.magnitude/300.0, 0.45) // Increased weight
 						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
 						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
 						p.DesDir = math.Atan2(navY, navX)
@@ -405,15 +405,36 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if planet := s.findPlanetToDefend(p); planet != nil {
 				dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
 				if dist > 5000 {
-					// Move to defend
+					// Move to defend with separation
 					dx := planet.X - p.X
 					dy := planet.Y - p.Y
-					p.DesDir = math.Atan2(dy, dx)
+					baseDir := math.Atan2(dy, dx)
+
+					// Apply separation
+					separationVector := s.calculateSeparationVector(p)
+					if separationVector.magnitude > 0 {
+						weight := math.Min(separationVector.magnitude/300.0, 0.4)
+						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
+						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
+						p.DesDir = math.Atan2(navY, navX)
+					} else {
+						p.DesDir = baseDir
+					}
 					p.DesSpeed = float64(shipStats.MaxSpeed)
 				} else {
-					// Patrol around planet
+					// Patrol around planet with separation
 					patrolAngle := math.Mod(float64(rand.Intn(360))*math.Pi/180, math.Pi*2)
-					p.DesDir = patrolAngle
+
+					// Apply separation even when patrolling
+					separationVector := s.calculateSeparationVector(p)
+					if separationVector.magnitude > 0 {
+						weight := math.Min(separationVector.magnitude/250.0, 0.5)
+						navX := math.Cos(patrolAngle)*(1.0-weight) + separationVector.x*weight
+						navY := math.Sin(patrolAngle)*(1.0-weight) + separationVector.y*weight
+						p.DesDir = math.Atan2(navY, navX)
+					} else {
+						p.DesDir = patrolAngle
+					}
 					p.DesSpeed = float64(shipStats.MaxSpeed) * 0.7
 				}
 				return
@@ -435,10 +456,21 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.BotCooldown = 5
 					}
 				} else {
-					// Approach at high speed
+					// Approach at high speed with separation
 					dx := planet.X - p.X
 					dy := planet.Y - p.Y
-					p.DesDir = math.Atan2(dy, dx)
+					baseDir := math.Atan2(dy, dx)
+
+					// Apply separation for raiders too
+					separationVector := s.calculateSeparationVector(p)
+					if separationVector.magnitude > 0 {
+						weight := math.Min(separationVector.magnitude/350.0, 0.35) // Lighter weight for raiders
+						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
+						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
+						p.DesDir = math.Atan2(navY, navX)
+					} else {
+						p.DesDir = baseDir
+					}
 					p.DesSpeed = float64(shipStats.MaxSpeed)
 				}
 				return
@@ -513,18 +545,25 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Apply separation adjustment if allies are too close
 	if separationVector.magnitude > 0 {
 		// Blend the combat direction with separation vector
-		// Weight separation more heavily when allies are very close
-		separationWeight := math.Min(separationVector.magnitude/1000.0, 0.5)
+		// Much higher weight for separation to prevent bunching
+		separationWeight := math.Min(separationVector.magnitude/300.0, 0.75) // Increased max weight to 0.75
 		combatWeight := 1.0 - separationWeight
 
 		// Combine directions using weighted average
 		desiredX := combatWeight*math.Cos(combatManeuver.direction) + separationWeight*separationVector.x
 		desiredY := combatWeight*math.Sin(combatManeuver.direction) + separationWeight*separationVector.y
 		p.DesDir = math.Atan2(desiredY, desiredX)
+
+		// Also reduce speed when too close to allies for better separation
+		if separationVector.magnitude > 2.0 {
+			p.DesSpeed = combatManeuver.speed * 0.7 // Slow down to separate better
+		} else {
+			p.DesSpeed = combatManeuver.speed
+		}
 	} else {
 		p.DesDir = combatManeuver.direction
+		p.DesSpeed = combatManeuver.speed
 	}
-	p.DesSpeed = combatManeuver.speed
 
 	// Adjust for damage and energy management
 	if p.Damage > 0 {
@@ -2234,11 +2273,11 @@ func (s *Server) findPlanetToRaid(p *game.Player) *game.Planet {
 func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 	separationVec := SeparationVector{x: 0, y: 0, magnitude: 0}
 
-	// Safe distance to prevent chain explosion damage
-	// Full explosion damage is within 350 units, falls off to 3000 units
-	// We want bots to stay at least 1500 units apart to minimize chain damage
-	minSafeDistance := 1500.0
-	criticalDistance := 800.0 // Emergency separation distance
+	// Increased distances for better separation
+	// We want bots to maintain much larger distances to prevent bunching
+	minSafeDistance := 4000.0  // Increased from 1500 to 4000
+	idealDistance := 2500.0    // Ideal spacing between bots
+	criticalDistance := 1200.0 // Emergency separation distance (increased from 800)
 
 	nearbyAllies := 0
 	totalRepelX := 0.0
@@ -2250,60 +2289,90 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 			continue
 		}
 
+		// Also skip if ally is orbiting (they're stationary)
+		if ally.Orbiting >= 0 {
+			continue
+		}
+
 		dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
 
-		// Only consider allies within potential explosion range
-		if dist < game.ShipExplosionMaxDist {
+		// Consider all allies within extended range for separation
+		if dist < minSafeDistance && dist > 0 {
 			nearbyAllies++
 
-			// Calculate repulsion force - stronger when closer
-			if dist < minSafeDistance && dist > 0 {
-				// Normalized vector away from ally
-				dx := p.X - ally.X
-				dy := p.Y - ally.Y
+			// Normalized vector away from ally
+			dx := p.X - ally.X
+			dy := p.Y - ally.Y
 
-				// Normalize
-				norm := math.Sqrt(dx*dx + dy*dy)
-				if norm > 0 {
-					dx /= norm
-					dy /= norm
+			// Normalize
+			norm := math.Sqrt(dx*dx + dy*dy)
+			if norm > 0 {
+				dx /= norm
+				dy /= norm
+			}
+
+			// Much stronger repulsion forces
+			var strength float64
+			if dist < criticalDistance {
+				// Emergency separation - extremely strong repulsion
+				strength = 5.0 * (criticalDistance - dist) / criticalDistance
+			} else if dist < idealDistance {
+				// Strong separation to maintain ideal distance
+				strength = 2.0 * (idealDistance - dist) / idealDistance
+			} else {
+				// Moderate separation for distances beyond ideal
+				strength = 0.8 * (minSafeDistance - dist) / minSafeDistance
+			}
+
+			// Extra repulsion if both bots are moving toward the same target
+			if p.BotTarget >= 0 && ally.BotTarget == p.BotTarget {
+				strength *= 1.8 // Much stronger separation when targeting same enemy
+			}
+
+			// Weight more heavily if ally is damaged (more likely to explode)
+			if ally.Damage > 0 {
+				allyShipStats := game.ShipData[ally.Ship]
+				damageRatio := float64(ally.Damage) / float64(allyShipStats.MaxDamage)
+				if damageRatio > 0.5 {
+					strength *= 2.0 // Doubled from 1.5
+				} else if damageRatio > 0.3 {
+					strength *= 1.5
 				}
+			}
 
-				// Repulsion strength based on distance
-				var strength float64
-				if dist < criticalDistance {
-					// Emergency separation - very strong repulsion
-					strength = 3.0 * (criticalDistance - dist) / criticalDistance
-				} else {
-					// Normal separation - moderate repulsion
-					strength = (minSafeDistance - dist) / minSafeDistance
-				}
-
-				// Weight more heavily if ally is damaged (more likely to explode)
-				if ally.Damage > 0 {
-					allyShipStats := game.ShipData[ally.Ship]
-					damageRatio := float64(ally.Damage) / float64(allyShipStats.MaxDamage)
-					if damageRatio > 0.5 {
-						strength *= 1.5 // Increase separation from heavily damaged allies
+			// If ally is also very close to another ally, increase separation
+			// This helps break up clusters of 3+ bots
+			for j, other := range s.gameState.Players {
+				if j != i && j != p.ID && other.Status == game.StatusAlive &&
+					other.Team == p.Team && other.Orbiting < 0 {
+					otherDist := game.Distance(ally.X, ally.Y, other.X, other.Y)
+					if otherDist < idealDistance {
+						strength *= 1.3 // Extra force to break up clusters
+						break
 					}
 				}
-
-				totalRepelX += dx * strength
-				totalRepelY += dy * strength
 			}
+
+			totalRepelX += dx * strength
+			totalRepelY += dy * strength
 		}
 	}
 
-	// Calculate final separation vector
+	// Calculate final separation vector with stronger magnitude
 	if nearbyAllies > 0 {
-		separationVec.x = totalRepelX
-		separationVec.y = totalRepelY
-		separationVec.magnitude = math.Sqrt(totalRepelX*totalRepelX + totalRepelY*totalRepelY)
+		// Scale up the magnitude for more aggressive separation
+		magnitudeScale := 1.0 + float64(nearbyAllies)*0.3 // More allies = stronger separation
+		separationVec.x = totalRepelX * magnitudeScale
+		separationVec.y = totalRepelY * magnitudeScale
+		separationVec.magnitude = math.Sqrt(separationVec.x*separationVec.x + separationVec.y*separationVec.y)
 
-		// Normalize the separation vector
+		// Normalize but keep the magnitude for weighting
 		if separationVec.magnitude > 0 {
-			separationVec.x /= separationVec.magnitude
-			separationVec.y /= separationVec.magnitude
+			normalizedX := separationVec.x / separationVec.magnitude
+			normalizedY := separationVec.y / separationVec.magnitude
+			separationVec.x = normalizedX
+			separationVec.y = normalizedY
+			// Keep magnitude for weight calculations
 		}
 	}
 
@@ -2367,7 +2436,7 @@ func (s *Server) executePatrol(p *game.Player) {
 		separationVector := s.calculateSeparationVector(p)
 		if separationVector.magnitude > 0 {
 			// Stronger weight during patrol to ensure better spread
-			weight := math.Min(separationVector.magnitude/300.0, 0.4)
+			weight := math.Min(separationVector.magnitude/200.0, 0.6) // Much stronger for patrol
 			navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
 			navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
 			p.DesDir = math.Atan2(navY, navX)
