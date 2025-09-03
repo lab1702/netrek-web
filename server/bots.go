@@ -189,14 +189,26 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if targetPlanet != nil && targetPlanet.Owner != p.Team {
 				dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
 				if dist < OrbitDistance {
-					// At planet - beam down armies
+					// At planet
 					if p.Orbiting != targetPlanet.ID {
 						p.Orbiting = targetPlanet.ID
 						p.DesSpeed = 0
 					}
-					p.Beaming = true
-					p.BeamingUp = false
-					p.BotCooldown = 50
+					
+					// Check if we need to bomb first
+					if targetPlanet.Armies > 0 {
+						// Enemy planet still has armies - bomb it first
+						p.Bombing = true
+						p.Beaming = false
+						p.BeamingUp = false
+						p.BotCooldown = 10
+					} else {
+						// Planet has no armies - beam down to capture
+						p.Bombing = false
+						p.Beaming = true
+						p.BeamingUp = false
+						p.BotCooldown = 50
+					}
 					return
 				} else {
 					// Navigate to target planet
@@ -273,7 +285,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.Bombing = true
 						p.Beaming = false
 						p.BeamingUp = false
-						p.BotCooldown = 100
+						p.BotCooldown = 10 // Reduced from 100 to re-evaluate sooner
 					} else if targetPlanet.Armies == 0 || targetPlanet.Owner == game.TeamNone {
 						// No armies or neutral planet
 						p.Bombing = false // Stop bombing if no armies left
@@ -281,7 +293,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 							// Beam down to take it
 							p.Beaming = true
 							p.BeamingUp = false
-							p.BotCooldown = 50
+							p.BotCooldown = 10 // Reduced from 50 to be more responsive
 						} else {
 							// No armies to beam down, leave orbit
 							p.Beaming = false
