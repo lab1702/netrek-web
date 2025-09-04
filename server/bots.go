@@ -46,6 +46,7 @@ func (s *Server) AddBot(team, ship int) {
 	p.Team = team
 	p.Ship = game.ShipType(ship)
 	p.Status = game.StatusAlive
+	p.NextShipType = -1 // Ensure no pending refit; preserve ship on respawn
 
 	// Debug logging for bot creation
 	log.Printf("DEBUG: AddBot creating bot %s (ID: %d) with ship type %d (%s)",

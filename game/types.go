@@ -564,13 +564,14 @@ func NewGameStateWithMode(inlMode bool) *GameState {
 	// Initialize players
 	for i := 0; i < MaxPlayers; i++ {
 		gs.Players[i] = &Player{
-			ID:         i,
-			Status:     StatusFree,
-			Tractoring: -1,
-			Pressoring: -1,
-			Orbiting:   -1,
-			LockType:   "none",
-			LockTarget: -1,
+			ID:           i,
+			Status:       StatusFree,
+			Tractoring:   -1,
+			Pressoring:   -1,
+			Orbiting:     -1,
+			LockType:     "none",
+			LockTarget:   -1,
+			NextShipType: -1, // No pending refit by default for fresh slots
 		}
 	}
 
