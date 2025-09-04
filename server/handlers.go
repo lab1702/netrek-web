@@ -1445,63 +1445,98 @@ func (c *Client) handleBotCommand(cmd string) {
 
 		c.server.gameState.Mu.Unlock()
 
-		// Add bots in cycles, trying each ship type for each team
-		shipTypeIndex := 0
-		teamIndex := 0
+		// Add bots using balanced selection to ensure ship type diversity
+		// Use a round-robin approach that interleaves teams and ship types
+		rand.Seed(time.Now().UnixNano())
 		consecutiveFailures := 0
-		maxConsecutiveFailures := len(teams) * len(allShipTypes) * 2 // Safety limit
+		maxConsecutiveFailures := len(teams) * len(allShipTypes) * 3 // Safety limit
 
 		for currentBots+botsAdded < maxBots && consecutiveFailures < maxConsecutiveFailures {
-			team := teams[teamIndex]
-			shipType := allShipTypes[shipTypeIndex]
-
-			// Check if we should skip this ship type for this team
-			shouldSkip := false
-
-			// Special handling for starbase - only allow one per team
-			if shipType == int(game.ShipStarbase) {
-				c.server.gameState.Mu.RLock()
-				currentStarbaseCount := c.server.countStarbasesByTeam()
-				c.server.gameState.Mu.RUnlock()
-				if currentStarbaseCount[team] >= 1 {
-					shouldSkip = true
+			// Select team and ship type to promote diversity
+			// Find the team with the fewest bots
+			var selectedTeam int
+			minTeamBots := 999
+			for _, team := range teams {
+				totalForTeam := 0
+				for _, count := range teamShipCounts[team] {
+					totalForTeam += count
+				}
+				if totalForTeam < minTeamBots {
+					minTeamBots = totalForTeam
+					selectedTeam = team
 				}
 			}
 
-			if !shouldSkip {
-				// Try to add the bot
-				c.server.AddBot(team, shipType)
+			// For the selected team, find ship type with lowest count
+			// But add some randomness to avoid pure determinism
+			var candidateShips []int
+			minShipCount := 999
 
-				// Check if bot was actually added
-				c.server.gameState.Mu.RLock()
-				newBotCount := 0
-				for _, p := range c.server.gameState.Players {
-					if p.IsBot && p.Status != game.StatusFree {
-						newBotCount++
+			// First pass: find minimum count for this team
+			for _, shipType := range allShipTypes {
+				// Skip starbase if team already has one
+				if shipType == int(game.ShipStarbase) {
+					c.server.gameState.Mu.RLock()
+					currentStarbaseCount := c.server.countStarbasesByTeam()
+					c.server.gameState.Mu.RUnlock()
+					if currentStarbaseCount[selectedTeam] >= 1 {
+						continue
 					}
 				}
-				c.server.gameState.Mu.RUnlock()
 
-				if newBotCount > currentBots+botsAdded {
-					// Bot was successfully added
-					botsAdded++
-					teamShipCounts[team][shipType]++
-					consecutiveFailures = 0
-				} else {
-					// Bot was not added (probably no free slots)
-					consecutiveFailures++
+				count := teamShipCounts[selectedTeam][shipType]
+				if count < minShipCount {
+					minShipCount = count
 				}
-			} else {
-				// Skipped this ship type for this team
-				consecutiveFailures++
 			}
 
-			// Move to next team
-			teamIndex = (teamIndex + 1) % len(teams)
+			// Second pass: collect all ship types with minimum count
+			for _, shipType := range allShipTypes {
+				// Skip starbase if team already has one
+				if shipType == int(game.ShipStarbase) {
+					c.server.gameState.Mu.RLock()
+					currentStarbaseCount := c.server.countStarbasesByTeam()
+					c.server.gameState.Mu.RUnlock()
+					if currentStarbaseCount[selectedTeam] >= 1 {
+						continue
+					}
+				}
 
-			// If we've cycled through all teams, move to next ship type
-			if teamIndex == 0 {
-				shipTypeIndex = (shipTypeIndex + 1) % len(allShipTypes)
+				if teamShipCounts[selectedTeam][shipType] == minShipCount {
+					candidateShips = append(candidateShips, shipType)
+				}
+			}
+
+			// If no candidates (shouldn't happen), break
+			if len(candidateShips) == 0 {
+				consecutiveFailures++
+				continue
+			}
+
+			// Randomly select from candidates to add variety
+			selectedShipType := candidateShips[rand.Intn(len(candidateShips))]
+
+			// Try to add the bot
+			c.server.AddBot(selectedTeam, selectedShipType)
+
+			// Check if bot was actually added
+			c.server.gameState.Mu.RLock()
+			newBotCount := 0
+			for _, p := range c.server.gameState.Players {
+				if p.IsBot && p.Status != game.StatusFree {
+					newBotCount++
+				}
+			}
+			c.server.gameState.Mu.RUnlock()
+
+			if newBotCount > currentBots+botsAdded {
+				// Bot was successfully added
+				botsAdded++
+				teamShipCounts[selectedTeam][selectedShipType]++
+				consecutiveFailures = 0
+			} else {
+				// Bot was not added (probably no free slots)
+				consecutiveFailures++
 			}
 		}
 
