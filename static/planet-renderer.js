@@ -295,8 +295,8 @@ class PlanetRenderer {
         if (sprite) {
             ctx.save();
             ctx.translate(x, y);
-            // Scale up more for tactical - original was 16x16, we want about 40x40
-            ctx.scale(scale * 2.5, scale * 2.5); 
+            // Scale up for tactical - original was 16x16, scale to 32x32
+            ctx.scale(scale * 2, scale * 2); 
             ctx.drawImage(sprite, -8, -8); // Center the 16x16 sprite
             ctx.restore();
         } else {
