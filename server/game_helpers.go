@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/lab1702/netrek-web/game"
+	"log"
 	"math/rand"
 )
 
@@ -33,6 +34,12 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// IMPORTANT: Preserve the ship type for bots unless they have a pending refit
 	// Bots should respawn with the same ship type, just like human players
 	currentShipType := p.Ship
+
+	// Debug logging for bot respawns
+	if p.IsBot {
+		log.Printf("DEBUG: Respawning bot %s (ID: %d) with ship type %d (%s)",
+			p.Name, p.ID, int(currentShipType), game.ShipData[currentShipType].Name)
+	}
 
 	// Reset player state
 	p.Status = game.StatusAlive
@@ -138,6 +145,12 @@ func (s *Server) respawnPlayer(p *game.Player) {
 
 	// Start with green alert
 	p.AlertLevel = "green"
+
+	// Debug logging for bot respawns - show final ship type
+	if p.IsBot {
+		log.Printf("DEBUG: Bot %s (ID: %d) respawned with final ship type %d (%s)",
+			p.Name, p.ID, int(p.Ship), game.ShipData[p.Ship].Name)
+	}
 }
 
 // broadcastDeathMessage sends a death message to all players

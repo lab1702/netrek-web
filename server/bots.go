@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/lab1702/netrek-web/game"
+	"log"
 	"math"
 	"math/rand"
 )
@@ -45,6 +46,10 @@ func (s *Server) AddBot(team, ship int) {
 	p.Team = team
 	p.Ship = game.ShipType(ship)
 	p.Status = game.StatusAlive
+
+	// Debug logging for bot creation
+	log.Printf("DEBUG: AddBot creating bot %s (ID: %d) with ship type %d (%s)",
+		p.Name, p.ID, ship, game.ShipData[game.ShipType(ship)].Name)
 	p.Connected = true
 	p.IsBot = true
 	p.BotTarget = -1
