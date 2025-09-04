@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"github.com/lab1702/netrek-web/game"
-	"log"
 	"math/rand"
 )
 
@@ -35,11 +34,6 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// Bots should respawn with the same ship type, just like human players
 	currentShipType := p.Ship
 
-	// Debug logging for bot respawns
-	if p.IsBot {
-		log.Printf("DEBUG: Respawning bot %s (ID: %d) with ship type %d (%s)",
-			p.Name, p.ID, int(currentShipType), game.ShipData[currentShipType].Name)
-	}
 
 	// Reset player state
 	p.Status = game.StatusAlive
@@ -77,17 +71,9 @@ func (s *Server) respawnPlayer(p *game.Player) {
 		// No pending refit - preserve existing ship type
 		// This is especially important for bots to maintain ship diversity
 		p.Ship = currentShipType
-		if p.IsBot {
-			log.Printf("DEBUG: Bot %s (ID: %d) ship type preserved as %d (%s)",
-				p.Name, p.ID, int(p.Ship), game.ShipData[p.Ship].Name)
-		}
 	}
 
 	// Reset ship stats
-	if p.IsBot {
-		log.Printf("DEBUG: Bot %s (ID: %d) about to reset ship stats for ship type %d",
-			p.Name, p.ID, int(p.Ship))
-	}
 	shipStats := game.ShipData[p.Ship]
 	p.Shields = shipStats.MaxShields
 	p.Damage = 0
@@ -154,13 +140,6 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// Start with green alert
 	p.AlertLevel = "green"
 
-	// Debug logging for bot respawns - show final ship type
-	if p.IsBot {
-		log.Printf("DEBUG: Bot %s (ID: %d) about to complete respawn - ship type is %d",
-			p.Name, p.ID, int(p.Ship))
-		log.Printf("DEBUG: Bot %s (ID: %d) respawned with final ship type %d (%s)",
-			p.Name, p.ID, int(p.Ship), game.ShipData[p.Ship].Name)
-	}
 }
 
 // broadcastDeathMessage sends a death message to all players

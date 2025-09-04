@@ -231,9 +231,6 @@ func (s *Server) updateGame() {
 		for i := 0; i < game.MaxPlayers; i++ {
 			p := s.gameState.Players[i]
 			if p.IsBot && p.Status != game.StatusFree {
-				// Debug logging for bot clearing
-				log.Printf("DEBUG: Clearing bot %s (ID: %d) ship type %d due to no human players",
-					p.Name, p.ID, int(p.Ship))
 				p.Status = game.StatusFree
 				p.Name = ""
 				p.IsBot = false
