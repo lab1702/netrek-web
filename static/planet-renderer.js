@@ -270,20 +270,6 @@ class PlanetRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
-        
-        // Draw independent indicator (crossing lines) for neutral planets
-        if (planet.owner === 0) {
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.5;
-            ctx.beginPath();
-            ctx.moveTo(x - 6, y - 6);
-            ctx.lineTo(x + 6, y + 6);
-            ctx.moveTo(x - 6, y + 6);
-            ctx.lineTo(x + 6, y - 6);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-        }
     }
     
     // Draw a planet on the tactical map (would use 30x30 bitmaps)
