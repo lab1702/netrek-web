@@ -70,6 +70,152 @@ func TestRefitCommand(t *testing.T) {
 	server.gameState.Mu.RUnlock()
 }
 
+// Test /addbot command with ship aliases
+func TestAddbotCommandWithAliases(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+
+	// Create a mock client
+	client := &Client{
+		ID:       1,
+		PlayerID: 0,
+		server:   server,
+		send:     make(chan ServerMessage, 10),
+	}
+
+	// Initialize a test player
+	server.gameState.Mu.Lock()
+	player := server.gameState.Players[0]
+	player.Status = game.StatusAlive
+	player.Team = game.TeamFed
+	player.Connected = true
+	server.gameState.Mu.Unlock()
+
+	// Test addbot with ship alias
+	client.handleBotCommand("/addbot rom DD")
+
+	// Check that a Romulan Destroyer bot was added
+	server.gameState.Mu.RLock()
+	botFound := false
+	for _, p := range server.gameState.Players {
+		if p.IsBot && p.Team == game.TeamRom && p.Ship == game.ShipDestroyer {
+			botFound = true
+			break
+		}
+	}
+	server.gameState.Mu.RUnlock()
+
+	if !botFound {
+		t.Errorf("Expected to find a Romulan Destroyer bot after /addbot rom DD")
+	}
+}
+
+// Test /addbot command with numeric backward compatibility
+func TestAddbotCommandBackwardCompatibility(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+
+	// Create a mock client
+	client := &Client{
+		ID:       1,
+		PlayerID: 0,
+		server:   server,
+		send:     make(chan ServerMessage, 10),
+	}
+
+	// Initialize a test player
+	server.gameState.Mu.Lock()
+	player := server.gameState.Players[0]
+	player.Status = game.StatusAlive
+	player.Team = game.TeamFed
+	player.Connected = true
+	server.gameState.Mu.Unlock()
+
+	// Test addbot with numeric ship ID (backward compatibility)
+	client.handleBotCommand("/addbot kli 2")
+
+	// Check that a Klingon Cruiser bot was added
+	server.gameState.Mu.RLock()
+	botFound := false
+	for _, p := range server.gameState.Players {
+		if p.IsBot && p.Team == game.TeamKli && p.Ship == game.ShipCruiser {
+			botFound = true
+			break
+		}
+	}
+	server.gameState.Mu.RUnlock()
+
+	if !botFound {
+		t.Errorf("Expected to find a Klingon Cruiser bot after /addbot kli 2")
+	}
+}
+
+// Test /addbot starbase limitation
+func TestAddbotStarbaseLimitation(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+
+	// Create a mock client
+	client := &Client{
+		ID:       1,
+		PlayerID: 0,
+		server:   server,
+		send:     make(chan ServerMessage, 10),
+	}
+
+	// Initialize test players
+	server.gameState.Mu.Lock()
+	player := server.gameState.Players[0]
+	player.Status = game.StatusAlive
+	player.Team = game.TeamFed
+	player.Connected = true
+
+	// Add existing starbase player on Fed team
+	player1 := server.gameState.Players[1]
+	player1.Status = game.StatusAlive
+	player1.Ship = game.ShipStarbase
+	player1.Team = game.TeamFed
+	player1.Connected = true
+	player1.IsBot = false // Human starbase
+	server.gameState.Mu.Unlock()
+
+	// Try to add another starbase bot to Fed team (should fail)
+	client.handleBotCommand("/addbot fed SB")
+
+	// Check that no starbase bot was added
+	server.gameState.Mu.RLock()
+	starbaseCount := 0
+	for _, p := range server.gameState.Players {
+		if p.Team == game.TeamFed && p.Ship == game.ShipStarbase && p.Status != game.StatusFree {
+			starbaseCount++
+		}
+	}
+	server.gameState.Mu.RUnlock()
+
+	if starbaseCount != 1 {
+		t.Errorf("Expected exactly 1 starbase on Fed team after trying to add second starbase bot, got %d", starbaseCount)
+	}
+
+	// Check that a warning message was sent
+	select {
+	case msg := <-client.send:
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Errorf("Expected message data to be map[string]interface{}")
+		}
+		msgType, ok := data["type"].(string)
+		if !ok || msgType != "warning" {
+			t.Errorf("Expected warning message type, got: %v", msgType)
+		}
+		text, ok := data["text"].(string)
+		if !ok || !strings.Contains(text, "starbase") {
+			t.Errorf("Expected starbase limitation message, got: %v", text)
+		}
+	default:
+		t.Errorf("Expected a warning message to be sent")
+	}
+}
+
 // Test invalid refit command
 func TestRefitCommandInvalid(t *testing.T) {
 	// Create a test server

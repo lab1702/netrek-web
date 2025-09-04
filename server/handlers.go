@@ -1325,7 +1325,7 @@ func (c *Client) handleBotCommand(cmd string) {
 
 	switch parts[0] {
 	case "/addbot":
-		// /addbot [team] [ship]
+		// /addbot [team] [ship_type]
 		team := game.TeamFed
 		ship := 1 // Destroyer
 
@@ -1343,15 +1343,41 @@ func (c *Client) handleBotCommand(cmd string) {
 		}
 
 		if len(parts) > 2 {
-			ship, _ = strconv.Atoi(parts[2])
-			if ship < 0 || ship > 6 {
-				ship = 1
+			// Try to parse as ship alias first (SC, DD, CA, etc.)
+			shipTypeStr := strings.ToUpper(parts[2])
+			if shipTypeInt, ok := shipAlias[shipTypeStr]; ok {
+				ship = shipTypeInt
+			} else {
+				// Fall back to numeric parsing for backward compatibility
+				if numericShip, err := strconv.Atoi(parts[2]); err == nil {
+					if numericShip >= 0 && numericShip <= 6 {
+						ship = numericShip
+					}
+				}
 			}
 		}
 
 		// Level parameter is ignored - all bots are hard mode now
 		if len(parts) > 3 {
 			// Silently ignore the level parameter for backward compatibility
+		}
+
+		// Check starbase limit before adding bot
+		if ship == int(game.ShipStarbase) {
+			c.server.gameState.Mu.Lock()
+			starbaseCounts := c.server.countStarbasesByTeam()
+			if starbaseCounts[team] >= 1 {
+				c.server.gameState.Mu.Unlock()
+				c.send <- ServerMessage{
+					Type: MsgTypeMessage,
+					Data: map[string]interface{}{
+						"text": "Cannot add starbase bot - team already has a starbase. Only one starbase per team is allowed.",
+						"type": "warning",
+					},
+				}
+				return
+			}
+			c.server.gameState.Mu.Unlock()
 		}
 
 		c.server.AddBot(team, ship)
@@ -1502,7 +1528,7 @@ func (c *Client) handleBotCommand(cmd string) {
 		c.send <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": "Bot commands: /addbot [fed/rom/kli/ori] [0-6] [0-2] | /removebot | /balance | /clearbots | /fillbots | /refit SC|DD|CA|BB|AS|SB|GA",
+				"text": "Bot commands: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB|GA] | /removebot | /balance | /clearbots | /fillbots | /refit SC|DD|CA|BB|AS|SB|GA",
 				"type": "info",
 			},
 		}
