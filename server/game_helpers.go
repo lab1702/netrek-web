@@ -39,8 +39,29 @@ func (s *Server) respawnPlayer(p *game.Player) {
 
 	// Check for pending refit before resetting ship stats
 	if p.NextShipType >= 0 && p.NextShipType < len(game.ShipData) {
-		p.Ship = game.ShipType(p.NextShipType)
-		p.NextShipType = -1 // Clear the refit request
+		// Special check for starbase refit - ensure team doesn't already have one
+		if game.ShipType(p.NextShipType) == game.ShipStarbase {
+			starbaseCounts := s.countStarbasesByTeam()
+			// Exclude current player if they're already a starbase
+			if p.Ship == game.ShipStarbase {
+				starbaseCounts[p.Team]--
+			}
+			// Check if team would exceed starbase limit
+			if starbaseCounts[p.Team] >= 1 {
+				// Cancel the starbase refit, keep current ship type
+				p.NextShipType = -1
+				// Note: We could send a message here, but respawn doesn't have access to client
+				// The player will be notified via game update that their refit was cancelled
+			} else {
+				// Safe to refit to starbase
+				p.Ship = game.ShipType(p.NextShipType)
+				p.NextShipType = -1
+			}
+		} else {
+			// Non-starbase refit, always allowed
+			p.Ship = game.ShipType(p.NextShipType)
+			p.NextShipType = -1
+		}
 	}
 
 	// Reset ship stats
@@ -176,6 +197,27 @@ func getTeamName(team int) string {
 	default:
 		return "Independent"
 	}
+}
+
+// countStarbasesByTeam returns the number of starbases each team currently has
+// Note: caller must hold the gameState mutex
+func (s *Server) countStarbasesByTeam() map[int]int {
+	starbaseCounts := map[int]int{
+		game.TeamFed: 0,
+		game.TeamRom: 0,
+		game.TeamKli: 0,
+		game.TeamOri: 0,
+	}
+
+	for _, p := range s.gameState.Players {
+		// Count connected players (alive or dead) with starbase ship type
+		// Include dead players because they might respawn as starbase
+		if p.Connected && p.Ship == game.ShipStarbase && p.Status != game.StatusFree {
+			starbaseCounts[p.Team]++
+		}
+	}
+
+	return starbaseCounts
 }
 
 // broadcastTeamCounts sends current team counts to all connected clients

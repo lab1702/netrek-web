@@ -201,6 +201,19 @@ func (c *Client) handleLogin(data json.RawMessage) {
 			teamCounts[game.TeamKli], teamCounts[game.TeamOri])
 	}
 
+	// Check starbase limit (each team can have at most 1 starbase)
+	if loginData.Ship == game.ShipStarbase {
+		starbaseCounts := c.server.countStarbasesByTeam()
+		if starbaseCounts[loginData.Team] >= 1 {
+			c.send <- ServerMessage{
+				Type: MsgTypeError,
+				Data: "Your team already has a starbase. Only one starbase per team is allowed.",
+			}
+			c.server.gameState.Mu.Unlock()
+			return
+		}
+	}
+
 	// Find a free slot
 	for i := 0; i < game.MaxPlayers; i++ {
 		if c.server.gameState.Players[i].Status == game.StatusFree {
@@ -1445,9 +1458,30 @@ func (c *Client) handleBotCommand(cmd string) {
 			return
 		}
 
-		// Set the next ship type for this player
+		// Check starbase limit before allowing refit (each team can have at most 1 starbase)
 		c.server.gameState.Mu.Lock()
 		p := c.server.gameState.Players[c.PlayerID]
+		if shipTypeInt == int(game.ShipStarbase) {
+			// Count existing starbases, but exclude this player in case they're already a starbase
+			starbaseCounts := c.server.countStarbasesByTeam()
+			if p.Ship == game.ShipStarbase {
+				// If this player is currently a starbase, subtract 1 from the count
+				starbaseCounts[p.Team]--
+			}
+			if starbaseCounts[p.Team] >= 1 {
+				c.server.gameState.Mu.Unlock()
+				c.send <- ServerMessage{
+					Type: MsgTypeMessage,
+					Data: map[string]interface{}{
+						"text": "Your team already has a starbase. Only one starbase per team is allowed.",
+						"type": "warning",
+					},
+				}
+				return
+			}
+		}
+
+		// Set the next ship type for this player
 		p.NextShipType = shipTypeInt
 		c.server.gameState.Mu.Unlock()
 
