@@ -1,4 +1,4 @@
-# CLAUDE.md
+# WARP.md
 
 This file provides guidance to Warp (warp.dev) when working with code in this repository.
 
