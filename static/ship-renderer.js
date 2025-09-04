@@ -128,13 +128,13 @@ class ShipRenderer {
         const sprite = this.getShipSprite(player.team, player.ship, player.dir);
         if (!sprite) {
             // Fallback to simple triangle if no sprite
-            this.drawFallbackShip(ctx, player, x, y, scale);
+            this.drawFallbackShip(ctx, player, x, y, 1);
             return;
         }
         
-        // Draw the sprite centered at x, y
-        const width = sprite.width * scale;
-        const height = sprite.height * scale;
+        // Draw the sprite centered at x, y without any scaling
+        const width = sprite.width;
+        const height = sprite.height;
         
         ctx.save();
         ctx.imageSmoothingEnabled = false; // Keep pixelated look

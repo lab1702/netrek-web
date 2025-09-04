@@ -1453,7 +1453,7 @@ function renderTactical() {
         
         // Draw ship using ship renderer or fallback
         if (window.shipRenderer && window.shipRenderer.initialized) {
-            window.shipRenderer.drawShip(ctx, player, screenX, screenY, 1.5);
+            window.shipRenderer.drawShip(ctx, player, screenX, screenY, 1);
         } else {
             // Fallback to simple triangle
             ctx.translate(screenX, screenY);
