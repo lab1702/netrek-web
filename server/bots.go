@@ -192,13 +192,14 @@ func (s *Server) updateBotHard(p *game.Player) {
 	if s.gameState.T_mode {
 		// In tournament mode, focus on strategic objectives
 
-		// If carrying armies, prioritize delivering them
+		// If carrying armies, prioritize delivering them to NEUTRAL planets
 		if p.Armies > 0 {
 			var targetPlanet *game.Planet
-			// Find best planet to take (enemy or neutral)
-			targetPlanet = s.findBestPlanetToTake(p)
 
-			if targetPlanet != nil && targetPlanet.Owner != p.Team {
+			// First, look for neutral planets only
+			targetPlanet = s.findNearestNeutralPlanet(p)
+
+			if targetPlanet != nil {
 				dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
 				if dist < OrbitDistance {
 					// At planet
@@ -207,23 +208,14 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.DesSpeed = 0
 					}
 
-					// Check if we need to bomb first
-					if targetPlanet.Armies > 0 {
-						// Enemy planet still has armies - bomb it first
-						p.Bombing = true
-						p.Beaming = false
-						p.BeamingUp = false
-						p.BotCooldown = 10
-					} else {
-						// Planet has no armies - beam down to capture
-						p.Bombing = false
-						p.Beaming = true
-						p.BeamingUp = false
-						p.BotCooldown = 50
-					}
+					// Neutral planets should have no armies, just beam down
+					p.Bombing = false
+					p.Beaming = true
+					p.BeamingUp = false
+					p.BotCooldown = 50
 					return
 				} else {
-					// Navigate to target planet
+					// Navigate to neutral planet
 					p.Orbiting = -1
 					p.Bombing = false
 					p.Beaming = false
@@ -250,6 +242,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 					}
 					return
 				}
+			} else {
+				// No neutral planets available - wait in safe area
+				s.moveToSafeArea(p)
+				return
 			}
 		}
 
@@ -1426,6 +1422,87 @@ func (s *Server) findNearestEnemyPlanet(p *game.Player) *game.Planet {
 		}
 	}
 	return nearest
+}
+
+// findNearestNeutralPlanet finds the closest neutral planet
+func (s *Server) findNearestNeutralPlanet(p *game.Player) *game.Planet {
+	var nearest *game.Planet
+	minDist := 999999.0
+
+	for i := range s.gameState.Planets {
+		planet := s.gameState.Planets[i]
+		if planet.Owner == 0 { // 0 is neutral team
+			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
+			if dist < minDist {
+				minDist = dist
+				nearest = planet
+			}
+		}
+	}
+	return nearest
+}
+
+// moveToSafeArea moves the bot to a safe area when no neutral planets are available
+func (s *Server) moveToSafeArea(p *game.Player) {
+	// Find the center of friendly space
+	var friendlyX, friendlyY float64
+	friendlyCount := 0
+
+	for i := range s.gameState.Planets {
+		planet := s.gameState.Planets[i]
+		if planet.Owner == p.Team {
+			friendlyX += planet.X
+			friendlyY += planet.Y
+			friendlyCount++
+		}
+	}
+
+	if friendlyCount > 0 {
+		// Move towards the center of friendly space
+		friendlyX /= float64(friendlyCount)
+		friendlyY /= float64(friendlyCount)
+
+		// Add some offset to avoid crowding the exact center
+		angleOffset := float64(p.ID) * 0.5 // Spread bots out based on their ID
+		offsetDist := 3000.0
+		targetX := friendlyX + offsetDist*math.Cos(angleOffset)
+		targetY := friendlyY + offsetDist*math.Sin(angleOffset)
+
+		// Navigate to safe position
+		dx := targetX - p.X
+		dy := targetY - p.Y
+		dist := math.Sqrt(dx*dx + dy*dy)
+
+		if dist > 1000 {
+			// Move towards safe area
+			p.DesDir = math.Atan2(dy, dx)
+			p.DesSpeed = float64(game.ShipData[p.Ship].MaxSpeed) * 0.5 // Move at half speed to conserve fuel
+
+			// Apply separation to avoid bunching
+			separationVector := s.calculateSeparationVector(p)
+			if separationVector.magnitude > 0 {
+				weight := math.Min(separationVector.magnitude/300.0, 0.5)
+				navX := math.Cos(p.DesDir)*(1.0-weight) + separationVector.x*weight
+				navY := math.Sin(p.DesDir)*(1.0-weight) + separationVector.y*weight
+				p.DesDir = math.Atan2(navY, navX)
+			}
+		} else {
+			// At safe area - orbit slowly
+			p.DesSpeed = 2.0
+			p.DesDir = math.Mod(p.Dir+0.1, 2*math.Pi) // Gentle turn
+		}
+
+		// Clear any combat/planet actions
+		p.Orbiting = -1
+		p.Bombing = false
+		p.Beaming = false
+		p.BeamingUp = false
+		p.BotCooldown = 10
+	} else {
+		// No friendly planets - just stop and wait
+		p.DesSpeed = 0
+		p.BotCooldown = 20
+	}
 }
 
 func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
