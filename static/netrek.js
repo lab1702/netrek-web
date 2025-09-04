@@ -540,6 +540,10 @@ function handleKeyPress(key) {
             // All message
             showMessageInput('all');
             break;
+        case '/':
+            // Slash command shortcut - open All message window with '/' pre-filled
+            showMessageInput('all', '/');
+            break;
         case 't':
             // Check if shift is held for Team message
             if (controls.keys['Shift']) {
@@ -1868,7 +1872,7 @@ function updatePlayerList() {
 
 let messageMode = '';
 
-function showMessageInput(mode) {
+function showMessageInput(mode, initialText = '') {
     messageMode = mode;
     const inputDiv = document.getElementById('message-input');
     const prompt = inputDiv.querySelector('.prompt');
@@ -1885,11 +1889,13 @@ function showMessageInput(mode) {
     }
     
     inputDiv.style.display = 'block';
-    input.value = '';
-    // Use setTimeout to ensure the input is cleared after the current event finishes
+    input.value = initialText;
+    // Use setTimeout to ensure the input is set after the current event finishes
     setTimeout(() => {
-        input.value = '';
+        input.value = initialText;
         input.focus();
+        // Move cursor to the end of the text
+        input.setSelectionRange(initialText.length, initialText.length);
     }, 0);
 }
 
