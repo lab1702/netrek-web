@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -1343,17 +1342,20 @@ func (c *Client) handleBotCommand(cmd string) {
 		}
 
 		if len(parts) > 2 {
-			// Try to parse as ship alias first (SC, DD, CA, etc.)
+			// Parse ship alias (SC, DD, CA, etc.) - consistent with /refit
 			shipTypeStr := strings.ToUpper(parts[2])
 			if shipTypeInt, ok := shipAlias[shipTypeStr]; ok {
 				ship = shipTypeInt
 			} else {
-				// Fall back to numeric parsing for backward compatibility
-				if numericShip, err := strconv.Atoi(parts[2]); err == nil {
-					if numericShip >= 0 && numericShip <= 6 {
-						ship = numericShip
-					}
+				// Invalid ship type - send error message and return
+				c.send <- ServerMessage{
+					Type: MsgTypeMessage,
+					Data: map[string]interface{}{
+						"text": "Invalid ship type. Usage: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB|GA]",
+						"type": "warning",
+					},
 				}
+				return
 			}
 		}
 

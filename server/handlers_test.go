@@ -110,8 +110,8 @@ func TestAddbotCommandWithAliases(t *testing.T) {
 	}
 }
 
-// Test /addbot command with numeric backward compatibility
-func TestAddbotCommandBackwardCompatibility(t *testing.T) {
+// Test /addbot command with invalid ship type
+func TestAddbotCommandInvalidShip(t *testing.T) {
 	// Create a test server
 	server := NewServer()
 
@@ -131,22 +131,41 @@ func TestAddbotCommandBackwardCompatibility(t *testing.T) {
 	player.Connected = true
 	server.gameState.Mu.Unlock()
 
-	// Test addbot with numeric ship ID (backward compatibility)
+	// Test addbot with invalid ship type (numeric should no longer work)
 	client.handleBotCommand("/addbot kli 2")
 
-	// Check that a Klingon Cruiser bot was added
+	// Check that no bot was added
 	server.gameState.Mu.RLock()
 	botFound := false
 	for _, p := range server.gameState.Players {
-		if p.IsBot && p.Team == game.TeamKli && p.Ship == game.ShipCruiser {
+		if p.IsBot && p.Team == game.TeamKli {
 			botFound = true
 			break
 		}
 	}
 	server.gameState.Mu.RUnlock()
 
-	if !botFound {
-		t.Errorf("Expected to find a Klingon Cruiser bot after /addbot kli 2")
+	if botFound {
+		t.Errorf("Expected no bot to be added with invalid ship type '2'")
+	}
+
+	// Check that an error message was sent
+	select {
+	case msg := <-client.send:
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Errorf("Expected message data to be map[string]interface{}")
+		}
+		msgType, ok := data["type"].(string)
+		if !ok || msgType != "warning" {
+			t.Errorf("Expected warning message type, got: %v", msgType)
+		}
+		text, ok := data["text"].(string)
+		if !ok || !strings.Contains(text, "Invalid ship type") {
+			t.Errorf("Expected invalid ship type message, got: %v", text)
+		}
+	default:
+		t.Errorf("Expected a warning message to be sent")
 	}
 }
 
