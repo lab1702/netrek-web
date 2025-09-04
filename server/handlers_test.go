@@ -235,6 +235,84 @@ func TestAddbotStarbaseLimitation(t *testing.T) {
 	}
 }
 
+// Test /fillbots command with diverse ship types and starbase limit
+func TestFillbotsCommandWithDiverseShips(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+
+	// Create a mock client
+	client := &Client{
+		ID:       1,
+		PlayerID: 0,
+		server:   server,
+		send:     make(chan ServerMessage, 10),
+	}
+
+	// Initialize a test player
+	server.gameState.Mu.Lock()
+	player := server.gameState.Players[0]
+	player.Status = game.StatusAlive
+	player.Team = game.TeamFed
+	player.Connected = true
+	server.gameState.Mu.Unlock()
+
+	// Run fillbots command
+	client.handleBotCommand("/fillbots")
+
+	// Check that various ship types were added
+	server.gameState.Mu.RLock()
+	shipTypeCounts := make(map[game.ShipType]int)
+	starbasesByTeam := make(map[int]int)
+	botCount := 0
+
+	for _, p := range server.gameState.Players {
+		if p.IsBot && p.Status != game.StatusFree {
+			botCount++
+			shipTypeCounts[p.Ship]++
+			if p.Ship == game.ShipStarbase {
+				starbasesByTeam[p.Team]++
+			}
+		}
+	}
+	server.gameState.Mu.RUnlock()
+
+	if botCount == 0 {
+		t.Errorf("Expected some bots to be added by /fillbots")
+	}
+
+	// Check that we have variety in ship types (should have at least 3 different types)
+	differentShipTypes := len(shipTypeCounts)
+	if differentShipTypes < 3 {
+		t.Errorf("Expected at least 3 different ship types, got %d", differentShipTypes)
+	}
+
+	// Check starbase limit - no team should have more than 1 starbase
+	for team, count := range starbasesByTeam {
+		if count > 1 {
+			t.Errorf("Team %d has %d starbases, expected at most 1", team, count)
+		}
+	}
+
+	// Check that a confirmation message was sent
+	select {
+	case msg := <-client.send:
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Errorf("Expected message data to be map[string]interface{}")
+		}
+		msgType, ok := data["type"].(string)
+		if !ok || msgType != "info" {
+			t.Errorf("Expected info message type, got: %v", msgType)
+		}
+		text, ok := data["text"].(string)
+		if !ok || !strings.Contains(text, "diverse ship types") {
+			t.Errorf("Expected diverse ship types message, got: %v", text)
+		}
+	default:
+		t.Errorf("Expected a confirmation message to be sent")
+	}
+}
+
 // Test invalid refit command
 func TestRefitCommandInvalid(t *testing.T) {
 	// Create a test server

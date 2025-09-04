@@ -1406,57 +1406,122 @@ func (c *Client) handleBotCommand(cmd string) {
 		}
 
 	case "/fillbots":
-		// Fill all available slots with bots
+		// Fill available slots with bots of every ship type
 		// All bots use hard difficulty mode
+		// Only allow one starbase per team
 
-		// Distribute bots evenly across teams
+		c.server.gameState.Mu.Lock()
+		
+		// All ship types including starbase (but starbase is limited)
+		allShipTypes := []int{
+			int(game.ShipScout),      // 0
+			int(game.ShipDestroyer),  // 1
+			int(game.ShipCruiser),    // 2
+			int(game.ShipBattleship), // 3
+			int(game.ShipAssault),    // 4
+			int(game.ShipStarbase),   // 5
+			int(game.ShipGalaxy),     // 6
+		}
+
 		teams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
-		shipTypes := []int{0, 1, 2, 3, 4} // Scout, Destroyer, Cruiser, Battleship, Assault
 
 		botsAdded := 0
-		// Try to add bots to all available slots (MaxPlayers - 4 to leave room for humans)
-		maxBots := game.MaxPlayers - 4
+		maxBots := game.MaxPlayers - 4 // Leave room for humans
 
-		for botsAdded < maxBots {
-			// Round-robin team assignment
-			team := teams[botsAdded%4]
-			// Random ship type
-			ship := shipTypes[rand.Intn(5)]
+		// Keep track of how many of each ship type we've added per team
+		// This helps ensure we get variety
+		teamShipCounts := make(map[int]map[int]int)
+		for _, team := range teams {
+			teamShipCounts[team] = make(map[int]int)
+		}
 
-			// Count current bots before adding
-			currentBots := 0
-			for _, p := range c.server.gameState.Players {
-				if p.IsBot && p.Status != game.StatusFree {
-					currentBots++
-				}
-			}
-
-			// Try to add bot
-			c.server.AddBot(team, ship)
-
-			// Check if bot was actually added
-			newBots := 0
-			for _, p := range c.server.gameState.Players {
-				if p.IsBot && p.Status != game.StatusFree {
-					newBots++
-				}
-			}
-
-			if newBots > currentBots {
-				botsAdded = newBots
-			} else {
-				// No more slots available, stop trying
-				break
+		// Count existing bots
+		currentBots := 0
+		for _, p := range c.server.gameState.Players {
+			if p.IsBot && p.Status != game.StatusFree {
+				currentBots++
 			}
 		}
 
-		// Send confirmation message
-		c.send <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": fmt.Sprintf("Added %d bots to fill available slots", botsAdded),
-				"type": "info",
-			},
+		c.server.gameState.Mu.Unlock()
+
+		// Add bots in cycles, trying each ship type for each team
+		shipTypeIndex := 0
+		teamIndex := 0
+		consecutiveFailures := 0
+		maxConsecutiveFailures := len(teams) * len(allShipTypes) * 2 // Safety limit
+
+		for currentBots+botsAdded < maxBots && consecutiveFailures < maxConsecutiveFailures {
+			team := teams[teamIndex]
+			shipType := allShipTypes[shipTypeIndex]
+
+			// Check if we should skip this ship type for this team
+			shouldSkip := false
+
+			// Special handling for starbase - only allow one per team
+			if shipType == int(game.ShipStarbase) {
+				c.server.gameState.Mu.RLock()
+				currentStarbaseCount := c.server.countStarbasesByTeam()
+				c.server.gameState.Mu.RUnlock()
+				if currentStarbaseCount[team] >= 1 {
+					shouldSkip = true
+				}
+			}
+
+			if !shouldSkip {
+				// Try to add the bot
+				c.server.AddBot(team, shipType)
+
+				// Check if bot was actually added
+				c.server.gameState.Mu.RLock()
+				newBotCount := 0
+				for _, p := range c.server.gameState.Players {
+					if p.IsBot && p.Status != game.StatusFree {
+						newBotCount++
+					}
+				}
+				c.server.gameState.Mu.RUnlock()
+
+				if newBotCount > currentBots+botsAdded {
+					// Bot was successfully added
+					botsAdded++
+					teamShipCounts[team][shipType]++
+					consecutiveFailures = 0
+				} else {
+					// Bot was not added (probably no free slots)
+					consecutiveFailures++
+				}
+			} else {
+				// Skipped this ship type for this team
+				consecutiveFailures++
+			}
+
+			// Move to next team
+			teamIndex = (teamIndex + 1) % len(teams)
+
+			// If we've cycled through all teams, move to next ship type
+			if teamIndex == 0 {
+				shipTypeIndex = (shipTypeIndex + 1) % len(allShipTypes)
+			}
+		}
+
+		// Send confirmation message with details
+		if botsAdded > 0 {
+			c.send <- ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": fmt.Sprintf("Added %d bots with diverse ship types (1 starbase max per team)", botsAdded),
+					"type": "info",
+				},
+			}
+		} else {
+			c.send <- ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": "No bots were added - server may be full or all ship types already present",
+					"type": "warning",
+				},
+			}
 		}
 
 	case "/refit":
