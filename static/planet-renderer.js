@@ -222,12 +222,12 @@ class PlanetRenderer {
             if (resourceCode !== '000') {
                 spriteName = `${teamName}_mplanet${resourceCode}`;
             } else {
-                // No resources - return null to draw as empty circle
-                return null;
+                // No resources - use base planet bitmap
+                spriteName = `${teamName}mplanet`;
             }
         } else {
-            // No flags defined - return null to draw as empty circle
-            return null;
+            // No flags defined - use base planet bitmap
+            spriteName = `${teamName}mplanet`;
         }
         
         
