@@ -140,10 +140,31 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if (needRepair || needFuel) && enemyDist > 8000 {
 				p.DesSpeed = 0
 				p.Shields_up = false
+				// Activate repair mode if damaged over 50%
+				if needRepair && !p.Repairing {
+					p.Repairing = true
+				}
 				p.BotCooldown = 20
 				return
 			}
 		}
+	}
+	
+	// Use repair mode when safe and over 50% damaged even without orbiting
+	if needRepair && enemyDist > 10000 && !p.Repairing && p.Speed < 2 {
+		// Safe to repair - activate repair mode
+		p.Repairing = true
+		p.RepairRequest = false
+		p.DesSpeed = 0
+		p.Shields_up = false
+		p.BotCooldown = 30
+		return
+	}
+	
+	// Cancel repair mode if threatened
+	if p.Repairing && enemyDist < 8000 {
+		p.Repairing = false
+		p.RepairRequest = false
 	}
 
 	// Repair/fuel decision based on threat level
@@ -162,6 +183,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 				p.Orbiting = targetPlanet.ID
 				p.DesSpeed = 0
 				p.Shields_up = false
+				// Activate repair mode if damaged over 50%
+				if needRepair && !p.Repairing {
+					p.Repairing = true
+				}
 				p.BotCooldown = 30
 				return
 			} else {
