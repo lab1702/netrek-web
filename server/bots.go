@@ -149,7 +149,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			}
 		}
 	}
-	
+
 	// Use repair mode when safe and over 50% damaged even without orbiting
 	if needRepair && enemyDist > 10000 && !p.Repairing && p.Speed < 2 {
 		// Safe to repair - activate repair mode
@@ -160,7 +160,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 		p.BotCooldown = 30
 		return
 	}
-	
+
 	// Cancel repair mode if threatened
 	if p.Repairing && enemyDist < 8000 {
 		p.Repairing = false
@@ -2520,7 +2520,7 @@ func (s *Server) executePatrol(p *game.Player) {
 				p.BotGoalY = float64(game.TeamHomeY[enemyTeam]) + float64(rand.Intn(20000)-10000)
 			}
 		}
-		
+
 		// Clamp patrol destination to galaxy boundaries with margin
 		margin := 5000.0 // Keep away from edges
 		p.BotGoalX = math.Max(margin, math.Min(game.GalaxyWidth-margin, p.BotGoalX))
@@ -2530,7 +2530,7 @@ func (s *Server) executePatrol(p *game.Player) {
 	// Check if bot is stuck at galaxy edge and reset patrol
 	edgeMargin := 2000.0
 	if p.X < edgeMargin || p.X > game.GalaxyWidth-edgeMargin ||
-	   p.Y < edgeMargin || p.Y > game.GalaxyHeight-edgeMargin {
+		p.Y < edgeMargin || p.Y > game.GalaxyHeight-edgeMargin {
 		// Bot is at edge, reset patrol destination
 		p.BotGoalX = 0
 		p.BotGoalY = 0

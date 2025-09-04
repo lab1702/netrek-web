@@ -13,6 +13,17 @@ import (
 	"time"
 )
 
+// shipAlias maps ship type abbreviations to ship type integers
+var shipAlias = map[string]int{
+	"SC": 0, "SCOUT": 0,
+	"DD": 1, "DESTROYER": 1,
+	"CA": 2, "CRUISER": 2,
+	"BB": 3, "BATTLESHIP": 3,
+	"AS": 4, "ASSAULT": 4,
+	"SB": 5, "STARBASE": 5,
+	"GA": 6, "GALAXY": 6,
+}
+
 // sanitizeText escapes HTML special characters to prevent XSS
 func sanitizeText(text string) string {
 	// Limit message length
@@ -251,6 +262,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	p.DesSpeed = 0
 	p.Connected = true
 	p.Shields_up = false // Shields DOWN by default
+	p.NextShipType = -1  // No pending refit on join
 
 	c.PlayerID = playerID
 
@@ -1406,12 +1418,57 @@ func (c *Client) handleBotCommand(cmd string) {
 			},
 		}
 
+	case "/refit":
+		// /refit [ship_type]
+		if len(parts) < 2 {
+			c.send <- ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": "Usage: /refit SC|DD|CA|BB|AS|SB|GA",
+					"type": "warning",
+				},
+			}
+			return
+		}
+
+		// Get the ship type from alias (case insensitive)
+		shipTypeStr := strings.ToUpper(parts[1])
+		shipTypeInt, ok := shipAlias[shipTypeStr]
+		if !ok {
+			c.send <- ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": "Invalid ship type. Usage: /refit SC|DD|CA|BB|AS|SB|GA",
+					"type": "warning",
+				},
+			}
+			return
+		}
+
+		// Set the next ship type for this player
+		c.server.gameState.Mu.Lock()
+		p := c.server.gameState.Players[c.PlayerID]
+		p.NextShipType = shipTypeInt
+		c.server.gameState.Mu.Unlock()
+
+		// Get the ship name for the confirmation message
+		shipName := game.ShipData[game.ShipType(shipTypeInt)].Name
+
+		// Send confirmation message
+		c.send <- ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": fmt.Sprintf("Refit to %s when you next respawn.", shipName),
+				"type": "info",
+			},
+		}
+
 	case "/help":
 		// Send help message
 		c.send <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": "Bot commands: /addbot [fed/rom/kli/ori] [0-6] [0-2] | /removebot | /balance | /clearbots | /fillbots [easy/medium/hard]",
+				"text": "Bot commands: /addbot [fed/rom/kli/ori] [0-6] [0-2] | /removebot | /balance | /clearbots | /fillbots | /refit SC|DD|CA|BB|AS|SB|GA",
 				"type": "info",
 			},
 		}

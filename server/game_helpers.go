@@ -37,6 +37,12 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.KilledBy = -1
 	p.KillsStreak = 0 // Reset kill streak on death
 
+	// Check for pending refit before resetting ship stats
+	if p.NextShipType >= 0 && p.NextShipType < len(game.ShipData) {
+		p.Ship = game.ShipType(p.NextShipType)
+		p.NextShipType = -1 // Clear the refit request
+	}
+
 	// Reset ship stats
 	shipStats := game.ShipData[p.Ship]
 	p.Shields = shipStats.MaxShields
