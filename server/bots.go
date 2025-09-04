@@ -112,6 +112,12 @@ func (s *Server) updateBotHard(p *game.Player) {
 		return
 	}
 
+	// STARBASE-SPECIFIC AI: Cautious and defensive behavior
+	if p.Ship == game.ShipStarbase {
+		s.updateStarbaseBot(p)
+		return
+	}
+
 	shipStats := game.ShipData[p.Ship]
 
 	// Find strategic planets (like borgmove.c find_planets)
@@ -508,6 +514,331 @@ func (s *Server) updateBotHard(p *game.Player) {
 		s.executePatrol(p)
 		return
 	}
+}
+
+// updateStarbaseBot implements specialized AI for starbase bots
+// Starbases are cautious, defensive, and focused on protecting territory
+func (s *Server) updateStarbaseBot(p *game.Player) {
+	shipStats := game.ShipData[p.Ship]
+
+	// Basic needs assessment
+	needRepair := p.Damage > shipStats.MaxDamage/3 // More conservative repair threshold
+	needFuel := p.Fuel < shipStats.MaxFuel/2       // More conservative fuel threshold
+	criticalDamage := p.Damage > shipStats.MaxDamage*2/3
+
+	nearestEnemy := s.findNearestEnemy(p)
+	enemyDist := 999999.0
+	if nearestEnemy != nil {
+		enemyDist = game.Distance(p.X, p.Y, nearestEnemy.X, nearestEnemy.Y)
+	}
+
+	// Count team's planet ownership to determine strategic posture
+	teamPlanets := s.countPlanetsForTeam(p.Team)
+	totalPlanets := len(s.gameState.Planets)
+	teamOwnership := float64(teamPlanets) / float64(totalPlanets)
+
+	// Find strategic locations
+	corePlanet := s.findNearestCorePlanet(p)
+	repairPlanet := s.findNearestRepairPlanet(p)
+	fuelPlanet := s.findNearestFuelPlanet(p)
+	threatenedPlanet := s.findMostThreatenedFriendlyPlanet(p)
+
+	// Critical needs - get to safety first
+	if criticalDamage || (needRepair && enemyDist < 12000) {
+		var safetyPlanet *game.Planet
+		if repairPlanet != nil {
+			safetyPlanet = repairPlanet
+		} else if fuelPlanet != nil {
+			safetyPlanet = fuelPlanet
+		} else if corePlanet != nil {
+			safetyPlanet = corePlanet
+		}
+
+		if safetyPlanet != nil {
+			dist := game.Distance(p.X, p.Y, safetyPlanet.X, safetyPlanet.Y)
+			if dist < OrbitDistance {
+				// Safe at friendly planet - repair
+				p.Orbiting = safetyPlanet.ID
+				p.DesSpeed = 0
+				p.Shields_up = false
+				if needRepair {
+					p.Repairing = true
+				}
+				p.BotCooldown = 30
+				return
+			} else if enemyDist > 8000 {
+				// Move cautiously to safety
+				p.Orbiting = -1
+				p.Repairing = false
+				dx := safetyPlanet.X - p.X
+				dy := safetyPlanet.Y - p.Y
+				p.DesDir = math.Atan2(dy, dx)
+				p.DesSpeed = 2 // Very slow, cautious movement
+				p.Shields_up = true
+				return
+			}
+		}
+	}
+
+	// Currently orbiting - stay put if it's beneficial
+	if p.Orbiting >= 0 && p.Orbiting < len(s.gameState.Planets) {
+		orbitPlanet := s.gameState.Planets[p.Orbiting]
+		if orbitPlanet.Owner == p.Team {
+			// At friendly planet - consider staying
+			isCorePlanet := s.isCorePlanet(orbitPlanet, p.Team)
+			isSafe := enemyDist > 10000 || (enemyDist > 6000 && isCorePlanet)
+
+			if (needRepair || needFuel) && isSafe {
+				// Stay and repair/refuel
+				p.DesSpeed = 0
+				p.Shields_up = false
+				if needRepair {
+					p.Repairing = true
+				}
+				p.BotCooldown = 25
+				return
+			} else if isSafe && (isCorePlanet || teamOwnership < 0.4) {
+				// Stay at core planets or if team doesn't control much territory
+				p.DesSpeed = 0
+				p.Shields_up = enemyDist < 15000
+				// Defend from orbit if enemy approaches
+				if nearestEnemy != nil && enemyDist < 8000 {
+					s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
+				}
+				p.BotCooldown = 15
+				return
+			}
+		}
+	}
+
+	// Strategic decision making based on team ownership
+	if teamOwnership >= 0.25 {
+		// Team controls significant territory - can be more aggressive in defense
+		if threatenedPlanet != nil {
+			// Move to defend threatened planet
+			dist := game.Distance(p.X, p.Y, threatenedPlanet.X, threatenedPlanet.Y)
+			if dist > 4000 {
+				// Move closer to threatened planet
+				p.Orbiting = -1
+				p.Repairing = false
+				dx := threatenedPlanet.X - p.X
+				dy := threatenedPlanet.Y - p.Y
+				p.DesDir = math.Atan2(dy, dx)
+				p.DesSpeed = 2 // Slow, deliberate movement
+				p.Shields_up = true
+				return
+			} else {
+				// Close to threatened planet - defend it
+				p.Orbiting = threatenedPlanet.ID
+				p.DesSpeed = 0
+				if nearestEnemy != nil && enemyDist < 10000 {
+					s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
+				}
+				p.BotCooldown = 10
+				return
+			}
+		}
+	} else {
+		// Team controls less than 1/4 - stay near core planets
+		if corePlanet != nil {
+			dist := game.Distance(p.X, p.Y, corePlanet.X, corePlanet.Y)
+			if dist > 3000 {
+				// Move back to core area
+				p.Orbiting = -1
+				p.Repairing = false
+				dx := corePlanet.X - p.X
+				dy := corePlanet.Y - p.Y
+				p.DesDir = math.Atan2(dy, dx)
+				p.DesSpeed = 2
+				p.Shields_up = true
+				return
+			} else {
+				// Near core planet - defend it
+				p.Orbiting = corePlanet.ID
+				p.DesSpeed = 0
+				p.Shields_up = enemyDist < 12000
+				if nearestEnemy != nil && enemyDist < 8000 {
+					s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
+				}
+				p.BotCooldown = 20
+				return
+			}
+		}
+	}
+
+	// No specific objective - patrol defensively near friendly planets
+	s.starbaseDefensivePatrol(p)
+}
+
+// starbaseDefensiveCombat handles combat for starbases - conservative and defensive
+func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dist float64) {
+	shipStats := game.ShipData[p.Ship]
+
+	// Always shields up in combat
+	p.Shields_up = true
+
+	// Calculate firing solution
+	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
+	angleDiff := math.Abs(p.Dir - angleToEnemy)
+	if angleDiff > math.Pi {
+		angleDiff = 2*math.Pi - angleDiff
+	}
+
+	// Turn towards enemy slowly (starbases turn slowly)
+	if angleDiff > 0.1 {
+		p.DesDir = angleToEnemy
+	}
+
+	// Stay put - starbases don't chase
+	p.DesSpeed = 0
+
+	// Fire weapons when aligned and enemy is in range
+	if angleDiff < 0.3 {
+		// Fire torpedoes conservatively
+		if dist < 7000 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
+			s.fireBotTorpedoWithLead(p, enemy)
+			p.BotCooldown = 12 // Slower firing rate
+		}
+
+		// Fire phasers for close threats or to finish enemies
+		if dist < 4000 && p.Fuel > 2000 && p.WTemp < 700 {
+			enemyDamageRatio := float64(enemy.Damage) / float64(game.ShipData[enemy.Ship].MaxDamage)
+			if enemyDamageRatio > 0.6 || dist < 2500 {
+				s.fireBotPhaser(p, enemy)
+				p.BotCooldown = 15
+			}
+		}
+
+		// Use plasma for area denial
+		if shipStats.HasPlasma && p.NumPlasma < 1 && dist < 6000 && dist > 2000 && p.Fuel > 4000 {
+			s.fireBotPlasma(p, enemy)
+			p.BotCooldown = 25
+		}
+	}
+}
+
+// starbaseDefensivePatrol makes starbase patrol defensively near friendly territory
+func (s *Server) starbaseDefensivePatrol(p *game.Player) {
+	// Find center of friendly territory
+	centerX, centerY := s.calculateTeamCenter(p.Team)
+	dist := game.Distance(p.X, p.Y, centerX, centerY)
+
+	// Stay within 15000 units of team center
+	if dist > 15000 {
+		// Move back towards team center
+		p.Orbiting = -1
+		dx := centerX - p.X
+		dy := centerY - p.Y
+		p.DesDir = math.Atan2(dy, dx)
+		p.DesSpeed = 2
+		p.Shields_up = true
+	} else {
+		// Slow patrol pattern
+		patrolAngle := math.Mod(float64(s.gameState.Frame)*0.01, 2*math.Pi)
+		p.DesDir = patrolAngle
+		p.DesSpeed = 1 // Very slow patrol
+		p.Shields_up = false
+	}
+
+	p.BotCooldown = 30 // Slow decision making
+}
+
+// Helper functions for starbase AI
+
+// countPlanetsForTeam counts how many planets a team owns
+func (s *Server) countPlanetsForTeam(team int) int {
+	count := 0
+	for _, planet := range s.gameState.Planets {
+		if planet.Owner == team {
+			count++
+		}
+	}
+	return count
+}
+
+// findNearestCorePlanet finds the nearest core (home) planet
+func (s *Server) findNearestCorePlanet(p *game.Player) *game.Planet {
+	var nearest *game.Planet
+	nearestDist := 999999.0
+
+	for i := range s.gameState.Planets {
+		planet := s.gameState.Planets[i]
+		if planet != nil && planet.Owner == p.Team && s.isCorePlanet(planet, p.Team) {
+			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
+			if dist < nearestDist {
+				nearestDist = dist
+				nearest = planet
+			}
+		}
+	}
+	return nearest
+}
+
+// isCorePlanet checks if a planet is a core/home planet for a team
+func (s *Server) isCorePlanet(planet *game.Planet, team int) bool {
+	// Check if planet is close to team's home coordinates
+	homeX := float64(game.TeamHomeX[team])
+	homeY := float64(game.TeamHomeY[team])
+	dist := game.Distance(planet.X, planet.Y, homeX, homeY)
+	return dist < 25000 // Within 25k of home
+}
+
+// findMostThreatenedFriendlyPlanet finds friendly planet most at risk
+func (s *Server) findMostThreatenedFriendlyPlanet(p *game.Player) *game.Planet {
+	var mostThreatened *game.Planet
+	highestThreat := 0.0
+
+	for i := range s.gameState.Planets {
+		planet := s.gameState.Planets[i]
+		if planet == nil || planet.Owner != p.Team {
+			continue
+		}
+
+		// Calculate threat level based on nearby enemies
+		threatLevel := 0.0
+		for _, enemy := range s.gameState.Players {
+			if enemy.Team == p.Team || enemy.Status != game.StatusAlive {
+				continue
+			}
+			dist := game.Distance(planet.X, planet.Y, enemy.X, enemy.Y)
+			if dist < 15000 {
+				// Closer enemies are more threatening
+				threatLevel += (15000 - dist) / 15000
+				// Carriers are extra threatening
+				if enemy.Armies > 0 {
+					threatLevel += 0.5
+				}
+			}
+		}
+
+		if threatLevel > highestThreat {
+			highestThreat = threatLevel
+			mostThreatened = planet
+		}
+	}
+
+	return mostThreatened
+}
+
+// calculateTeamCenter calculates the center of a team's territory
+func (s *Server) calculateTeamCenter(team int) (float64, float64) {
+	totalX, totalY := 0.0, 0.0
+	count := 0
+
+	for _, planet := range s.gameState.Planets {
+		if planet.Owner == team {
+			totalX += planet.X
+			totalY += planet.Y
+			count++
+		}
+	}
+
+	if count > 0 {
+		return totalX / float64(count), totalY / float64(count)
+	}
+
+	// Fallback to team home if no planets owned
+	return float64(game.TeamHomeX[team]), float64(game.TeamHomeY[team])
 }
 
 // engageCombat handles combat engagement for hard bots

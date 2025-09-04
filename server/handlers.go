@@ -1411,7 +1411,7 @@ func (c *Client) handleBotCommand(cmd string) {
 		// Only allow one starbase per team
 
 		c.server.gameState.Mu.Lock()
-		
+
 		// All ship types including starbase (but starbase is limited)
 		allShipTypes := []int{
 			int(game.ShipScout),      // 0
