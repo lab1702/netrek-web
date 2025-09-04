@@ -30,6 +30,10 @@ func formatPlayerName(p *game.Player) string {
 
 // respawnPlayer respawns a dead player at their home planet
 func (s *Server) respawnPlayer(p *game.Player) {
+	// IMPORTANT: Preserve the ship type for bots unless they have a pending refit
+	// Bots should respawn with the same ship type, just like human players
+	currentShipType := p.Ship
+
 	// Reset player state
 	p.Status = game.StatusAlive
 	p.ExplodeTimer = 0
@@ -62,6 +66,10 @@ func (s *Server) respawnPlayer(p *game.Player) {
 			p.Ship = game.ShipType(p.NextShipType)
 			p.NextShipType = -1
 		}
+	} else {
+		// No pending refit - preserve existing ship type
+		// This is especially important for bots to maintain ship diversity
+		p.Ship = currentShipType
 	}
 
 	// Reset ship stats

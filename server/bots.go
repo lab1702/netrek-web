@@ -2488,8 +2488,9 @@ func (s *Server) selectBotShipType(team int) int {
 	}
 
 	if total == 0 {
-		// First bot - random
-		return rand.Intn(5)
+		// First bot - random from main combat ships (avoid too many scouts)
+		options := []int{int(game.ShipDestroyer), int(game.ShipCruiser), int(game.ShipBattleship), int(game.ShipAssault)}
+		return options[rand.Intn(len(options))]
 	}
 
 	// Prefer destroyers and cruisers for balance
@@ -2505,8 +2506,9 @@ func (s *Server) selectBotShipType(team int) int {
 		return int(game.ShipAssault)
 	}
 
-	// Random for variety
-	return rand.Intn(5)
+	// Random from main combat ships for variety (includes Scout, Destroyer, Cruiser, Battleship, Assault)
+	// Note: This excludes Starbase (handled separately) and Galaxy (rare)
+	return rand.Intn(5) // 0-4: Scout, Destroyer, Cruiser, Battleship, Assault
 }
 
 // selectBotBehavior determines bot behavior based on game state
