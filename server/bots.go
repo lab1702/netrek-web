@@ -1144,6 +1144,8 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 	dx := predictX - p.X
 	dy := predictY - p.Y
 	fireDir := math.Atan2(dy, dx)
+	// Add small random jitter to make bot torpedoes harder to dodge
+	fireDir += randomJitterRad()
 
 	// Create torpedo
 	torp := &game.Torpedo{
@@ -1572,6 +1574,8 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 	vyt := l*vya + dy
 
 	fireDir := math.Atan2(vyt, vxt)
+	// Add small random jitter to make bot torpedoes harder to dodge
+	fireDir += randomJitterRad()
 
 	// Create torpedo with calculated direction
 	torp := &game.Torpedo{
@@ -2692,6 +2696,8 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 		// Calculate spread direction
 		offset := float64(i-count/2) * spreadAngle
 		fireDir := baseDir + offset
+		// Add small random jitter to make each torpedo harder to dodge
+		fireDir += randomJitterRad()
 
 		// Create torpedo
 		torp := &game.Torpedo{
@@ -2721,6 +2727,8 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	}
 
 	fireDir := s.calculateEnhancedInterceptCourse(p, target)
+	// Add small random jitter to make bot torpedoes harder to dodge
+	fireDir += randomJitterRad()
 	shipStats := game.ShipData[p.Ship]
 
 	torp := &game.Torpedo{
