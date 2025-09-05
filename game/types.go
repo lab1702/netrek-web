@@ -457,11 +457,12 @@ type Player struct {
 	LastUpdate time.Time `json:"-"`
 
 	// Bot fields
-	IsBot       bool    `json:"isBot"`
-	BotTarget   int     `json:"-"` // Current target player ID
-	BotGoalX    float64 `json:"-"` // Navigation goal
-	BotGoalY    float64 `json:"-"`
-	BotCooldown int     `json:"-"` // Frames until next action
+	IsBot               bool    `json:"isBot"`
+	BotTarget           int     `json:"-"` // Current target player ID
+	BotPlanetApproachID int     `json:"-"` // Planet ID bot is trying to approach (-1 if none)
+	BotGoalX            float64 `json:"-"` // Navigation goal
+	BotGoalY            float64 `json:"-"`
+	BotCooldown         int     `json:"-"` // Frames until next action
 
 	// Refit system - ship type to use on next respawn (-1 means no pending refit)
 	NextShipType int `json:"-"` // Ship type to use on next respawn

@@ -50,6 +50,7 @@ func (s *Server) AddBot(team, ship int) {
 	p.Connected = true
 	p.IsBot = true
 	p.BotTarget = -1
+	p.BotPlanetApproachID = -1
 	p.BotCooldown = 0
 
 	// Set initial position based on team
@@ -175,6 +176,46 @@ func (s *Server) updateBotHard(p *game.Player) {
 		p.RepairRequest = false
 	}
 
+	// Check if we were trying to approach a planet but got sidetracked fighting defenders
+	if p.BotPlanetApproachID >= 0 && p.BotPlanetApproachID < len(s.gameState.Planets) {
+		approachPlanet := s.gameState.Planets[p.BotPlanetApproachID]
+		defenderInfo := s.detectPlanetDefenders(approachPlanet, p.Team)
+
+		// Check if defenders are cleared or pushed far enough away
+		defendersCleared := defenderInfo.DefenderCount == 0 || defenderInfo.MinDefenderDist > 10000
+
+		// Check if our target is dead or far away (meaning we've successfully engaged)
+		targetStillThreatening := false
+		if p.BotTarget >= 0 && p.BotTarget < game.MaxPlayers {
+			target := s.gameState.Players[p.BotTarget]
+			if target.Status == game.StatusAlive {
+				targetDist := game.Distance(p.X, p.Y, target.X, target.Y)
+				planetDist := game.Distance(target.X, target.Y, approachPlanet.X, approachPlanet.Y)
+				// Target is still threatening if alive, close to us, and near the planet
+				targetStillThreatening = targetDist < 8000 && planetDist < 12000
+			}
+		}
+
+		if defendersCleared && !targetStillThreatening {
+			// Defenders are cleared, resume planet approach
+			dist := game.Distance(p.X, p.Y, approachPlanet.X, approachPlanet.Y)
+			if dist < OrbitDistance {
+				// Close enough to planet, clear approach ID and let normal logic take over
+				p.BotPlanetApproachID = -1
+			} else {
+				// Navigate back to the planet
+				dx := approachPlanet.X - p.X
+				dy := approachPlanet.Y - p.Y
+				baseDir := math.Atan2(dy, dx)
+				desiredSpeed := s.getOptimalSpeed(p, dist)
+
+				s.applySafeNavigation(p, baseDir, desiredSpeed, "resuming planet approach")
+				p.BotCooldown = 5
+				return
+			}
+		}
+	}
+
 	// Repair/fuel decision based on threat level
 	if (needRepair || needFuel) && (enemyDist > 15000 || criticalDamage) {
 		var targetPlanet *game.Planet
@@ -225,6 +266,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 			if targetPlanet != nil {
 				dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
+
+				// Check for defenders around the target planet
+				_ = s.detectPlanetDefenders(targetPlanet, p.Team) // Just detect, handled in navigation section
+
 				if dist < OrbitDistance {
 					// At planet
 					if p.Orbiting != targetPlanet.ID {
@@ -302,6 +347,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 		if targetPlanet != nil {
 			dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
+			
+			// Check for defenders around the target planet
+			defenderInfo := s.detectPlanetDefenders(targetPlanet, p.Team)
+			
 			if dist < OrbitDistance {
 				// At planet - perform appropriate action
 				if p.Orbiting != targetPlanet.ID {
@@ -357,24 +406,83 @@ func (s *Server) updateBotHard(p *game.Player) {
 				}
 				return
 			} else {
-				// Navigate to planet with torpedo dodging
-				p.Orbiting = -1
-				p.Bombing = false
-				p.Beaming = false
-				p.BeamingUp = false
-				dx := targetPlanet.X - p.X
-				dy := targetPlanet.Y - p.Y
-				baseDir := math.Atan2(dy, dx)
-				desiredSpeed := s.getOptimalSpeed(p, dist)
+				// Determine if we should engage defenders before approaching planet
+				const DANGER_THRESHOLD = 2500.0  // Defense score threshold for engaging
+				const MIN_SAFE_DISTANCE = 6000.0 // Distance threshold for safe approach
 
-				// Use safe navigation with torpedo dodging
-				s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to planet")
+				shouldEngageDefenders := false
+				var primaryDefender *game.Player = nil
 
-				// Engage enemies if they're threatening our objective
-				if enemyDist < 8000 {
-					// Enemy is close, might need to fight
-					if enemyDist < 4000 || nearestEnemy.Armies > 0 {
-						// Fight if enemy is very close or is a carrier
+				// Check if we should engage defenders first
+				if defenderInfo.DefenderCount > 0 {
+					// Engage if defense score is high or closest defender is too close
+					if defenderInfo.DefenseScore > DANGER_THRESHOLD || defenderInfo.MinDefenderDist < MIN_SAFE_DISTANCE {
+						shouldEngageDefenders = true
+
+						// Select primary defender: prioritize carriers, then closest
+						for _, defender := range defenderInfo.Defenders {
+							if defender.Armies > 0 {
+								primaryDefender = defender
+								break // Carriers are top priority
+							}
+						}
+						if primaryDefender == nil {
+							primaryDefender = defenderInfo.ClosestDefender
+						}
+					}
+
+					// Abort if too many defenders and no allies nearby
+					if defenderInfo.DefenderCount >= 3 {
+						alliesNearby := 0
+						for _, ally := range s.gameState.Players {
+							if ally.Status == game.StatusAlive && ally.Team == p.Team && ally.ID != p.ID {
+								allyDist := game.Distance(p.X, p.Y, ally.X, ally.Y)
+								if allyDist < 15000 {
+									alliesNearby++
+								}
+							}
+						}
+						if alliesNearby == 0 {
+							// Too dangerous, abort this planet
+							p.BotPlanetApproachID = -1
+							p.BotCooldown = 50 // Look for different target
+							return
+						}
+					}
+				}
+
+				if shouldEngageDefenders && primaryDefender != nil {
+					// Set planet approach ID so we can resume after clearing defender
+					p.BotPlanetApproachID = targetPlanet.ID
+
+					// Clear planet-specific states
+					p.Orbiting = -1
+					p.Bombing = false
+					p.Beaming = false
+					p.BeamingUp = false
+
+					// Engage the primary defender instead of going to planet
+					defenderDist := game.Distance(p.X, p.Y, primaryDefender.X, primaryDefender.Y)
+					s.engageCombat(p, primaryDefender, defenderDist)
+					return
+				} else {
+					// Safe to approach planet directly or no significant defenders
+					p.Orbiting = -1
+					p.Bombing = false
+					p.Beaming = false
+					p.BeamingUp = false
+					p.BotPlanetApproachID = targetPlanet.ID // Track our objective
+
+					dx := targetPlanet.X - p.X
+					dy := targetPlanet.Y - p.Y
+					baseDir := math.Atan2(dy, dx)
+					desiredSpeed := s.getOptimalSpeed(p, dist)
+
+					// Use safe navigation with torpedo dodging
+					s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to planet")
+
+					// Still engage if closest enemy gets too close while navigating
+					if enemyDist < 4000 {
 						s.engageCombat(p, nearestEnemy, enemyDist)
 						return
 					}
@@ -1587,27 +1695,30 @@ func (s *Server) findBestPlanetToTake(p *game.Player) *game.Planet {
 			}
 		}
 
-		// Check for defenders and allies
-		defenders := 0
+		// Check for defenders using improved detection system
+		defenderInfo := s.detectPlanetDefenders(planet, p.Team)
+
+		// Count allies near planet
 		allies := 0
 		for _, other := range s.gameState.Players {
-			if other.Status == game.StatusAlive {
+			if other.Status == game.StatusAlive && other.Team == p.Team && other.ID != p.ID {
 				otherDist := game.Distance(planet.X, planet.Y, other.X, other.Y)
 				if otherDist < 10000 {
-					if other.Team == planet.Owner {
-						defenders++
-						// Heavily penalize if defender is at the planet
-						if otherDist < 2000 {
-							defenders += 2
-						}
-					} else if other.Team == p.Team && other.ID != p.ID {
-						allies++
-					}
+					allies++
 				}
 			}
 		}
-		score -= float64(defenders) * 800
-		score += float64(allies) * 300 // Bonus for allied support
+
+		// Apply defender penalties with enhanced scoring
+		score -= defenderInfo.DefenseScore * 0.8 // Scale down for planet selection
+
+		// Heavy penalty if 2+ defenders and no allies (avoid suicide runs)
+		if defenderInfo.DefenderCount >= 2 && allies == 0 {
+			score -= 5000
+		}
+
+		// Bonus for allied support
+		score += float64(allies) * 300
 
 		// Frontline bonus - prefer planets near the battle
 		if s.isPlanetOnFrontline(planet, p.Team) {
@@ -1672,6 +1783,76 @@ func (s *Server) countTeamPlanets() map[int]int {
 		counts[planet.Owner]++
 	}
 	return counts
+}
+
+// PlanetDefenderInfo contains information about defenders around a planet
+type PlanetDefenderInfo struct {
+	Defenders         []*game.Player // All enemy players within detection radius
+	DefenderCount     int            // Count of enemy ships
+	ClosestDefender   *game.Player   // The closest enemy ship
+	MinDefenderDist   float64        // Distance to the closest defender
+	HasCarrierDefense bool           // Whether any defender is carrying armies
+	DefenseScore      float64        // Calculated threat score (higher = more dangerous)
+}
+
+// detectPlanetDefenders finds enemy ships defending a planet
+func (s *Server) detectPlanetDefenders(planet *game.Planet, team int) *PlanetDefenderInfo {
+	// Constants for defender detection and scoring
+	const (
+		DEFENDER_RADIUS = 10000.0 // Range to consider ships as defenders
+		BASE_SCORE      = 1000.0  // Base defense score
+		DIST_FACTOR     = 0.15    // Weight for distance factor
+		CARRIER_BONUS   = 2000.0  // Bonus for carriers
+	)
+
+	info := &PlanetDefenderInfo{
+		Defenders:       make([]*game.Player, 0),
+		DefenderCount:   0,
+		MinDefenderDist: 999999.0,
+	}
+
+	// Find all enemy ships near the planet
+	for i := range s.gameState.Players {
+		player := s.gameState.Players[i]
+		if player.Status == game.StatusAlive && player.Team != team && !player.Cloaked {
+			dist := game.Distance(planet.X, planet.Y, player.X, player.Y)
+			if dist <= DEFENDER_RADIUS {
+				// Add to defenders list
+				info.Defenders = append(info.Defenders, player)
+				info.DefenderCount++
+
+				// Track closest defender
+				if dist < info.MinDefenderDist {
+					info.MinDefenderDist = dist
+					info.ClosestDefender = player
+				}
+
+				// Check if defender has armies (carrier)
+				if player.Armies > 0 {
+					info.HasCarrierDefense = true
+				}
+			}
+		}
+	}
+
+	// Calculate defense score based on number of defenders, distance, and carriers
+	info.DefenseScore = 0
+	if info.DefenderCount > 0 {
+		// Basic score based on number of defenders
+		info.DefenseScore = float64(info.DefenderCount) * BASE_SCORE
+
+		// Add distance factor (closer defenders make it more dangerous)
+		if info.MinDefenderDist < DEFENDER_RADIUS {
+			info.DefenseScore += (DEFENDER_RADIUS - info.MinDefenderDist) * DIST_FACTOR
+		}
+
+		// Add carrier bonus
+		if info.HasCarrierDefense {
+			info.DefenseScore += CARRIER_BONUS
+		}
+	}
+
+	return info
 }
 
 // isPlanetOnFrontline checks if a planet is on the frontline
@@ -1894,12 +2075,29 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 			if s.isTorpedoThreatening(p, torp) {
 				threat.requiresEvasion = true
 				threat.threatLevel += 4
+
 				// Increase threat level based on proximity
+				baseThreatIncrease := 0
 				if dist < 2000 {
-					threat.threatLevel += 3
+					baseThreatIncrease = 3
 				} else if dist < 4000 {
-					threat.threatLevel += 1
+					baseThreatIncrease = 1
 				}
+
+				// Check if we're near a planet - torpedoes are more dangerous in planet areas
+				planetProximityBonus := 0.0
+				for _, planet := range s.gameState.Planets {
+					pDistToPlanet := game.Distance(p.X, p.Y, planet.X, planet.Y)
+					torpDistToPlanet := game.Distance(torp.X, torp.Y, planet.X, planet.Y)
+
+					// If both bot and torp are near same planet, increase danger
+					if pDistToPlanet < 10000 && torpDistToPlanet < 10000 {
+						planetProximityBonus = 1.5
+						break
+					}
+				}
+
+				threat.threatLevel += int(float64(baseThreatIncrease) * planetProximityBonus)
 			}
 		}
 	}
@@ -2270,11 +2468,16 @@ func (s *Server) calculateClearance(p *game.Player, dir float64) float64 {
 	clearance = math.Min(clearance, testY)
 	clearance = math.Min(clearance, game.GalaxyHeight-testY)
 
-	// Check planets
+	// Check planets - treat planet surface as wall (discourage suicide dives)
 	for _, planet := range s.gameState.Planets {
-		planetDist := game.Distance(testX, testY, planet.X, planet.Y) - 1000
-		if planetDist < clearance {
-			clearance = planetDist
+		planetDist := game.Distance(testX, testY, planet.X, planet.Y)
+		// Treat anything within 2000 units of planet surface as blocked
+		planetClearance := planetDist - 2000
+		if planetClearance < 0 {
+			planetClearance = 0 // Hit the planet body
+		}
+		if planetClearance < clearance {
+			clearance = planetClearance
 		}
 	}
 
@@ -2361,15 +2564,32 @@ func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 // getEvasionSpeed returns optimal speed for evasion
 func (s *Server) getEvasionSpeed(p *game.Player, threats CombatThreat) float64 {
 	shipStats := game.ShipData[p.Ship]
+	baseSpeed := float64(shipStats.MaxSpeed)
+
+	// Check if we're near a planet - may need higher speed for better dodging
+	planetProximity := false
+	for _, planet := range s.gameState.Planets {
+		dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
+		if dist < 8000 {
+			planetProximity = true
+			break
+		}
+	}
+
+	// Planet proximity bonus - slight speed increase for better dodging options
+	planetSpeedMultiplier := 1.0
+	if planetProximity {
+		planetSpeedMultiplier = 1.15
+	}
 
 	// High threat - maximum speed
 	if threats.threatLevel > 5 {
-		return float64(shipStats.MaxSpeed)
+		return baseSpeed * planetSpeedMultiplier
 	}
 
 	// Medium threat - variable speed for unpredictability
 	if threats.threatLevel > 2 {
-		return float64(shipStats.MaxSpeed) * (0.6 + rand.Float64()*0.4)
+		return baseSpeed * planetSpeedMultiplier * (0.6 + rand.Float64()*0.4)
 	}
 
 	// Low threat - maintain combat speed
