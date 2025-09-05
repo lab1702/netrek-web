@@ -25,14 +25,14 @@ class InfoWindow {
             left: ${x}px;
             top: ${y}px;
             background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #0f0;
+            border: 2px solid #ccc;
             padding: 8px;
             font-family: 'Courier New', monospace;
             font-size: 12px;
-            color: #0f0;
+            color: #ccc;
             z-index: 1000;
             min-width: 250px;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 10px rgba(200, 200, 200, 0.3);
         `;
         
         // Adjust position if too close to edge
