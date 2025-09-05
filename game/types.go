@@ -93,6 +93,15 @@ const (
 	PlanetFireDist = 1500 // Distance at which planets fire at enemy ships
 )
 
+// Starbase combat constants
+const (
+	StarbaseEnemyDetectRange = 12000      // Distance to start combat logic
+	StarbaseTorpRange        = 9000       // Maximum torpedo firing range
+	StarbasePhaserRange      = PhaserDist // Use base phaser range (6000)
+	StarbasePlasmaMaxRange   = 6000       // Maximum plasma firing range
+	StarbasePlasmaMinRange   = 2000       // Minimum plasma firing range
+)
+
 // Army constants
 const (
 	ArmyKillRequirement = 2.0 // Kills required to pick up armies (classic Netrek rule)

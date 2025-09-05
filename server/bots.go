@@ -534,6 +534,12 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 		enemyDist = game.Distance(p.X, p.Y, nearestEnemy.X, nearestEnemy.Y)
 	}
 
+	// Priority 1: Combat overrides all other behaviors when enemy is in detection range
+	if nearestEnemy != nil && enemyDist < game.StarbaseEnemyDetectRange {
+		s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
+		return
+	}
+
 	// Count team's planet ownership to determine strategic posture
 	teamPlanets := s.countPlanetsForTeam(p.Team)
 	totalPlanets := len(s.gameState.Planets)
@@ -546,7 +552,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 	threatenedPlanet := s.findMostThreatenedFriendlyPlanet(p)
 
 	// Critical needs - get to safety first
-	if criticalDamage || (needRepair && enemyDist < 12000) {
+	if criticalDamage || (needRepair && enemyDist < game.StarbaseEnemyDetectRange) {
 		var safetyPlanet *game.Planet
 		if repairPlanet != nil {
 			safetyPlanet = repairPlanet
@@ -568,7 +574,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				}
 				p.BotCooldown = 30
 				return
-			} else if enemyDist > 8000 {
+			} else if enemyDist > game.StarbaseEnemyDetectRange {
 				// Move cautiously to safety
 				p.Orbiting = -1
 				p.Repairing = false
@@ -588,7 +594,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 		if orbitPlanet.Owner == p.Team {
 			// At friendly planet - consider staying
 			isCorePlanet := s.isCorePlanet(orbitPlanet, p.Team)
-			isSafe := enemyDist > 10000 || (enemyDist > 6000 && isCorePlanet)
+			isSafe := enemyDist > game.StarbaseEnemyDetectRange+3000 || (enemyDist > game.StarbaseTorpRange && isCorePlanet)
 
 			if (needRepair || needFuel) && isSafe {
 				// Stay and repair/refuel
@@ -603,10 +609,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				// Stay at core planets or if team doesn't control much territory
 				p.DesSpeed = 0
 				p.Shields_up = enemyDist < 15000
-				// Defend from orbit if enemy approaches
-				if nearestEnemy != nil && enemyDist < 8000 {
-					s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
-				}
+				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 15
 				return
 			}
@@ -633,9 +636,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				// Close to threatened planet - defend it
 				p.Orbiting = threatenedPlanet.ID
 				p.DesSpeed = 0
-				if nearestEnemy != nil && enemyDist < 10000 {
-					s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
-				}
+				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 10
 				return
 			}
@@ -658,10 +659,8 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				// Near core planet - defend it
 				p.Orbiting = corePlanet.ID
 				p.DesSpeed = 0
-				p.Shields_up = enemyDist < 12000
-				if nearestEnemy != nil && enemyDist < 8000 {
-					s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
-				}
+				p.Shields_up = enemyDist < game.StarbaseEnemyDetectRange
+				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 20
 				return
 			}
@@ -696,25 +695,25 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 
 	// Fire weapons when aligned and enemy is in range
 	if angleDiff < 0.3 {
-		// Fire torpedoes conservatively
-		if dist < 7000 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
+		// Fire torpedoes at long range
+		if dist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
 			s.fireBotTorpedoWithLead(p, enemy)
-			p.BotCooldown = 12 // Slower firing rate
+			p.BotCooldown = 8 // Faster firing rate for better offense
 		}
 
-		// Fire phasers for close threats or to finish enemies
-		if dist < 4000 && p.Fuel > 2000 && p.WTemp < 700 {
+		// Fire phasers at medium range or to finish enemies
+		if dist < game.StarbasePhaserRange && p.Fuel > 2000 && p.WTemp < 700 {
 			enemyDamageRatio := float64(enemy.Damage) / float64(game.ShipData[enemy.Ship].MaxDamage)
-			if enemyDamageRatio > 0.6 || dist < 2500 {
+			if enemyDamageRatio > 0.6 || dist < 4000 {
 				s.fireBotPhaser(p, enemy)
-				p.BotCooldown = 15
+				p.BotCooldown = 10 // Faster firing rate
 			}
 		}
 
 		// Use plasma for area denial
-		if shipStats.HasPlasma && p.NumPlasma < 1 && dist < 6000 && dist > 2000 && p.Fuel > 4000 {
+		if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > game.StarbasePlasmaMinRange && p.Fuel > 4000 {
 			s.fireBotPlasma(p, enemy)
-			p.BotCooldown = 25
+			p.BotCooldown = 20 // Slightly faster plasma cycling
 		}
 	}
 }
