@@ -1025,7 +1025,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Enhanced torpedo firing with prediction and spread patterns
 	// Torpedoes can be fired in any direction regardless of ship facing
-	if dist < 6000 && p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
+	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
 		// Use spread pattern at medium range for area denial
 		if dist > 3000 && dist < 5000 && p.NumTorps < game.MaxTorps-4 {
 			s.fireTorpedoSpread(p, target, 3)
@@ -1076,9 +1077,10 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Enhanced plasma usage for area control
 	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 4000 {
 		// Use plasma for area denial or finishing damaged enemies
+		// Reuse the effective torpedo range for consistency
 		if (dist < 7000 && dist > 2500 && target.Speed < 4) ||
 			(targetDamageRatio > 0.7 && dist < 5000) ||
-			(target.Orbiting >= 0 && dist < 6000) {
+			(target.Orbiting >= 0 && dist < effectiveTorpRange) {
 			s.fireBotPlasma(p, target)
 			p.BotCooldown = 20
 		}
@@ -3401,7 +3403,8 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 
 	// Aggressive torpedo usage - wider criteria than normal combat
 	// Torpedoes can be fired in any direction regardless of ship facing
-	if enemyDist < 8000 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
+	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
 		return
