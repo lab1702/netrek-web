@@ -1810,6 +1810,37 @@ function updateDashboard() {
         `${Math.min((player.wtemp || 0) / 1000, 1) * 100}%`; // Max at 1000
     document.getElementById('etemp-bar').style.width = 
         `${Math.min((player.etemp || 0) / 1000, 1) * 100}%`; // Max at 1000
+    
+    // Update alert status display
+    updateAlertStatus();
+}
+
+function updateAlertStatus() {
+    const alertEl = document.getElementById('alert-status');
+    if (!alertEl) return;
+    
+    if (gameState.myPlayerID < 0) {
+        alertEl.style.display = 'none';
+        return;
+    }
+    
+    const player = gameState.players[gameState.myPlayerID];
+    if (!player || !player.alertLevel || player.alertLevel === 'green') {
+        alertEl.style.display = 'none';
+        return;
+    }
+    
+    if (player.alertLevel === 'yellow') {
+        alertEl.textContent = 'Yellow Alert';
+        alertEl.className = 'yellow-alert';
+        alertEl.style.display = 'block';
+    } else if (player.alertLevel === 'red') {
+        alertEl.textContent = 'RED ALERT';
+        alertEl.className = 'red-alert';
+        alertEl.style.display = 'block';
+    } else {
+        alertEl.style.display = 'none';
+    }
 }
 
 function updatePlayerList() {

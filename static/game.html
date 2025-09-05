@@ -475,6 +475,43 @@
             font-size: 11px;
             text-align: center;
         }
+        
+        #alert-status {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: calc(50% + 320px); /* Positioned below the canvases */
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 200;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            text-shadow: 0 0 10px currentColor;
+            letter-spacing: 2px;
+        }
+        
+        #alert-status.yellow-alert {
+            color: #ffff00;
+            border-color: #ffff00;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.3);
+        }
+        
+        #alert-status.red-alert {
+            color: #ff0000;
+            border-color: #ff0000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            animation: redAlertPulse 1s infinite alternate;
+        }
+        
+        @keyframes redAlertPulse {
+            from { opacity: 1; }
+            to { opacity: 0.7; }
+        }
     </style>
 </head>
 <body>
@@ -571,6 +608,7 @@
                 <canvas id="galactic-map"></canvas>
             </div>
         </div>
+        <div id="alert-status" style="display: none;"></div>
         <div id="messages"></div>
         <div id="player-list"></div>
         <div id="dashboard">
