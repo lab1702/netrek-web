@@ -129,28 +129,25 @@ class InfoWindow {
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
         html += `<div>${shipName} (${Math.floor(player.killsStreak || 0)}/${Math.floor(player.kills)}/${player.deaths || 0}/${kd})</div>`;
         
-        // If it's an enemy or we have info
-        if (player.team !== gameState.players[gameState.myPlayerID]?.team || 
-            gameState.players[gameState.myPlayerID]?.id === player.id) {
-            // Stats
-            html += '<div style="margin-top: 4px;">';
-            html += `Speed: ${player.speed} `;
-            html += `Dam: ${player.damage}% `;
-            html += `Sh: ${player.shields}% `;
-            html += `Fuel: ${player.fuel}`;
-            html += '</div>';
-            
-            // Status flags
-            let status = [];
-            if (player.shields_up) status.push('Shields');
-            if (player.cloaked) status.push('Cloak');
-            if (player.wtemp > 50) status.push('W-Temp');
-            if (player.etemp > 50) status.push('E-Temp');
-            if (player.armies > 0) status.push(`${player.armies} armies`);
-            
-            if (status.length > 0) {
-                html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
-            }
+        // Show detailed stats for all players (teammates, enemies, and self)
+        // Stats
+        html += '<div style="margin-top: 4px;">';
+        html += `Speed: ${player.speed} `;
+        html += `Dam: ${player.damage}% `;
+        html += `Sh: ${player.shields}% `;
+        html += `Fuel: ${player.fuel}`;
+        html += '</div>';
+        
+        // Status flags
+        let status = [];
+        if (player.shields_up) status.push('Shields');
+        if (player.cloaked) status.push('Cloak');
+        if (player.wtemp > 50) status.push('W-Temp');
+        if (player.etemp > 50) status.push('E-Temp');
+        if (player.armies > 0) status.push(`${player.armies} armies`);
+        
+        if (status.length > 0) {
+            html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
         }
         
         this.element.innerHTML = html;
@@ -271,28 +268,25 @@ class InfoWindow {
             const kd = updatedTarget.deaths > 0 ? (updatedTarget.kills / updatedTarget.deaths).toFixed(2) : Math.floor(updatedTarget.kills).toFixed(1);
             html += `<div>${shipName} (${Math.floor(updatedTarget.killsStreak || 0)}/${Math.floor(updatedTarget.kills)}/${updatedTarget.deaths || 0}/${kd})</div>`;
             
-            // If it's an enemy or we have info
-            if (updatedTarget.team !== gameState.players[gameState.myPlayerID]?.team || 
-                gameState.players[gameState.myPlayerID]?.id === updatedTarget.id) {
-                // Stats
-                html += '<div style="margin-top: 4px;">';
-                html += `Speed: ${updatedTarget.speed} `;
-                html += `Dam: ${updatedTarget.damage}% `;
-                html += `Sh: ${updatedTarget.shields}% `;
-                html += `Fuel: ${updatedTarget.fuel}`;
-                html += '</div>';
-                
-                // Status flags
-                let status = [];
-                if (updatedTarget.shields_up) status.push('Shields');
-                if (updatedTarget.cloaked) status.push('Cloak');
-                if (updatedTarget.wtemp > 50) status.push('W-Temp');
-                if (updatedTarget.etemp > 50) status.push('E-Temp');
-                if (updatedTarget.armies > 0) status.push(`${updatedTarget.armies} armies`);
-                
-                if (status.length > 0) {
-                    html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
-                }
+            // Show detailed stats for all players (teammates, enemies, and self)
+            // Stats
+            html += '<div style="margin-top: 4px;">';
+            html += `Speed: ${updatedTarget.speed} `;
+            html += `Dam: ${updatedTarget.damage}% `;
+            html += `Sh: ${updatedTarget.shields}% `;
+            html += `Fuel: ${updatedTarget.fuel}`;
+            html += '</div>';
+            
+            // Status flags
+            let status = [];
+            if (updatedTarget.shields_up) status.push('Shields');
+            if (updatedTarget.cloaked) status.push('Cloak');
+            if (updatedTarget.wtemp > 50) status.push('W-Temp');
+            if (updatedTarget.etemp > 50) status.push('E-Temp');
+            if (updatedTarget.armies > 0) status.push(`${updatedTarget.armies} armies`);
+            
+            if (status.length > 0) {
+                html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
             }
         }
         
