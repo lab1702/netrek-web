@@ -2171,7 +2171,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 	// Distance check - only consider nearby torpedoes
 	dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
-	if dist > 4500 { // Increased from 3000 to catch more threats
+	if dist > 5000 { // Increased detection range to catch more threats
 		return false
 	}
 
@@ -2183,24 +2183,30 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 	torpVelX := torpSpeed * math.Cos(torpDir)
 	torpVelY := torpSpeed * math.Sin(torpDir)
 
-	// Player position and velocity
-	playerSpeed := p.Speed * 20 // Convert to units per tick
-	playerVelX := playerSpeed * math.Cos(p.Dir)
-	playerVelY := playerSpeed * math.Sin(p.Dir)
+	// Player position and velocity - use INTENDED movement, not current
+	// This fixes the critical bug where bots use stale direction data
+	playerDir := p.DesDir          // Use desired direction instead of current
+	playerSpeed := p.DesSpeed * 20 // Use desired speed, convert to units per tick
+	// Fallback to current values if desired values aren't set
+	if p.DesSpeed == 0 {
+		playerSpeed = p.Speed * 20
+	}
+	playerVelX := playerSpeed * math.Cos(playerDir)
+	playerVelY := playerSpeed * math.Sin(playerDir)
 
 	// Simulate future positions to check for collision
-	for t := 0.0; t < 4.0; t += 0.25 { // Check next 4 ticks in quarter-tick increments
+	for t := 0.0; t < 5.0; t += 0.2 { // Check next 5 ticks in finer increments for better accuracy
 		// Future torpedo position
 		futTorpX := torpX + torpVelX*t
 		futTorpY := torpY + torpVelY*t
 
-		// Future player position (assuming current course)
+		// Future player position (using intended course)
 		futPlayerX := p.X + playerVelX*t
 		futPlayerY := p.Y + playerVelY*t
 
-		// Check for collision
+		// Check for collision with larger safety margin
 		collisionDist := game.Distance(futPlayerX, futPlayerY, futTorpX, futTorpY)
-		if collisionDist < 600 { // Collision threshold
+		if collisionDist < 800 { // Increased safety threshold from 600 to 800
 			return true
 		}
 	}
@@ -2218,7 +2224,12 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 	}
 
 	// If torpedo is heading somewhat towards us, it's a threat
-	if angleDiff < math.Pi/3 && dist < 3000 { // Within 60 degrees and close
+	if angleDiff < math.Pi/2.5 && dist < 4000 { // Within ~72 degrees and closer range
+		return true
+	}
+
+	// Also consider very close torpedoes regardless of heading
+	if dist < 1500 {
 		return true
 	}
 
