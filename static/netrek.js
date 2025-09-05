@@ -10,7 +10,7 @@ const teamColors = {
 };
 
 // Visual constants for galactic map
-const GALACTIC_DIM_ALPHA = 0.3;        // Alpha level for dimmed ships
+const GALACTIC_DIM_ALPHA = 0.5;        // Alpha level for dimmed ships
 const GALACTIC_NEUTRAL_GRAY = '#888';  // Neutral gray for cloaked enemies
 
 // Update planet counter display
