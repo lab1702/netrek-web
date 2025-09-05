@@ -1122,8 +1122,8 @@ func (s *Server) defendWhileCarrying(p, enemy *game.Player) {
 			s.fireBotTorpedoWithLead(p, enemy)
 		}
 
-		// Shields up when carrying and threatened
-		p.Shields_up = true
+		// Use enhanced shield management when carrying armies
+		s.assessAndActivateShields(p, enemy)
 	}
 }
 
@@ -2271,10 +2271,11 @@ func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desired
 	// Apply desired speed
 	p.DesSpeed = desiredSpeed
 
-	// Check for medium-term torpedo threats and adjust speed/shields
+	// Apply comprehensive shield management for navigation threats
+	s.assessAndActivateShields(p, nil)
+
+	// Check for medium-term torpedo threats and adjust speed
 	if threats.closestTorpDist < 3000 {
-		// Torpedo nearby but not immediate threat - raise shields and be ready
-		p.Shields_up = p.Fuel > 1000
 		// Slight speed increase for better dodging options
 		if p.DesSpeed < float64(game.ShipData[p.Ship].MaxSpeed)*0.8 {
 			p.DesSpeed = math.Min(p.DesSpeed*1.2, float64(game.ShipData[p.Ship].MaxSpeed))
@@ -2746,52 +2747,132 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 
 // managePredictiveShields manages shields with prediction
 func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torpDist float64) {
+	s.assessAndActivateShields(p, target)
+}
+
+// assessAndActivateShields provides comprehensive shield assessment for all bot scenarios
+func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Player) {
 	shipStats := game.ShipData[p.Ship]
 
-	// Calculate incoming damage potential
-	incomingDamage := 0
-
-	// Check torpedo threats
-	if torpDist < 2500 {
-		incomingDamage += 45 // Average torpedo damage
+	// Don't shield if very low on fuel (emergency threshold)
+	if p.Fuel < 600 {
+		p.Shields_up = false
+		return
 	}
 
-	// Check phaser threat from target
-	if target != nil {
-		targetStats := game.ShipData[target.Ship]
-		phaserRange := float64(game.PhaserDist * targetStats.PhaserDamage / 100)
-		if enemyDist < phaserRange {
-			// Check if target is facing us
-			angleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
-			angleDiff := math.Abs(target.Dir - angleToUs)
-			if angleDiff > math.Pi {
-				angleDiff = 2*math.Pi - angleDiff
+	// Don't shield if we're trying to repair at a starbase with high damage
+	if p.Orbiting >= 0 && p.Damage > shipStats.MaxDamage/2 {
+		p.Shields_up = false
+		return
+	}
+
+	// Initialize threat assessment
+	threatLevel := 0
+	closestTorpDist := 999999.0
+	closestEnemyDist := 999999.0
+	immediateThreat := false
+
+	// Check all torpedo threats
+	for _, torp := range s.gameState.Torps {
+		if torp.Owner != p.ID && torp.Status == 1 {
+			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
+			if dist < closestTorpDist {
+				closestTorpDist = dist
 			}
-			if angleDiff < math.Pi/4 {
-				incomingDamage += targetStats.PhaserDamage / 2
+
+			// Torpedo threat levels based on distance and trajectory
+			if dist < 3000 {
+				threatLevel += 2
+				if s.isTorpedoThreatening(p, torp) {
+					threatLevel += 4
+					immediateThreat = true
+				}
+			}
+
+			// Very close torpedoes are always dangerous
+			if dist < 1500 {
+				threatLevel += 5
+				immediateThreat = true
 			}
 		}
 	}
 
-	// Shield decision based on damage vs fuel
+	// Check all enemy players for phaser threats and proximity
+	for _, enemy := range s.gameState.Players {
+		if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
+			dist := game.Distance(p.X, p.Y, enemy.X, enemy.Y)
+			if dist < closestEnemyDist {
+				closestEnemyDist = dist
+			}
+
+			enemyStats := game.ShipData[enemy.Ship]
+			phaserRange := float64(game.PhaserDist * enemyStats.PhaserDamage / 100)
+
+			// Within phaser range - high priority for shields
+			if dist < phaserRange {
+				threatLevel += 3
+				// Check if enemy is facing us for immediate threat
+				angleToUs := math.Atan2(p.Y-enemy.Y, p.X-enemy.X)
+				angleDiff := math.Abs(enemy.Dir - angleToUs)
+				if angleDiff > math.Pi {
+					angleDiff = 2*math.Pi - angleDiff
+				}
+				if angleDiff < math.Pi/3 { // Enemy facing us
+					threatLevel += 4
+					immediateThreat = true
+				}
+			}
+
+			// Very close enemies are dangerous regardless of facing
+			if dist < 1800 {
+				threatLevel += 3
+				immediateThreat = true
+			}
+		}
+	}
+
+	// Check plasma threats
+	for _, plasma := range s.gameState.Plasmas {
+		if plasma.Owner != p.ID && plasma.Status == 1 {
+			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
+			if dist < 4000 {
+				threatLevel += 3
+				if dist < 2000 {
+					threatLevel += 4
+					immediateThreat = true
+				}
+			}
+		}
+	}
+
+	// Shield decision logic based on threat assessment and fuel availability
 	shouldShield := false
 
-	if incomingDamage > 30 && p.Fuel > 1500 {
+	// Immediate threats - shield if we have minimal fuel
+	if immediateThreat && p.Fuel > 800 {
 		shouldShield = true
-	} else if torpDist < 1500 && p.Fuel > 1000 {
+	} else if threatLevel >= 6 && p.Fuel > 1200 {
+		// High threat level - shield up
 		shouldShield = true
-	} else if enemyDist < 2000 && p.Fuel > 2000 {
+	} else if threatLevel >= 3 && p.Fuel > 1800 {
+		// Medium threat with good fuel reserves
+		shouldShield = true
+	} else if closestTorpDist < 2000 && p.Fuel > 1000 {
+		// Torpedo nearby - be defensive
+		shouldShield = true
+	} else if closestEnemyDist < 2500 && p.Fuel > 1500 {
+		// Enemy nearby - be prepared
 		shouldShield = true
 	}
 
-	// Don't shield if very low on fuel
-	if p.Fuel < 800 {
-		shouldShield = false
+	// Special case: always shield when carrying armies and threatened
+	if p.Armies > 0 && (closestEnemyDist < 3500 || closestTorpDist < 3000) && p.Fuel > 1000 {
+		shouldShield = true
 	}
 
-	// Don't shield if we're trying to repair
-	if p.Orbiting >= 0 && p.Damage > shipStats.MaxDamage/3 {
-		shouldShield = false
+	// Special case: shield during planet defense when enemies are close
+	if p.BotDefenseTarget >= 0 && (closestEnemyDist < 3000 || closestTorpDist < 2500) && p.Fuel > 1200 {
+		shouldShield = true
 	}
 
 	p.Shields_up = shouldShield
@@ -3212,11 +3293,8 @@ func (s *Server) defendPlanet(p *game.Player, planet *game.Planet, enemy *game.P
 	p.BeamingUp = false
 	p.BotPlanetApproachID = -1
 
-	// Always shields up when within 10k of the defended planet
-	planetDist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-	if planetDist < 10000 {
-		p.Shields_up = true
-	}
+	// Use comprehensive shield management for planet defense
+	s.assessAndActivateShields(p, enemy)
 
 	// Calculate intercept position between enemy and planet
 	// We want to position ourselves optimally between the enemy and planet
@@ -3292,7 +3370,9 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 
 	// Starbases don't chase - they position and hold
 	p.DesSpeed = 0
-	p.Shields_up = true
+
+	// Use comprehensive shield management for starbase defense
+	s.assessAndActivateShields(p, enemy)
 
 	// Turn to face the threat
 	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
