@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/lab1702/netrek-web/game"
+	"github.com/lab1702/netrek-web/server/aimcalc"
 )
 
 // Weapons AI Functions
@@ -23,18 +24,18 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 
 	shipStats := game.ShipData[p.Ship]
 
-	// Calculate lead angle
-	dist := game.Distance(p.X, p.Y, target.X, target.Y)
-	timeToTarget := dist / float64(shipStats.TorpSpeed*20) // 20 units per tick
+	// Use unified intercept solver
+	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
+	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
+	targetVel := aimcalc.Vector2D{
+		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
+		Y: target.Speed * math.Sin(target.Dir) * 20,
+	}
+	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 
-	// Predict where target will be
-	predictX := target.X + target.Speed*math.Cos(target.Dir)*timeToTarget
-	predictY := target.Y + target.Speed*math.Sin(target.Dir)*timeToTarget
-
-	// Fire torpedo toward predicted position
-	dx := predictX - p.X
-	dy := predictY - p.Y
-	fireDir := math.Atan2(dy, dx)
+	// Calculate intercept direction
+	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
+	
 	// Add small random jitter to make bot torpedoes harder to dodge
 	fireDir += randomJitterRad()
 
@@ -125,16 +126,15 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 		return
 	}
 
-	// Calculate lead angle
-	dist := game.Distance(p.X, p.Y, target.X, target.Y)
-	timeToTarget := dist / float64(shipStats.PlasmaSpeed*20) // 20 units per tick
-
-	predictX := target.X + target.Speed*math.Cos(target.Dir)*timeToTarget
-	predictY := target.Y + target.Speed*math.Sin(target.Dir)*timeToTarget
-
-	dx := predictX - p.X
-	dy := predictY - p.Y
-	fireDir := math.Atan2(dy, dx)
+	// Use unified intercept solver for plasma
+	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
+	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
+	targetVel := aimcalc.Vector2D{
+		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
+		Y: target.Speed * math.Sin(target.Dir) * 20,
+	}
+	projSpeed := float64(shipStats.PlasmaSpeed * 20) // Convert to units/tick
+	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
 
 	// Create plasma
 	plasma := &game.Plasma{
@@ -164,70 +164,18 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 
 	shipStats := game.ShipData[p.Ship]
 
-	// Calculate intercept similar to borgmove.c BorgTorpEnemy
-	torpSpeed := float64(shipStats.TorpSpeed) * 20
-
-	// Relative position
-	vxa := target.X - p.X
-	vya := target.Y - p.Y
-	l := math.Hypot(vxa, vya)
-
-	if l > 0 {
-		vxa /= l
-		vya /= l
+	// Use unified intercept solver
+	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
+	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
+	targetVel := aimcalc.Vector2D{
+		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
+		Y: target.Speed * math.Sin(target.Dir) * 20,
 	}
+	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 
-	// Target velocity
-	vxs := target.Speed * math.Cos(target.Dir) * 20
-	vys := target.Speed * math.Sin(target.Dir) * 20
-
-	// Calculate intercept
-	dp := vxs*vxa + vys*vya
-	vs := math.Hypot(vxs, vys)
-
-	// Solve intercept equation
-	var t float64
-	if vs > 0 {
-		// Quadratic solution for intercept time
-		a := vs*vs - torpSpeed*torpSpeed
-		b := 2 * l * dp
-		c := l * l
-
-		if a == 0 {
-			// Linear case
-			if b != 0 {
-				t = -c / b
-			}
-		} else {
-			// Quadratic case
-			discriminant := b*b - 4*a*c
-			if discriminant >= 0 {
-				t1 := (-b + math.Sqrt(discriminant)) / (2 * a)
-				t2 := (-b - math.Sqrt(discriminant)) / (2 * a)
-				// Choose positive, smaller time
-				if t1 > 0 && t2 > 0 {
-					t = math.Min(t1, t2)
-				} else if t1 > 0 {
-					t = t1
-				} else if t2 > 0 {
-					t = t2
-				}
-			}
-		}
-	}
-
-	// Calculate firing direction
-	var fireDir float64
-	if t > 0 {
-		// Fire at intercept point
-		interceptX := target.X + vxs*t/20
-		interceptY := target.Y + vys*t/20
-		fireDir = math.Atan2(interceptY-p.Y, interceptX-p.X)
-	} else {
-		// Direct shot if no intercept solution
-		fireDir = math.Atan2(target.Y-p.Y, target.X-p.X)
-	}
-
+	// Calculate intercept direction
+	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
+	
 	// Add small random jitter
 	fireDir += randomJitterRad()
 
@@ -238,7 +186,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 		X:      p.X,
 		Y:      p.Y,
 		Dir:    fireDir,
-		Speed:  torpSpeed,
+		Speed:  projSpeed,
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
 		Status: 1,
@@ -258,7 +206,17 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
-	baseDir := s.calculateEnhancedInterceptCourse(p, target)
+	
+	// Use unified intercept solver for base direction
+	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
+	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
+	targetVel := aimcalc.Vector2D{
+		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
+		Y: target.Speed * math.Sin(target.Dir) * 20,
+	}
+	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
+	baseDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
+	
 	spreadAngle := math.Pi / 16 // Spread angle between torpedoes
 
 	for i := 0; i < count; i++ {
@@ -299,10 +257,20 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 		return
 	}
 
-	fireDir := s.calculateEnhancedInterceptCourse(p, target)
+	shipStats := game.ShipData[p.Ship]
+	
+	// Use unified intercept solver
+	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
+	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
+	targetVel := aimcalc.Vector2D{
+		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
+		Y: target.Speed * math.Sin(target.Dir) * 20,
+	}
+	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
+	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
+	
 	// Add small random jitter to make bot torpedoes harder to dodge
 	fireDir += randomJitterRad()
-	shipStats := game.ShipData[p.Ship]
 
 	torp := &game.Torpedo{
 		ID:     len(s.gameState.Torps),

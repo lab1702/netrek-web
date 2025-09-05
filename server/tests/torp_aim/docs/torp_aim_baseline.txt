@@ -1,0 +1,10 @@
+NETREK BOT TORPEDO ACCURACY BASELINE
+Generated: 2025-09-05
+
+Total Shots:         100
+Hits:                71
+Hit Rate:            71.00%
+Avg Closest Dist:    436.1 units
+Median Closest Dist: 387.0 units
+Min Closest Dist:    12.7 units
+Max Closest Dist:    1149.1 units
