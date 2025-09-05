@@ -198,24 +198,15 @@ func (s *Server) updateBotHard(p *game.Player) {
 				p.BotCooldown = 30
 				return
 			} else {
-				// Navigate to repair/fuel planet
+				// Navigate to repair/fuel planet with torpedo dodging
 				p.Orbiting = -1
 				dx := targetPlanet.X - p.X
 				dy := targetPlanet.Y - p.Y
 				baseDir := math.Atan2(dy, dx)
+				desiredSpeed := s.getOptimalSpeed(p, dist)
 
-				// Apply separation from allies even when moving to objectives
-				separationVector := s.calculateSeparationVector(p)
-				if separationVector.magnitude > 0 {
-					// Blend navigation with separation
-					weight := math.Min(separationVector.magnitude/300.0, 0.5) // Increased weight
-					navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
-					navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
-					p.DesDir = math.Atan2(navY, navX)
-				} else {
-					p.DesDir = baseDir
-				}
-				p.DesSpeed = s.getOptimalSpeed(p, dist)
+				// Use safe navigation with torpedo dodging
+				s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to repair planet")
 				return
 			}
 		}
@@ -248,7 +239,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					p.BotCooldown = 50
 					return
 				} else {
-					// Navigate to neutral planet
+					// Navigate to neutral planet with torpedo dodging
 					p.Orbiting = -1
 					p.Bombing = false
 					p.Beaming = false
@@ -256,18 +247,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 					dx := targetPlanet.X - p.X
 					dy := targetPlanet.Y - p.Y
 					baseDir := math.Atan2(dy, dx)
+					desiredSpeed := s.getOptimalSpeed(p, dist)
 
-					// Apply separation to avoid bunching while moving to objectives
-					separationVector := s.calculateSeparationVector(p)
-					if separationVector.magnitude > 0 {
-						weight := math.Min(separationVector.magnitude/300.0, 0.45) // Increased weight
-						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
-						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
-						p.DesDir = math.Atan2(navY, navX)
-					} else {
-						p.DesDir = baseDir
-					}
-					p.DesSpeed = s.getOptimalSpeed(p, dist)
+					// Use safe navigation with torpedo dodging
+					s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to neutral planet")
 
 					// Defend against nearby enemies while carrying
 					if enemyDist < 5000 {
@@ -374,7 +357,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				}
 				return
 			} else {
-				// Navigate to planet
+				// Navigate to planet with torpedo dodging
 				p.Orbiting = -1
 				p.Bombing = false
 				p.Beaming = false
@@ -382,18 +365,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 				dx := targetPlanet.X - p.X
 				dy := targetPlanet.Y - p.Y
 				baseDir := math.Atan2(dy, dx)
+				desiredSpeed := s.getOptimalSpeed(p, dist)
 
-				// Apply separation to avoid bunching while moving to objectives
-				separationVector := s.calculateSeparationVector(p)
-				if separationVector.magnitude > 0 {
-					weight := math.Min(separationVector.magnitude/500.0, 0.25)
-					navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
-					navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
-					p.DesDir = math.Atan2(navY, navX)
-				} else {
-					p.DesDir = baseDir
-				}
-				p.DesSpeed = s.getOptimalSpeed(p, dist)
+				// Use safe navigation with torpedo dodging
+				s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to planet")
 
 				// Engage enemies if they're threatening our objective
 				if enemyDist < 8000 {
@@ -434,37 +409,21 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if planet := s.findPlanetToDefend(p); planet != nil {
 				dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
 				if dist > 5000 {
-					// Move to defend with separation
+					// Move to defend with torpedo dodging
 					dx := planet.X - p.X
 					dy := planet.Y - p.Y
 					baseDir := math.Atan2(dy, dx)
+					desiredSpeed := float64(shipStats.MaxSpeed)
 
-					// Apply separation
-					separationVector := s.calculateSeparationVector(p)
-					if separationVector.magnitude > 0 {
-						weight := math.Min(separationVector.magnitude/300.0, 0.4)
-						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
-						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
-						p.DesDir = math.Atan2(navY, navX)
-					} else {
-						p.DesDir = baseDir
-					}
-					p.DesSpeed = float64(shipStats.MaxSpeed)
+					// Use safe navigation with torpedo dodging
+					s.applySafeNavigation(p, baseDir, desiredSpeed, "moving to defend planet")
 				} else {
-					// Patrol around planet with separation
+					// Patrol around planet with torpedo dodging
 					patrolAngle := math.Mod(float64(rand.Intn(360))*math.Pi/180, math.Pi*2)
+					desiredSpeed := float64(shipStats.MaxSpeed) * 0.7
 
-					// Apply separation even when patrolling
-					separationVector := s.calculateSeparationVector(p)
-					if separationVector.magnitude > 0 {
-						weight := math.Min(separationVector.magnitude/250.0, 0.5)
-						navX := math.Cos(patrolAngle)*(1.0-weight) + separationVector.x*weight
-						navY := math.Sin(patrolAngle)*(1.0-weight) + separationVector.y*weight
-						p.DesDir = math.Atan2(navY, navX)
-					} else {
-						p.DesDir = patrolAngle
-					}
-					p.DesSpeed = float64(shipStats.MaxSpeed) * 0.7
+					// Use safe navigation with torpedo dodging
+					s.applySafeNavigation(p, patrolAngle, desiredSpeed, "patrolling around planet")
 				}
 				return
 			}
@@ -485,22 +444,14 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.BotCooldown = 5
 					}
 				} else {
-					// Approach at high speed with separation
+					// Approach at high speed with torpedo dodging
 					dx := planet.X - p.X
 					dy := planet.Y - p.Y
 					baseDir := math.Atan2(dy, dx)
+					desiredSpeed := float64(shipStats.MaxSpeed)
 
-					// Apply separation for raiders too
-					separationVector := s.calculateSeparationVector(p)
-					if separationVector.magnitude > 0 {
-						weight := math.Min(separationVector.magnitude/350.0, 0.35) // Lighter weight for raiders
-						navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
-						navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
-						p.DesDir = math.Atan2(navY, navX)
-					} else {
-						p.DesDir = baseDir
-					}
-					p.DesSpeed = float64(shipStats.MaxSpeed)
+					// Use safe navigation with torpedo dodging
+					s.applySafeNavigation(p, baseDir, desiredSpeed, "approaching planet to raid")
 				}
 				return
 			}
@@ -880,7 +831,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	interceptDir := s.calculateEnhancedInterceptCourse(p, target)
 
 	// Check for all threats (torpedoes, plasma, nearby enemies)
-	threats := s.assessCombatThreats(p)
+	threats := s.assessUniversalThreats(p)
 	closestTorpDist := threats.closestTorpDist
 
 	// Advanced dodge with threat prioritization
@@ -1919,6 +1870,181 @@ type SeparationVector struct {
 	x         float64
 	y         float64
 	magnitude float64
+}
+
+// assessUniversalThreats evaluates all threats to the bot (for both combat and navigation)
+func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
+	threat := CombatThreat{
+		closestTorpDist: 999999.0,
+		closestPlasma:   999999.0,
+		nearbyEnemies:   0,
+		requiresEvasion: false,
+		threatLevel:     0,
+	}
+
+	// Enhanced torpedo checking for all movement scenarios
+	for _, torp := range s.gameState.Torps {
+		if torp.Owner != p.ID && torp.Status == 1 {
+			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
+			if dist < threat.closestTorpDist {
+				threat.closestTorpDist = dist
+			}
+
+			// Improved torpedo threat prediction
+			if s.isTorpedoThreatening(p, torp) {
+				threat.requiresEvasion = true
+				threat.threatLevel += 4
+				// Increase threat level based on proximity
+				if dist < 2000 {
+					threat.threatLevel += 3
+				} else if dist < 4000 {
+					threat.threatLevel += 1
+				}
+			}
+		}
+	}
+
+	// Check plasma threats
+	for _, plasma := range s.gameState.Plasmas {
+		if plasma.Owner != p.ID && plasma.Status == 1 {
+			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
+			if dist < threat.closestPlasma {
+				threat.closestPlasma = dist
+			}
+			if dist < 4000 {
+				threat.requiresEvasion = true
+				threat.threatLevel += 5
+			}
+		}
+	}
+
+	// Check nearby enemies for additional context
+	for _, enemy := range s.gameState.Players {
+		if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
+			dist := game.Distance(p.X, p.Y, enemy.X, enemy.Y)
+			if dist < 5000 {
+				threat.nearbyEnemies++
+				threat.threatLevel++
+
+				// Check if enemy is facing us (potential phaser threat)
+				angleToUs := math.Atan2(p.Y-enemy.Y, p.X-enemy.X)
+				angleDiff := math.Abs(enemy.Dir - angleToUs)
+				if angleDiff > math.Pi {
+					angleDiff = 2*math.Pi - angleDiff
+				}
+				if dist < 2000 && angleDiff < math.Pi/6 {
+					threat.requiresEvasion = true
+					threat.threatLevel += 2
+				}
+			}
+		}
+	}
+
+	return threat
+}
+
+// isTorpedoThreatening checks if a torpedo poses a real threat using enhanced prediction
+func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
+	// Distance check - only consider nearby torpedoes
+	dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
+	if dist > 4500 { // Increased from 3000 to catch more threats
+		return false
+	}
+
+	// Calculate relative positions and velocities
+	// Torpedo position and velocity
+	torpX, torpY := torp.X, torp.Y
+	torpSpeed := torp.Speed
+	torpDir := torp.Dir
+	torpVelX := torpSpeed * math.Cos(torpDir)
+	torpVelY := torpSpeed * math.Sin(torpDir)
+
+	// Player position and velocity
+	playerSpeed := p.Speed * 20 // Convert to units per tick
+	playerVelX := playerSpeed * math.Cos(p.Dir)
+	playerVelY := playerSpeed * math.Sin(p.Dir)
+
+	// Simulate future positions to check for collision
+	for t := 0.0; t < 4.0; t += 0.25 { // Check next 4 ticks in quarter-tick increments
+		// Future torpedo position
+		futTorpX := torpX + torpVelX*t
+		futTorpY := torpY + torpVelY*t
+
+		// Future player position (assuming current course)
+		futPlayerX := p.X + playerVelX*t
+		futPlayerY := p.Y + playerVelY*t
+
+		// Check for collision
+		collisionDist := game.Distance(futPlayerX, futPlayerY, futTorpX, futTorpY)
+		if collisionDist < 600 { // Collision threshold
+			return true
+		}
+	}
+
+	// Also check if torpedo is generally heading towards our area
+	// Vector from torpedo to player
+	dx := p.X - torpX
+	dy := p.Y - torpY
+	angleToPlayer := math.Atan2(dy, dx)
+
+	// Calculate angle difference
+	angleDiff := math.Abs(angleToPlayer - torpDir)
+	if angleDiff > math.Pi {
+		angleDiff = 2*math.Pi - angleDiff
+	}
+
+	// If torpedo is heading somewhat towards us, it's a threat
+	if angleDiff < math.Pi/3 && dist < 3000 { // Within 60 degrees and close
+		return true
+	}
+
+	return false
+}
+
+// applySafeNavigation applies torpedo dodging and threat assessment to any navigation
+func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desiredSpeed float64, objective string) {
+	// Always check for threats regardless of what the bot is doing
+	threats := s.assessUniversalThreats(p)
+
+	// If immediate torpedo evasion is required, override everything
+	if threats.requiresEvasion {
+		// Use advanced dodging but try to maintain general objective direction
+		dodgeDir := s.getAdvancedDodgeDirection(p, desiredDir, threats)
+		p.DesDir = dodgeDir
+		p.DesSpeed = s.getEvasionSpeed(p, threats)
+
+		// Shorter cooldown for immediate re-evaluation after dodging
+		p.BotCooldown = 2
+
+		// For debugging/logging - comment this out in production
+		// fmt.Printf("Bot %d dodging torpedo while %s\n", p.ID, objective)
+		return
+	}
+
+	// No immediate threat - apply desired navigation with separation
+	separationVector := s.calculateSeparationVector(p)
+	if separationVector.magnitude > 0 {
+		// Blend desired direction with separation
+		weight := math.Min(separationVector.magnitude/300.0, 0.5)
+		navX := math.Cos(desiredDir)*(1.0-weight) + separationVector.x*weight
+		navY := math.Sin(desiredDir)*(1.0-weight) + separationVector.y*weight
+		p.DesDir = math.Atan2(navY, navX)
+	} else {
+		p.DesDir = desiredDir
+	}
+
+	// Apply desired speed
+	p.DesSpeed = desiredSpeed
+
+	// Check for medium-term torpedo threats and adjust speed/shields
+	if threats.closestTorpDist < 3000 {
+		// Torpedo nearby but not immediate threat - raise shields and be ready
+		p.Shields_up = p.Fuel > 1000
+		// Slight speed increase for better dodging options
+		if p.DesSpeed < float64(game.ShipData[p.Ship].MaxSpeed)*0.8 {
+			p.DesSpeed = math.Min(p.DesSpeed*1.2, float64(game.ShipData[p.Ship].MaxSpeed))
+		}
+	}
 }
 
 // assessCombatThreats evaluates all threats to the bot
