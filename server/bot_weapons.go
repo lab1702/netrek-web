@@ -35,7 +35,7 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 
 	// Calculate intercept direction
 	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-	
+
 	// Add small random jitter to make bot torpedoes harder to dodge
 	fireDir += randomJitterRad()
 
@@ -175,7 +175,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 
 	// Calculate intercept direction
 	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-	
+
 	// Add small random jitter
 	fireDir += randomJitterRad()
 
@@ -206,7 +206,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
-	
+
 	// Use unified intercept solver for base direction
 	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
 	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
@@ -216,7 +216,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	}
 	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 	baseDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-	
+
 	spreadAngle := math.Pi / 16 // Spread angle between torpedoes
 
 	for i := 0; i < count; i++ {
@@ -258,7 +258,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
-	
+
 	// Use unified intercept solver
 	shooterPos := aimcalc.Point2D{X: p.X, Y: p.Y}
 	targetPos := aimcalc.Point2D{X: target.X, Y: target.Y}
@@ -268,7 +268,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	}
 	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 	fireDir, _ := aimcalc.InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-	
+
 	// Add small random jitter to make bot torpedoes harder to dodge
 	fireDir += randomJitterRad()
 
@@ -298,7 +298,7 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 
 	// Aggressive torpedo usage - wider criteria than normal combat
 	// Torpedoes can be fired in any direction regardless of ship facing
-	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
 	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
@@ -315,8 +315,10 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 		return
 	}
 
-	// Enhanced plasma usage for ships that have it
-	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < 7000 && enemyDist > 2000 && p.Fuel > 3000 {
+	// Enhanced plasma usage for ships that have it - scale with torpedo range
+	plasmaDefenseRange := effectiveTorpRange * 0.90 // ~90% of torp range for defense
+	plasmaMinRange := effectiveTorpRange * 0.25     // ~25% of torp range minimum
+	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel > 3000 {
 		s.fireBotPlasma(p, enemy)
 		p.BotCooldown = 15
 		return
@@ -331,8 +333,8 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 
 	// More aggressive torpedo usage than normal starbase combat
 	// Torpedoes can be fired in any direction regardless of ship facing
-	// Use actual torpedo physics range instead of hardcoded constant
-	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+	// Use ship-specific torpedo range to prevent fuse expiry
+	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
 	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 6 // Faster than normal starbase firing

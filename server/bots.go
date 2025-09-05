@@ -747,8 +747,9 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 	p.DesSpeed = 0
 
 	// Fire weapons regardless of facing - starbases can fire in any direction
-	// Fire torpedoes at long range - use actual torpedo physics range
-	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(game.ShipData[p.Ship]))
+	// Fire torpedoes at long range - use ship-specific range to prevent fuse expiry
+	shipStats := game.ShipData[p.Ship]
+	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
 	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 8 // Faster firing rate for better offense
@@ -766,7 +767,6 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 	}
 
 	// Use plasma for area denial
-	shipStats := game.ShipData[p.Ship]
 	if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > game.StarbasePlasmaMinRange && p.Fuel > 4000 {
 		s.fireBotPlasma(p, enemy)
 		p.BotCooldown = 20 // Slightly faster plasma cycling

@@ -103,10 +103,12 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Enhanced torpedo firing with prediction and spread patterns
 	// Torpedoes can be fired in any direction regardless of ship facing
-	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
 	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
 		// Use spread pattern at medium range for area denial
-		if dist > 3000 && dist < 5000 && p.NumTorps < game.MaxTorps-4 {
+		midRangeLow := effectiveTorpRange * 0.45  // ~45% of effective range
+		midRangeHigh := effectiveTorpRange * 0.75 // ~75% of effective range
+		if dist > midRangeLow && dist < midRangeHigh && p.NumTorps < game.MaxTorps-4 {
 			s.fireTorpedoSpread(p, target, 3)
 			p.BotCooldown = 8
 		} else {
@@ -115,8 +117,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Fire when enemy is running away
-	if dist < 7000 && p.NumTorps < game.MaxTorps-4 && p.Fuel > 1500 {
+	// Fire when enemy is running away - use extended range for fleeing targets
+	if dist < effectiveTorpRange*1.2 && p.NumTorps < game.MaxTorps-4 && p.Fuel > 1500 {
 		targetAngleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
 		targetRunAngle := math.Abs(target.Dir - targetAngleToUs)
 		if targetRunAngle > math.Pi {
@@ -155,9 +157,12 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Enhanced plasma usage for area control
 	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 4000 {
 		// Use plasma for area denial or finishing damaged enemies
-		// Reuse the effective torpedo range for consistency
-		if (dist < 7000 && dist > 2500 && target.Speed < 4) ||
-			(targetDamageRatio > 0.7 && dist < 5000) ||
+		// Scale plasma ranges with effective torpedo range
+		plasmaLongRange := effectiveTorpRange * 0.85  // ~85% of torp range
+		plasmaShortRange := effectiveTorpRange * 0.30 // ~30% of torp range
+		plasmaKillRange := effectiveTorpRange * 0.65  // ~65% of torp range
+		if (dist < plasmaLongRange && dist > plasmaShortRange && target.Speed < 4) ||
+			(targetDamageRatio > 0.7 && dist < plasmaKillRange) ||
 			(target.Orbiting >= 0 && dist < effectiveTorpRange) {
 			s.fireBotPlasma(p, target)
 			p.BotCooldown = 20
