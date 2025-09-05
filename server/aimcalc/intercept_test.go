@@ -14,15 +14,15 @@ const (
 
 // TestCase represents a single intercept test case
 type TestCase struct {
-	name           string
-	shooterPos     Point2D
-	targetPos      Point2D
-	targetVel      Vector2D
-	projSpeed      float64
-	expectedDir    float64  // Expected direction in radians
-	expectedTime   float64  // Expected time to intercept
-	shouldSucceed  bool     // Whether intercept should be possible
-	description    string   // Description of what this tests
+	name          string
+	shooterPos    Point2D
+	targetPos     Point2D
+	targetVel     Vector2D
+	projSpeed     float64
+	expectedDir   float64 // Expected direction in radians
+	expectedTime  float64 // Expected time to intercept
+	shouldSucceed bool    // Whether intercept should be possible
+	description   string  // Description of what this tests
 }
 
 // TestInterceptDirection_Comprehensive runs all test cases
@@ -45,7 +45,7 @@ func TestInterceptDirection_Comprehensive(t *testing.T) {
 			targetPos:     Point2D{X: 100, Y: 0},
 			targetVel:     Vector2D{X: -25, Y: 0}, // Moving toward shooter
 			projSpeed:     50.0,
-			expectedDir:   0.0,                    // Fire directly at target
+			expectedDir:   0.0,                   // Fire directly at target
 			expectedTime:  100.0 / (50.0 + 25.0), // Relative closing speed
 			shouldSucceed: true,
 			description:   "Target moving directly toward shooter",
@@ -67,8 +67,8 @@ func TestInterceptDirection_Comprehensive(t *testing.T) {
 			targetPos:     Point2D{X: 100, Y: 0},
 			targetVel:     Vector2D{X: 40, Y: 0}, // Moving away fast
 			projSpeed:     50.0,
-			expectedDir:   0.0,   // Chase shot
-			expectedTime:  10.0,  // 100/(50-40) = 10 ticks
+			expectedDir:   0.0,  // Chase shot
+			expectedTime:  10.0, // 100/(50-40) = 10 ticks
 			shouldSucceed: true,
 			description:   "Chasing fast target moving away",
 		},
@@ -210,7 +210,7 @@ func verifyInterceptSolution(t *testing.T, tc TestCase, solution *InterceptSolut
 	projX := tc.shooterPos.X + tc.projSpeed*math.Cos(solution.Direction)*time
 	projY := tc.shooterPos.Y + tc.projSpeed*math.Sin(solution.Direction)*time
 
-	// Final target position  
+	// Final target position
 	targX := tc.targetPos.X + tc.targetVel.X*time
 	targY := tc.targetPos.Y + tc.targetVel.Y*time
 
@@ -220,7 +220,7 @@ func verifyInterceptSolution(t *testing.T, tc TestCase, solution *InterceptSolut
 		t.Errorf("Projectile and target don't meet: distance=%f, tolerance=%f", distance, distTolerance)
 		t.Errorf("  Projectile final pos: (%.2f, %.2f)", projX, projY)
 		t.Errorf("  Target final pos: (%.2f, %.2f)", targX, targY)
-		t.Errorf("  Time: %.2f, Direction: %.3f rad (%.1f°)", 
+		t.Errorf("  Time: %.2f, Direction: %.3f rad (%.1f°)",
 			time, solution.Direction, solution.Direction*180/math.Pi)
 	}
 }
@@ -294,7 +294,7 @@ func TestAngleUtilities(t *testing.T) {
 	for _, test := range diffTests {
 		result := AngleDifference(test.a1, test.a2)
 		if math.Abs(result-test.expected) > angleTolerance {
-			t.Errorf("AngleDifference(%f, %f): expected %f, got %f", 
+			t.Errorf("AngleDifference(%f, %f): expected %f, got %f",
 				test.a1, test.a2, test.expected, result)
 		}
 	}
