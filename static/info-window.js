@@ -132,7 +132,7 @@ class InfoWindow {
         // Show detailed stats for all players (teammates, enemies, and self)
         // Stats
         html += '<div style="margin-top: 4px;">';
-        html += `Speed: ${player.speed} `;
+        html += `Speed: ${Math.round(player.speed)} `;
         html += `Dam: ${player.damage}% `;
         html += `Sh: ${player.shields}% `;
         html += `Fuel: ${player.fuel}`;
@@ -271,7 +271,7 @@ class InfoWindow {
             // Show detailed stats for all players (teammates, enemies, and self)
             // Stats
             html += '<div style="margin-top: 4px;">';
-            html += `Speed: ${updatedTarget.speed} `;
+            html += `Speed: ${Math.round(updatedTarget.speed)} `;
             html += `Dam: ${updatedTarget.damage}% `;
             html += `Sh: ${updatedTarget.shields}% `;
             html += `Fuel: ${updatedTarget.fuel}`;
