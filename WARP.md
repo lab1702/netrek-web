@@ -39,12 +39,15 @@ go vet ./...
 
 # Clean up dependencies
 go mod tidy
-```
 
-Note: The project currently has no tests. When adding tests, use standard Go testing commands:
-```bash
+# Run all tests
 go test ./...
+
+# Run tests with verbose output
 go test -v ./...
+
+# Run tests with coverage
+go test -cover ./...
 ```
 
 ## Architecture
@@ -54,11 +57,19 @@ go test -v ./...
 - **server/**: Core game server logic
   - `handlers.go`: HTTP and WebSocket handlers, client message processing
   - `websocket.go`: Game loop, physics, combat mechanics, planet interactions
-  - `bots.go`: Bot AI implementation with combat and strategic behaviors
+  - `bots.go`: Main bot AI coordination and initialization
+  - `bot_combat.go`: Bot combat decision-making and target selection
+  - `bot_helpers.go`: Utility functions for bot AI operations
+  - `bot_jitter.go`: Position jittering system to prevent bot clustering
+  - `bot_navigation.go`: Bot movement and pathfinding logic
+  - `bot_planet.go`: Bot planet capture and strategic decisions
+  - `bot_types.go`: Bot-specific data structures and constants
+  - `bot_weapons.go`: Bot weapon firing and targeting systems
   - `game_helpers.go`: Utility functions for game mechanics
 - **game/**: Game data structures and initialization
   - `types.go`: Core game types (Player, Planet, Torpedo, GameState, etc.)
   - `planets.go`: Planet initialization and configurations
+  - `torp.go`: Torpedo physics calculations and range functions
 
 ### Client-Side Structure  
 - **static/**: Web client files
@@ -92,10 +103,39 @@ go test -v ./...
 - `/api/teams` - REST endpoint for team statistics
 - `/health` - Health check endpoint
 
+## Testing
+
+The project includes comprehensive test coverage for critical components:
+
+### Test Files
+- **game/torp_test.go**: Tests torpedo physics calculations and range functions
+- **server/bot_jitter_test.go**: Tests bot position jittering system
+- **server/bots_test.go**: Tests bot AI behaviors and decision-making
+- **server/handlers_test.go**: Tests HTTP and WebSocket handlers
+- **server/starbase_fire_test.go**: Tests starbase weapon systems
+- **server/weapon_direction_test.go**: Tests weapon targeting calculations
+
+### Running Tests
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test -v ./...
+
+# Run with coverage report
+go test -cover ./...
+
+# Run specific test file
+go test ./server -run TestSpecificFunction
+```
+
 ## Development Notes
 
 - The game state is maintained server-side in `GameState` struct
 - All game physics and collision detection happen server-side
 - Client receives state updates and renders based on server data
 - Bot AI uses strategic evaluation for planet selection and combat decisions
+- Bot system is modularized across multiple files for maintainability
+- Torpedo physics calculations are centralized in game/torp.go
 - No external dependencies beyond gorilla/websocket
