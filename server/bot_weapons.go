@@ -363,7 +363,9 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 
 	// More aggressive torpedo usage than normal starbase combat
 	// Torpedoes can be fired in any direction regardless of ship facing
-	if enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
+	// Use actual torpedo physics range instead of hardcoded constant
+	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 6 // Faster than normal starbase firing
 		return

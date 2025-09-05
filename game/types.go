@@ -96,7 +96,7 @@ const (
 // Starbase combat constants
 const (
 	StarbaseEnemyDetectRange = 12000      // Distance to start combat logic
-	StarbaseTorpRange        = 9000       // Maximum torpedo firing range
+	StarbaseTorpRange        = 8400       // Maximum torpedo firing range (14*20*30 = actual max range)
 	StarbasePhaserRange      = PhaserDist // Use base phaser range (6000)
 	StarbasePlasmaMaxRange   = 6000       // Maximum plasma firing range
 	StarbasePlasmaMinRange   = 2000       // Minimum plasma firing range

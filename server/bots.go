@@ -762,8 +762,9 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 
 	// Fire weapons when aligned and enemy is in range
 	if angleDiff < 0.3 {
-		// Fire torpedoes at long range
-		if dist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
+		// Fire torpedoes at long range - use actual torpedo physics range
+		effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
+		if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
 			s.fireBotTorpedoWithLead(p, enemy)
 			p.BotCooldown = 8 // Faster firing rate for better offense
 		}
