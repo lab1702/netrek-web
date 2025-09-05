@@ -1021,23 +1021,18 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Precision weapon usage
-	angleDiff := math.Abs(p.Dir - interceptDir)
-	if angleDiff > math.Pi {
-		angleDiff = 2*math.Pi - angleDiff
-	}
+	// Weapon usage - no facing restrictions needed
 
 	// Enhanced torpedo firing with prediction and spread patterns
-	if dist < 6000 && angleDiff < 0.4 {
-		if p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
-			// Use spread pattern at medium range for area denial
-			if dist > 3000 && dist < 5000 && p.NumTorps < game.MaxTorps-4 {
-				s.fireTorpedoSpread(p, target, 3)
-				p.BotCooldown = 8
-			} else {
-				s.fireEnhancedTorpedo(p, target)
-				p.BotCooldown = 6
-			}
+	// Torpedoes can be fired in any direction regardless of ship facing
+	if dist < 6000 && p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
+		// Use spread pattern at medium range for area denial
+		if dist > 3000 && dist < 5000 && p.NumTorps < game.MaxTorps-4 {
+			s.fireTorpedoSpread(p, target, 3)
+			p.BotCooldown = 8
+		} else {
+			s.fireEnhancedTorpedo(p, target)
+			p.BotCooldown = 6
 		}
 	}
 
@@ -1055,8 +1050,9 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	}
 
 	// Enhanced phaser timing with kill securing
+	// Phasers can be fired in any direction regardless of ship facing
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
-	if dist < myPhaserRange && angleDiff < 0.4 {
+	if dist < myPhaserRange {
 		phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
 		if p.Fuel >= phaserCost*2 && p.WTemp < 80 {
 			targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
@@ -2809,15 +2805,11 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 			phaserRange := float64(game.PhaserDist * enemyStats.PhaserDamage / 100)
 
 			// Within phaser range - high priority for shields
+			// Phasers can be fired in any direction regardless of ship facing
 			if dist < phaserRange {
 				threatLevel += 3
-				// Check if enemy is facing us for immediate threat
-				angleToUs := math.Atan2(p.Y-enemy.Y, p.X-enemy.X)
-				angleDiff := math.Abs(enemy.Dir - angleToUs)
-				if angleDiff > math.Pi {
-					angleDiff = 2*math.Pi - angleDiff
-				}
-				if angleDiff < math.Pi/3 { // Enemy facing us
+				// Any enemy within phaser range is an immediate threat
+				if dist < phaserRange*0.8 { // Within 80% of phaser range
 					threatLevel += 4
 					immediateThreat = true
 				}
@@ -3334,12 +3326,12 @@ func (s *Server) defendPlanet(p *game.Player, planet *game.Planet, enemy *game.P
 
 		// Check if we're too close - use lateral movement to maintain range
 		if enemyDist < 2000 {
-			// Too close - move laterally to maintain better firing position
+			// Too close - move laterally to maintain better tactical position
 			lateralDir := angleToEnemy + math.Pi/2 // Perpendicular to enemy direction
 			p.DesDir = lateralDir
 			p.DesSpeed = s.getOptimalCombatSpeed(p, enemyDist)
 		} else {
-			// Good range - face enemy for better weapon accuracy
+			// Good range - face enemy for tactical positioning
 			p.DesDir = angleToEnemy
 			p.DesSpeed = s.getOptimalCombatSpeed(p, enemyDist)
 		}
@@ -3397,23 +3389,20 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, enemyDist float64) {
 	shipStats := game.ShipData[p.Ship]
 
-	// Calculate angle to enemy for weapon accuracy
-	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
-	angleDiff := math.Abs(p.Dir - angleToEnemy)
-	if angleDiff > math.Pi {
-		angleDiff = 2*math.Pi - angleDiff
-	}
+	// Weapon usage for planet defense - no facing restrictions needed
 
 	// Aggressive torpedo usage - wider criteria than normal combat
-	if enemyDist < 8000 && angleDiff < 0.6 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
+	// Torpedoes can be fired in any direction regardless of ship facing
+	if enemyDist < 8000 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
 		return
 	}
 
 	// Opportunistic phaser usage - prioritize planet protection over fuel conservation
+	// Phasers can be fired in any direction regardless of ship facing
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
-	if enemyDist < myPhaserRange && angleDiff < 0.5 && p.Fuel > 1000 && p.WTemp < 75 {
+	if enemyDist < myPhaserRange && p.Fuel > 1000 && p.WTemp < 75 {
 		// Fire phasers more liberally when defending planets
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 8
@@ -3432,22 +3421,19 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, enemyDist float64) {
 	shipStats := game.ShipData[p.Ship]
 
-	// Calculate angle to enemy
-	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
-	angleDiff := math.Abs(p.Dir - angleToEnemy)
-	if angleDiff > math.Pi {
-		angleDiff = 2*math.Pi - angleDiff
-	}
+	// Starbase weapon usage for planet defense - no facing restrictions needed
 
 	// More aggressive torpedo usage than normal starbase combat
-	if enemyDist < game.StarbaseTorpRange && angleDiff < 0.4 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
+	// Torpedoes can be fired in any direction regardless of ship facing
+	if enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 6 // Faster than normal starbase firing
 		return
 	}
 
 	// Aggressive phaser usage for planet defense
-	if enemyDist < game.StarbasePhaserRange && angleDiff < 0.4 && p.Fuel > 1500 && p.WTemp < 700 {
+	// Phasers can be fired in any direction regardless of ship facing
+	if enemyDist < game.StarbasePhaserRange && p.Fuel > 1500 && p.WTemp < 700 {
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 8
 		return
