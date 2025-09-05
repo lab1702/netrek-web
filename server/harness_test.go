@@ -1,4 +1,4 @@
-package torp_aim
+package server
 
 import (
 	"flag"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
-	"github.com/lab1702/netrek-web/server"
 )
 
 // Test configuration flags
@@ -91,7 +90,7 @@ func runAccuracyTest(t *testing.T, iterations int, speed float64, pattern string
 	for i := 0; i < iterations; i++ {
 		// Create fresh game state for each test
 		gs := game.NewGameState()
-		testServer := &server.Server{}
+		testServer := &Server{}
 		testServer.SetGameState(gs) // Assume this method exists or we'll create it
 
 		// Set up bot shooter

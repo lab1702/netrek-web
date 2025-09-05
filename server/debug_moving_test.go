@@ -1,4 +1,4 @@
-package torp_aim
+package server
 
 import (
 	"fmt"
@@ -6,13 +6,12 @@ import (
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
-	"github.com/lab1702/netrek-web/server"
 )
 
 func TestDebugMovingTarget(t *testing.T) {
 	// Create fresh game state
 	gs := game.NewGameState()
-	testServer := &server.Server{}
+	testServer := &Server{}
 	testServer.SetGameState(gs)
 
 	// Set up bot shooter
