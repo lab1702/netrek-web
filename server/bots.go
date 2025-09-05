@@ -10,6 +10,11 @@ import (
 const (
 	// OrbitDistance is the distance required to orbit a planet
 	OrbitDistance = 2000.0
+
+	// Planet defense constants
+	PlanetDefenseDetectRadius    = 15000.0 // Range for bot to detect threats to friendly planets
+	PlanetDefenseInterceptBuffer = 3000.0  // Additional range beyond bomb range to intercept threats
+	PlanetBombRange              = 2000.0  // Range at which enemies can bomb planets effectively
 )
 
 // BotNames for generating random bot names
@@ -51,6 +56,7 @@ func (s *Server) AddBot(team, ship int) {
 	p.IsBot = true
 	p.BotTarget = -1
 	p.BotPlanetApproachID = -1
+	p.BotDefenseTarget = -1
 	p.BotCooldown = 0
 
 	// Set initial position based on team
@@ -118,6 +124,12 @@ func (s *Server) updateBotHard(p *game.Player) {
 	// STARBASE-SPECIFIC AI: Cautious and defensive behavior
 	if p.Ship == game.ShipStarbase {
 		s.updateStarbaseBot(p)
+		return
+	}
+
+	// HIGHEST PRIORITY: Planet defense - check for friendly planets under immediate threat
+	if planet, enemy, enemyDist := s.getThreatenedFriendlyPlanet(p); planet != nil && enemy != nil {
+		s.defendPlanet(p, planet, enemy, enemyDist)
 		return
 	}
 
@@ -347,10 +359,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 		if targetPlanet != nil {
 			dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
-			
+
 			// Check for defenders around the target planet
 			defenderInfo := s.detectPlanetDefenders(targetPlanet, p.Team)
-			
+
 			if dist < OrbitDistance {
 				// At planet - perform appropriate action
 				if p.Orbiting != targetPlanet.ID {
@@ -500,6 +512,14 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 	// NON-TOURNAMENT MODE: Prioritize combat for practice
 	if !s.gameState.T_mode {
+		// Skip behavior role switching while actively defending planets
+		if p.BotDefenseTarget >= 0 {
+			// Currently defending a planet - continue current behavior
+			// This prevents bots from abandoning defense mid-fight
+			p.BotCooldown = 10
+			return
+		}
+
 		// Dynamic behavior based on situation
 		behavior := s.selectBotBehavior(p)
 
@@ -582,6 +602,12 @@ func (s *Server) updateBotHard(p *game.Player) {
 func (s *Server) updateStarbaseBot(p *game.Player) {
 	shipStats := game.ShipData[p.Ship]
 
+	// HIGHEST PRIORITY: Planet defense - check for friendly planets under immediate threat
+	if planet, enemy, enemyDist := s.getThreatenedFriendlyPlanet(p); planet != nil && enemy != nil {
+		s.starbaseDefendPlanet(p, planet, enemy, enemyDist)
+		return
+	}
+
 	// Basic needs assessment
 	needRepair := p.Damage > shipStats.MaxDamage/3 // More conservative repair threshold
 	needFuel := p.Fuel < shipStats.MaxFuel/2       // More conservative fuel threshold
@@ -593,7 +619,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 		enemyDist = game.Distance(p.X, p.Y, nearestEnemy.X, nearestEnemy.Y)
 	}
 
-	// Priority 1: Combat overrides all other behaviors when enemy is in detection range
+	// Priority 2: Combat overrides all other behaviors when enemy is in detection range
 	if nearestEnemy != nil && enemyDist < game.StarbaseEnemyDetectRange {
 		s.starbaseDefensiveCombat(p, nearestEnemy, enemyDist)
 		return
@@ -3161,7 +3187,285 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 	return separationVec
 }
 
-// executePatrol implements intelligent patrol patterns
+// defendPlanet handles planet defense maneuvering and combat for regular ships
+func (s *Server) defendPlanet(p *game.Player, planet *game.Planet, enemy *game.Player, enemyDist float64) {
+	shipStats := game.ShipData[p.Ship]
+
+	// Set defense target to persist until threat is gone
+	p.BotDefenseTarget = planet.ID
+
+	// Clear any other bot states that would interfere
+	p.Orbiting = -1
+	p.Bombing = false
+	p.Beaming = false
+	p.BeamingUp = false
+	p.BotPlanetApproachID = -1
+
+	// Always shields up when within 10k of the defended planet
+	planetDist := game.Distance(p.X, p.Y, planet.X, planet.Y)
+	if planetDist < 10000 {
+		p.Shields_up = true
+	}
+
+	// Calculate intercept position between enemy and planet
+	// We want to position ourselves optimally between the enemy and planet
+	enemyToPlanetDir := math.Atan2(planet.Y-enemy.Y, planet.X-enemy.X)
+
+	// Optimal intercept distance (3-5k from enemy, between enemy and planet)
+	optimalInterceptDist := 4000.0
+	if enemyDist < 6000 {
+		optimalInterceptDist = 3500.0 // Closer for better weapon accuracy
+	}
+
+	// Calculate intercept position
+	interceptX := enemy.X + math.Cos(enemyToPlanetDir)*optimalInterceptDist*0.7
+	interceptY := enemy.Y + math.Sin(enemyToPlanetDir)*optimalInterceptDist*0.7
+
+	// Check if we're positioned well (between enemy and planet)
+	distToIntercept := game.Distance(p.X, p.Y, interceptX, interceptY)
+
+	// Movement logic
+	if distToIntercept > 1500 || enemyDist > 6000 {
+		// Move to intercept position or chase enemy if too far
+		navDir := math.Atan2(interceptY-p.Y, interceptX-p.X)
+
+		// If enemy is far, move at full speed to close distance
+		var desiredSpeed float64
+		if enemyDist > 6000 {
+			desiredSpeed = float64(shipStats.MaxSpeed)
+		} else {
+			desiredSpeed = s.getOptimalCombatSpeed(p, enemyDist)
+		}
+
+		// Use safe navigation with torpedo dodging
+		s.applySafeNavigation(p, navDir, desiredSpeed, "intercepting planet bomber")
+	} else {
+		// We're in position - engage with combat maneuvering
+		angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
+
+		// Check if we're too close - use lateral movement to maintain range
+		if enemyDist < 2000 {
+			// Too close - move laterally to maintain better firing position
+			lateralDir := angleToEnemy + math.Pi/2 // Perpendicular to enemy direction
+			p.DesDir = lateralDir
+			p.DesSpeed = s.getOptimalCombatSpeed(p, enemyDist)
+		} else {
+			// Good range - face enemy for better weapon accuracy
+			p.DesDir = angleToEnemy
+			p.DesSpeed = s.getOptimalCombatSpeed(p, enemyDist)
+		}
+	}
+
+	// Aggressive weapon usage for planet defense
+	s.planetDefenseWeaponLogic(p, enemy, enemyDist)
+
+	// Check if we should continue defending or if threat is gone
+	if enemy.Status != game.StatusAlive || enemyDist > 15000 {
+		// Primary threat gone, check for other threats
+		if threatenedPlanet, _, _ := s.getThreatenedFriendlyPlanet(p); threatenedPlanet == nil {
+			// No more threats, clear defense target
+			p.BotDefenseTarget = -1
+			p.BotCooldown = 10
+			return
+		}
+	}
+
+	// Short cooldown for responsive defense
+	p.BotCooldown = 3
+}
+
+// starbaseDefendPlanet handles planet defense for starbase bots
+func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy *game.Player, enemyDist float64) {
+	// Set defense target
+	p.BotDefenseTarget = planet.ID
+
+	// Starbases don't chase - they position and hold
+	p.DesSpeed = 0
+	p.Shields_up = true
+
+	// Turn to face the threat
+	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
+	p.DesDir = angleToEnemy
+
+	// Use starbase weapon logic (more aggressive than normal combat)
+	s.starbaseDefenseWeaponLogic(p, enemy, enemyDist)
+
+	// Check if threat is gone
+	if enemy.Status != game.StatusAlive || enemyDist > game.StarbaseEnemyDetectRange+5000 {
+		if threatenedPlanet, _, _ := s.getThreatenedFriendlyPlanet(p); threatenedPlanet == nil {
+			p.BotDefenseTarget = -1
+			p.BotCooldown = 15
+			return
+		}
+	}
+
+	p.BotCooldown = 5
+}
+
+// planetDefenseWeaponLogic implements aggressive weapon usage for planet defense
+func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, enemyDist float64) {
+	shipStats := game.ShipData[p.Ship]
+
+	// Calculate angle to enemy for weapon accuracy
+	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
+	angleDiff := math.Abs(p.Dir - angleToEnemy)
+	if angleDiff > math.Pi {
+		angleDiff = 2*math.Pi - angleDiff
+	}
+
+	// Aggressive torpedo usage - wider criteria than normal combat
+	if enemyDist < 8000 && angleDiff < 0.6 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
+		s.fireBotTorpedoWithLead(p, enemy)
+		p.BotCooldown = 4 // Faster firing rate for planet defense
+		return
+	}
+
+	// Opportunistic phaser usage - prioritize planet protection over fuel conservation
+	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+	if enemyDist < myPhaserRange && angleDiff < 0.5 && p.Fuel > 1000 && p.WTemp < 75 {
+		// Fire phasers more liberally when defending planets
+		s.fireBotPhaser(p, enemy)
+		p.BotCooldown = 8
+		return
+	}
+
+	// Enhanced plasma usage for ships that have it
+	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < 7000 && enemyDist > 2000 && p.Fuel > 3000 {
+		s.fireBotPlasma(p, enemy)
+		p.BotCooldown = 15
+		return
+	}
+}
+
+// starbaseDefenseWeaponLogic implements weapon usage for starbase planet defense
+func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, enemyDist float64) {
+	shipStats := game.ShipData[p.Ship]
+
+	// Calculate angle to enemy
+	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
+	angleDiff := math.Abs(p.Dir - angleToEnemy)
+	if angleDiff > math.Pi {
+		angleDiff = 2*math.Pi - angleDiff
+	}
+
+	// More aggressive torpedo usage than normal starbase combat
+	if enemyDist < game.StarbaseTorpRange && angleDiff < 0.4 && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
+		s.fireBotTorpedoWithLead(p, enemy)
+		p.BotCooldown = 6 // Faster than normal starbase firing
+		return
+	}
+
+	// Aggressive phaser usage for planet defense
+	if enemyDist < game.StarbasePhaserRange && angleDiff < 0.4 && p.Fuel > 1500 && p.WTemp < 700 {
+		s.fireBotPhaser(p, enemy)
+		p.BotCooldown = 8
+		return
+	}
+
+	// Wider plasma usage window for area denial
+	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < game.StarbasePlasmaMaxRange && enemyDist > 1500 && p.Fuel > 3500 {
+		s.fireBotPlasma(p, enemy)
+		p.BotCooldown = 18
+		return
+	}
+}
+
+// getThreatenedFriendlyPlanet scans for friendly planets under threat
+// Returns the most threatened planet, the closest enemy to it, and the distance
+func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *game.Player, float64) {
+	var bestPlanet *game.Planet
+	var bestEnemy *game.Player
+	var bestEnemyDist float64 = 999999.0
+	bestThreatScore := 0.0
+
+	// Check each friendly planet within bot's scanning range
+	for i := range s.gameState.Planets {
+		planet := s.gameState.Planets[i]
+		if planet.Owner != p.Team {
+			continue
+		}
+
+		// Only check planets within bot's detection range
+		botToPlanetDist := game.Distance(p.X, p.Y, planet.X, planet.Y)
+		if botToPlanetDist > PlanetDefenseDetectRadius {
+			continue
+		}
+
+		// Find the closest threatening enemy to this planet
+		var closestEnemy *game.Player
+		closestEnemyDist := 999999.0
+		threatScore := 0.0
+
+		for j := range s.gameState.Players {
+			enemy := s.gameState.Players[j]
+			if enemy.Status != game.StatusAlive || enemy.Team == p.Team || enemy.Cloaked {
+				continue
+			}
+
+			enemyToPlanetDist := game.Distance(enemy.X, enemy.Y, planet.X, planet.Y)
+			isThreatening := false
+			currentThreatScore := 0.0
+
+			// Check if enemy is within bombing range + intercept buffer
+			if enemyToPlanetDist < (PlanetBombRange + PlanetDefenseInterceptBuffer) {
+				isThreatening = true
+				currentThreatScore = (PlanetBombRange + PlanetDefenseInterceptBuffer - enemyToPlanetDist) * 0.1
+			} else {
+				// Check if enemy is moving toward the planet (vector analysis)
+				if enemy.Speed > 1.0 && enemyToPlanetDist < 12000 {
+					// Calculate if enemy heading is toward planet
+					angleToPlanet := math.Atan2(planet.Y-enemy.Y, planet.X-enemy.X)
+					angleDiff := math.Abs(enemy.Dir - angleToPlanet)
+					if angleDiff > math.Pi {
+						angleDiff = 2*math.Pi - angleDiff
+					}
+
+					// If enemy is heading roughly toward planet (within 45 degrees)
+					if angleDiff < math.Pi/4 {
+						isThreatening = true
+						currentThreatScore = (12000 - enemyToPlanetDist) * 0.05
+					}
+				}
+			}
+
+			if isThreatening {
+				// Add extra threat weight for carriers (enemies with armies)
+				if enemy.Armies > 0 {
+					currentThreatScore += float64(enemy.Armies) * 2.0
+				}
+
+				// Add threat weight based on enemy damage (damaged enemies are easier to kill but might be desperate)
+				enemyStats := game.ShipData[enemy.Ship]
+				damageRatio := float64(enemy.Damage) / float64(enemyStats.MaxDamage)
+				if damageRatio > 0.7 {
+					currentThreatScore += 1.0 // Desperate enemies are more threatening
+				}
+
+				threatScore += currentThreatScore
+
+				// Track closest threatening enemy to this planet
+				if enemyToPlanetDist < closestEnemyDist {
+					closestEnemyDist = enemyToPlanetDist
+					closestEnemy = enemy
+				}
+			}
+		}
+
+		// Consider this planet if it has threats and higher priority than current best
+		if threatScore > bestThreatScore && closestEnemy != nil {
+			bestThreatScore = threatScore
+			bestPlanet = planet
+			bestEnemy = closestEnemy
+			bestEnemyDist = closestEnemyDist
+		}
+	}
+
+	if bestPlanet != nil && bestEnemy != nil {
+		return bestPlanet, bestEnemy, bestEnemyDist
+	}
+	return nil, nil, 0.0
+}
+
 func (s *Server) executePatrol(p *game.Player) {
 	shipStats := game.ShipData[p.Ship]
 

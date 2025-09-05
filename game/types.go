@@ -460,6 +460,7 @@ type Player struct {
 	IsBot               bool    `json:"isBot"`
 	BotTarget           int     `json:"-"` // Current target player ID
 	BotPlanetApproachID int     `json:"-"` // Planet ID bot is trying to approach (-1 if none)
+	BotDefenseTarget    int     `json:"-"` // Planet ID bot is actively defending (-1 if none)
 	BotGoalX            float64 `json:"-"` // Navigation goal
 	BotGoalY            float64 `json:"-"`
 	BotCooldown         int     `json:"-"` // Frames until next action
@@ -574,14 +575,17 @@ func NewGameStateWithMode(inlMode bool) *GameState {
 	// Initialize players
 	for i := 0; i < MaxPlayers; i++ {
 		gs.Players[i] = &Player{
-			ID:           i,
-			Status:       StatusFree,
-			Tractoring:   -1,
-			Pressoring:   -1,
-			Orbiting:     -1,
-			LockType:     "none",
-			LockTarget:   -1,
-			NextShipType: -1, // No pending refit by default for fresh slots
+			ID:                  i,
+			Status:              StatusFree,
+			Tractoring:          -1,
+			Pressoring:          -1,
+			Orbiting:            -1,
+			LockType:            "none",
+			LockTarget:          -1,
+			BotDefenseTarget:    -1,
+			BotPlanetApproachID: -1,
+			BotTarget:           -1,
+			NextShipType:        -1, // No pending refit by default for fresh slots
 		}
 	}
 
