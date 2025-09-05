@@ -178,6 +178,7 @@ func TestStarbaseDefense(t *testing.T) {
 	starbase.X = 35000
 	starbase.Y = 35000
 	starbase.BotDefenseTarget = -1
+	starbase.Fuel = 30000 // Give starbase sufficient fuel for shields
 
 	bomber := gs.Players[1]
 	bomber.Status = game.StatusAlive
