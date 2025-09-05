@@ -740,50 +740,41 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 
 // starbaseDefensiveCombat handles combat for starbases - conservative and defensive
 func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dist float64) {
-	shipStats := game.ShipData[p.Ship]
-
 	// Always shields up in combat
 	p.Shields_up = true
-
-	// Calculate firing solution
-	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
-	angleDiff := math.Abs(p.Dir - angleToEnemy)
-	if angleDiff > math.Pi {
-		angleDiff = 2*math.Pi - angleDiff
-	}
-
-	// Turn towards enemy slowly (starbases turn slowly)
-	if angleDiff > 0.1 {
-		p.DesDir = angleToEnemy
-	}
 
 	// Stay put - starbases don't chase
 	p.DesSpeed = 0
 
-	// Fire weapons when aligned and enemy is in range
-	if angleDiff < 0.3 {
-		// Fire torpedoes at long range - use actual torpedo physics range
-		effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(shipStats))
-		if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
-			s.fireBotTorpedoWithLead(p, enemy)
-			p.BotCooldown = 8 // Faster firing rate for better offense
-		}
+	// Fire weapons regardless of facing - starbases can fire in any direction
+	// Fire torpedoes at long range - use actual torpedo physics range
+	effectiveTorpRange := float64(game.EffectiveTorpRangeDefault(game.ShipData[p.Ship]))
+	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
+		s.fireBotTorpedoWithLead(p, enemy)
+		p.BotCooldown = 8 // Faster firing rate for better offense
+		return
+	}
 
-		// Fire phasers at medium range or to finish enemies
-		if dist < game.StarbasePhaserRange && p.Fuel > 2000 && p.WTemp < 700 {
-			enemyDamageRatio := float64(enemy.Damage) / float64(game.ShipData[enemy.Ship].MaxDamage)
-			if enemyDamageRatio > 0.6 || dist < 4000 {
-				s.fireBotPhaser(p, enemy)
-				p.BotCooldown = 10 // Faster firing rate
-			}
-		}
-
-		// Use plasma for area denial
-		if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > game.StarbasePlasmaMinRange && p.Fuel > 4000 {
-			s.fireBotPlasma(p, enemy)
-			p.BotCooldown = 20 // Slightly faster plasma cycling
+	// Fire phasers at medium range or to finish enemies
+	if dist < game.StarbasePhaserRange && p.Fuel > 2000 && p.WTemp < 700 {
+		enemyDamageRatio := float64(enemy.Damage) / float64(game.ShipData[enemy.Ship].MaxDamage)
+		if enemyDamageRatio > 0.6 || dist < 4000 {
+			s.fireBotPhaser(p, enemy)
+			p.BotCooldown = 10 // Faster firing rate
+			return
 		}
 	}
+
+	// Use plasma for area denial
+	shipStats := game.ShipData[p.Ship]
+	if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > game.StarbasePlasmaMinRange && p.Fuel > 4000 {
+		s.fireBotPlasma(p, enemy)
+		p.BotCooldown = 20 // Slightly faster plasma cycling
+		return
+	}
+
+	// No weapon fired - set a basic cooldown
+	p.BotCooldown = 5
 }
 
 // starbaseDefensivePatrol makes starbase patrol defensively near friendly territory
@@ -979,11 +970,7 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 	// Use comprehensive shield management for starbase defense
 	s.assessAndActivateShields(p, enemy)
 
-	// Turn to face the threat
-	angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)
-	p.DesDir = angleToEnemy
-
-	// Use starbase weapon logic (more aggressive than normal combat)
+	// Use starbase weapon logic - no need to turn to face threats
 	s.starbaseDefenseWeaponLogic(p, enemy, enemyDist)
 
 	// Check if threat is gone

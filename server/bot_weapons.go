@@ -385,4 +385,11 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 		p.BotCooldown = 18
 		return
 	}
+
+	// Unconditional close-range torpedo fallback - fires even when other conditions prevent it
+	if enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 2000 && p.WTemp < 800 {
+		s.fireBotTorpedoWithLead(p, enemy)
+		p.BotCooldown = 10
+		return
+	}
 }
