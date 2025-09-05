@@ -1277,8 +1277,16 @@ func (s *Server) updateGame() {
 		// Check for hits
 		for i := 0; i < game.MaxPlayers; i++ {
 			p := s.gameState.Players[i]
+			// Skip if not alive, self-damage, or friendly fire
 			if p.Status != game.StatusAlive || p.ID == torp.Owner {
 				continue
+			}
+			// Prevent friendly fire - check if target is on same team as torpedo owner
+			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
+				owner := s.gameState.Players[torp.Owner]
+				if owner != nil && p.Team == owner.Team {
+					continue
+				}
 			}
 
 			if game.Distance(torp.X, torp.Y, p.X, p.Y) < game.ExplosionDist {
@@ -1360,8 +1368,16 @@ func (s *Server) updateGame() {
 		explosionRadius := 1500.0 // Plasma has larger explosion radius
 		for i := 0; i < game.MaxPlayers; i++ {
 			p := s.gameState.Players[i]
+			// Skip if not alive, self-damage, or friendly fire
 			if p.Status != game.StatusAlive || p.ID == plasma.Owner {
 				continue
+			}
+			// Prevent friendly fire - check if target is on same team as plasma owner
+			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
+				owner := s.gameState.Players[plasma.Owner]
+				if owner != nil && p.Team == owner.Team {
+					continue
+				}
 			}
 
 			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) < explosionRadius {

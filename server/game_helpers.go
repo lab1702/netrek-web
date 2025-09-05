@@ -34,7 +34,6 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// Bots should respawn with the same ship type, just like human players
 	currentShipType := p.Ship
 
-
 	// Reset player state
 	p.Status = game.StatusAlive
 	p.ExplodeTimer = 0
