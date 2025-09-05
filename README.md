@@ -82,6 +82,34 @@ docker run -d -p 8080:8080 netrek-web
 - Practice mode with bots
 - Team messaging system
 
+## Development
+
+### Code Organization
+
+The server-side handler code is organized into focused modules for maintainability:
+
+- **`server/handler_utils.go`** - Shared utilities, constants, and data structures
+- **`server/game_state_handlers.go`** - Login and quit handlers  
+- **`server/movement_handlers.go`** - Movement, orbit, and lock handlers
+- **`server/combat_handlers.go`** - Weapons and combat systems
+- **`server/ship_management_handlers.go`** - Repair, beam, and bomb handlers
+- **`server/communication_handlers.go`** - All messaging systems
+- **`server/bot_handlers.go`** - Bot management commands
+
+This modular structure makes it easier for developers to:
+- Navigate to specific game systems
+- Work on features without conflicts
+- Understand code organization
+- Maintain and extend functionality
+
+### Testing
+
+```bash
+go test ./...
+go vet ./...
+go build ./...
+```
+
 ## Credits
 
 Based on the original Netrek (1986). Visit https://www.netrek.org/ for the classic game.
