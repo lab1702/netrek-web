@@ -9,6 +9,10 @@ const teamColors = {
     8: '#00ffff'   // Ori - cyan
 };
 
+// Visual constants for galactic map
+const GALACTIC_DIM_ALPHA = 0.3;        // Alpha level for dimmed ships
+const GALACTIC_NEUTRAL_GRAY = '#888';  // Neutral gray for cloaked enemies
+
 // Update planet counter display
 function updatePlanetCounter() {
     if (!gameState.planets) return;
@@ -1453,7 +1457,7 @@ function renderTactical() {
         
         // Make cloaked friendly ships translucent
         if (player.cloaked && player.team === myPlayer.team) {
-            ctx.globalAlpha = 0.3;
+            ctx.globalAlpha = GALACTIC_DIM_ALPHA;
         }
         
         // Draw ship using ship renderer or fallback
@@ -1603,8 +1607,16 @@ function renderGalactic() {
         
         if (player.status !== 2) continue; // Only show alive players
         
-        // Skip cloaked enemy ships on galactic map
+        // Show cloaked enemy ships as dimmed '??' on galactic map
         if (player.cloaked && myPlayer && player.team !== myPlayer.team) {
+            ctx.save();
+            ctx.globalAlpha = GALACTIC_DIM_ALPHA;
+            ctx.fillStyle = GALACTIC_NEUTRAL_GRAY;
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('??', x, y);
+            ctx.restore();
             continue;
         }
         
@@ -1613,7 +1625,7 @@ function renderGalactic() {
         
         // Make friendly cloaked ships translucent on galactic map
         if (player.cloaked && myPlayer && player.team === myPlayer.team) {
-            ctx.globalAlpha = 0.3;
+            ctx.globalAlpha = GALACTIC_DIM_ALPHA;
         }
         
         // Draw player as team letter + slot number (e.g., "R45")
