@@ -1235,8 +1235,9 @@ function renderTactical() {
         
         if (screenX < 0 || screenX > width || screenY < 0 || screenY > height) continue;
         
-        // Show explosion effect when torpedo detonates (fuse = 1) or hits something (status = 3)
-        if (torp.fuse === 1 || torp.status === 3) {
+        // Show explosion effect only when torpedo hits something (status = 3)
+        // Do not show explosion when torpedo simply expires (fuse = 1)
+        if (torp.status === 3) {
             ctx.fillStyle = '#ff0';
             ctx.globalAlpha = 0.8;
             ctx.beginPath();
