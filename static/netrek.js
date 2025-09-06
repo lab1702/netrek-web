@@ -465,6 +465,12 @@ function setupInputHandlers() {
     // Keyboard
     document.addEventListener('keydown', (e) => {
         controls.keys[e.key] = true;
+        
+        // Prevent Firefox Quick Find when pressing / for slash commands
+        if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            e.preventDefault();
+        }
+        
         handleKeyPress(e.key);
     });
     
