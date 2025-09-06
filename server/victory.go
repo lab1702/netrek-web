@@ -187,7 +187,7 @@ func getTeamNamesFromFlag(teamFlag int) []string {
 // formatTeamNames formats a list of team names for display
 func formatTeamNames(names []string) string {
 	if len(names) == 0 {
-		return "Unknown"
+		return "No Teams" // More descriptive than "Unknown"
 	}
 	if len(names) == 1 {
 		return names[0]

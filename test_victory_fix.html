@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Victory Fix Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #000; color: #0f0; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #333; }
+        .pass { background: #003300; }
+        .fail { background: #330000; }
+    </style>
+</head>
+<body>
+    <h1>Victory Fix Test - Team Name Handling</h1>
+    <div id="results"></div>
+
+    <script>
+        // Copy the utility functions from netrek.js
+        function getTeamNamesFromFlag(teamFlag) {
+            const names = [];
+            if (teamFlag & 1) names.push('FEDERATION');  // TeamFed = 1
+            if (teamFlag & 2) names.push('ROMULAN');     // TeamRom = 2
+            if (teamFlag & 4) names.push('KLINGON');     // TeamKli = 4
+            if (teamFlag & 8) names.push('ORION');       // TeamOri = 8
+            return names;
+        }
+
+        function getRepresentativeColor(teamFlag) {
+            const teamColors = {
+                0: '#888888',  // Ind - gray
+                1: '#ffff00',  // Fed - yellow
+                2: '#ff0000',  // Rom - red  
+                4: '#00ff00',  // Kli - green
+                8: '#00ffff'   // Ori - cyan
+            };
+            
+            // For single team, return that team's color
+            if (teamFlag === 1) return teamColors[1]; // Fed
+            if (teamFlag === 2) return teamColors[2]; // Rom
+            if (teamFlag === 4) return teamColors[4]; // Kli
+            if (teamFlag === 8) return teamColors[8]; // Ori
+            
+            // For multiple teams or unknown, use neutral white
+            return '#ffffff';
+        }
+
+        function formatTeamNames(names) {
+            if (names.length === 0) return 'NO TEAMS';
+            if (names.length === 1) return names[0];
+            if (names.length === 2) return names[0] + ' & ' + names[1];
+            
+            // For 3+ teams, use commas with final "&"
+            let result = '';
+            for (let i = 0; i < names.length; i++) {
+                if (i === names.length - 1) {
+                    result += ' & ' + names[i];
+                } else if (i > 0) {
+                    result += ', ' + names[i];
+                } else {
+                    result = names[i];
+                }
+            }
+            return result;
+        }
+
+        // Test cases
+        const tests = [
+            { flag: 0, expected: 'NO TEAMS', desc: 'No teams' },
+            { flag: 1, expected: 'FEDERATION', desc: 'Single team: Federation' },
+            { flag: 2, expected: 'ROMULAN', desc: 'Single team: Romulan' },
+            { flag: 4, expected: 'KLINGON', desc: 'Single team: Klingon' },
+            { flag: 8, expected: 'ORION', desc: 'Single team: Orion' },
+            { flag: 3, expected: 'FEDERATION & ROMULAN', desc: 'Two teams: Fed + Rom (3 = 1+2)' },
+            { flag: 5, expected: 'FEDERATION & KLINGON', desc: 'Two teams: Fed + Kli (5 = 1+4)' },
+            { flag: 7, expected: 'FEDERATION, ROMULAN & KLINGON', desc: 'Three teams: Fed + Rom + Kli (7 = 1+2+4)' },
+            { flag: 15, expected: 'FEDERATION, ROMULAN, KLINGON & ORION', desc: 'All four teams (15 = 1+2+4+8)' }
+        ];
+
+        let results = '<h2>Test Results</h2>';
+        let allPassed = true;
+
+        tests.forEach((test, index) => {
+            const names = getTeamNamesFromFlag(test.flag);
+            const result = formatTeamNames(names);
+            const color = getRepresentativeColor(test.flag);
+            const passed = result === test.expected;
+            
+            if (!passed) allPassed = false;
+            
+            results += `
+                <div class="test ${passed ? 'pass' : 'fail'}">
+                    <strong>Test ${index + 1}:</strong> ${test.desc}<br>
+                    <strong>Flag:</strong> ${test.flag} (binary: ${test.flag.toString(2).padStart(4, '0')})<br>
+                    <strong>Expected:</strong> ${test.expected}<br>
+                    <strong>Got:</strong> ${result}<br>
+                    <strong>Color:</strong> <span style="color: ${color};">●</span> ${color}<br>
+                    <strong>Status:</strong> ${passed ? '✓ PASS' : '✗ FAIL'}
+                </div>
+            `;
+        });
+
+        results += `
+            <div class="test ${allPassed ? 'pass' : 'fail'}">
+                <h3>Overall Result: ${allPassed ? '✓ ALL TESTS PASSED' : '✗ SOME TESTS FAILED'}</h3>
+            </div>
+        `;
+
+        document.getElementById('results').innerHTML = results;
+
+        // Display summary in console
+        console.log(`Victory fix test completed: ${allPassed ? 'ALL PASSED' : 'SOME FAILED'}`);
+        if (allPassed) {
+            console.log('✓ The "Unknown" winner bug should now be fixed!');
+        }
+    </script>
+</body>
+</html>

@@ -198,6 +198,49 @@ let canvases = {
 // Ship names
 const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
 
+// Utility functions for team handling in victories
+// Mirrors server-side logic from victory.go
+function getTeamNamesFromFlag(teamFlag) {
+    const names = [];
+    if (teamFlag & 1) names.push('FEDERATION');  // TeamFed = 1
+    if (teamFlag & 2) names.push('ROMULAN');     // TeamRom = 2
+    if (teamFlag & 4) names.push('KLINGON');     // TeamKli = 4
+    if (teamFlag & 8) names.push('ORION');       // TeamOri = 8
+    return names;
+}
+
+// Get representative color for single or multiple teams
+function getRepresentativeColor(teamFlag) {
+    // For single team, return that team's color
+    if (teamFlag === 1) return teamColors[1]; // Fed
+    if (teamFlag === 2) return teamColors[2]; // Rom
+    if (teamFlag === 4) return teamColors[4]; // Kli
+    if (teamFlag === 8) return teamColors[8]; // Ori
+    
+    // For multiple teams or unknown, use neutral white
+    return '#ffffff';
+}
+
+// Format team names for display (mirrors server formatTeamNames)
+function formatTeamNames(names) {
+    if (names.length === 0) return 'NO TEAMS';
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return names[0] + ' & ' + names[1];
+    
+    // For 3+ teams, use commas with final "&"
+    let result = '';
+    for (let i = 0; i < names.length; i++) {
+        if (i === names.length - 1) {
+            result += ' & ' + names[i];
+        } else if (i > 0) {
+            result += ', ' + names[i];
+        } else {
+            result = names[i];
+        }
+    }
+    return result;
+}
+
 // Initialize the game
 async function init() {
     // Set up canvases
@@ -948,23 +991,35 @@ function renderTactical() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, width, height);
         
-        ctx.fillStyle = teamColors[gameState.winner] || '#fff';
+        // Use new utility functions to handle single and multi-team victories
+        const winnerNames = getTeamNamesFromFlag(gameState.winner);
+        const winnerText = formatTeamNames(winnerNames);
+        const winnerColor = getRepresentativeColor(gameState.winner);
+        
+        ctx.fillStyle = winnerColor;
         ctx.font = 'bold 48px monospace';
         ctx.textAlign = 'center';
         
-        const teamNames = {
-            1: 'FEDERATION',
-            2: 'ROMULAN',
-            4: 'KLINGON',
-            8: 'ORION'
-        };
-        
-        const winnerName = teamNames[gameState.winner] || 'UNKNOWN';
-        const winText = gameState.winType === 'genocide' ? 'GENOCIDE VICTORY!' : 'CONQUEST VICTORY!';
+        // Choose appropriate victory text based on win type
+        let winText = 'VICTORY!';
+        if (gameState.winType === 'genocide') {
+            winText = 'GENOCIDE VICTORY!';
+        } else if (gameState.winType === 'conquest') {
+            winText = 'CONQUEST VICTORY!';
+        } else if (gameState.winType === 'domination') {
+            winText = 'DOMINATION VICTORY!';
+        } else if (gameState.winType === 'timeout') {
+            winText = 'TIME LIMIT VICTORY!';
+        }
         
         ctx.fillText(winText, centerX, centerY - 50);
         ctx.font = 'bold 36px monospace';
-        ctx.fillText(`${winnerName} WINS!`, centerX, centerY + 10);
+        
+        // Handle plural vs singular for multiple winners
+        const victoryText = winnerNames.length > 1 ? 
+            `${winnerText} WIN!` : 
+            `${winnerText} WINS!`;
+        ctx.fillText(victoryText, centerX, centerY + 10);
         
         ctx.font = '20px monospace';
         ctx.fillStyle = '#fff';

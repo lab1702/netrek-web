@@ -326,7 +326,7 @@ func TestFormatTeamNames(t *testing.T) {
 		names    []string
 		expected string
 	}{
-		{"Empty list", []string{}, "Unknown"},
+		{"Empty list", []string{}, "No Teams"},
 		{"Single team", []string{"Federation"}, "Federation"},
 		{"Two teams", []string{"Federation", "Romulan"}, "Federation & Romulan"},
 		{"Three teams", []string{"Federation", "Romulan", "Klingon"}, "Federation, Romulan & Klingon"},
