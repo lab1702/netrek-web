@@ -286,3 +286,109 @@ func TestResetGame(t *testing.T) {
 		t.Error("Expected a broadcast message but didn't receive one")
 	}
 }
+
+// Test helper functions for team name handling
+func TestGetTeamNamesFromFlag(t *testing.T) {
+	tests := []struct {
+		name     string
+		flag     int
+		expected []string
+	}{
+		{"Single team Fed", game.TeamFed, []string{"Federation"}},
+		{"Single team Rom", game.TeamRom, []string{"Romulan"}},
+		{"Single team Kli", game.TeamKli, []string{"Klingon"}},
+		{"Single team Ori", game.TeamOri, []string{"Orion"}},
+		{"Two teams Fed+Rom", game.TeamFed | game.TeamRom, []string{"Federation", "Romulan"}},
+		{"Three teams Fed+Rom+Kli", game.TeamFed | game.TeamRom | game.TeamKli, []string{"Federation", "Romulan", "Klingon"}},
+		{"All four teams", game.TeamFed | game.TeamRom | game.TeamKli | game.TeamOri, []string{"Federation", "Romulan", "Klingon", "Orion"}},
+		{"No teams", 0, []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getTeamNamesFromFlag(tt.flag)
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected %d team names, got %d", len(tt.expected), len(result))
+				return
+			}
+			for i, expected := range tt.expected {
+				if result[i] != expected {
+					t.Errorf("Expected team name %s at position %d, got %s", expected, i, result[i])
+				}
+			}
+		})
+	}
+}
+
+func TestFormatTeamNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		names    []string
+		expected string
+	}{
+		{"Empty list", []string{}, "Unknown"},
+		{"Single team", []string{"Federation"}, "Federation"},
+		{"Two teams", []string{"Federation", "Romulan"}, "Federation & Romulan"},
+		{"Three teams", []string{"Federation", "Romulan", "Klingon"}, "Federation, Romulan & Klingon"},
+		{"Four teams", []string{"Federation", "Romulan", "Klingon", "Orion"}, "Federation, Romulan, Klingon & Orion"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatTeamNames(tt.names)
+			if result != tt.expected {
+				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestAnnounceVictoryMultiTeamTimeout(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+	server.broadcast = make(chan ServerMessage, 10)
+
+	// Set up game state with multiple winners (Fed & Rom)
+	server.gameState.GameOver = true
+	server.gameState.Winner = game.TeamFed | game.TeamRom
+	server.gameState.WinType = "timeout"
+
+	// Call announceVictory
+	server.announceVictory()
+
+	// Check the broadcast message
+	select {
+	case msg := <-server.broadcast:
+		if msg.Type != MsgTypeMessage {
+			t.Errorf("Expected message type %s, got %s", MsgTypeMessage, msg.Type)
+		}
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Error("Expected message data to be a map")
+		}
+		if data["type"] != "victory" {
+			t.Errorf("Expected victory message, got %s", data["type"])
+		}
+		// Check message text
+		messageText, ok := data["text"].(string)
+		if !ok {
+			t.Error("Expected message text to be a string")
+		} else {
+			if !containsInner(messageText, "Federation & Romulan") {
+				t.Errorf("Message should contain 'Federation & Romulan', got: %s", messageText)
+			}
+			if !containsInner(messageText, "share victory") {
+				t.Errorf("Message should contain 'share victory', got: %s", messageText)
+			}
+		}
+		// Check winner field contains combined flag
+		winnerData, ok := data["winner"].(int)
+		if !ok {
+			t.Error("Expected winner field to be an int")
+		} else if winnerData != game.TeamFed|game.TeamRom {
+			t.Errorf("Expected winner field to be Fed|Rom (%d), got %d", game.TeamFed|game.TeamRom, winnerData)
+		}
+	default:
+		t.Error("Expected victory broadcast message")
+	}
+}

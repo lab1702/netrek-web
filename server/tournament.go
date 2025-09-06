@@ -149,19 +149,28 @@ func (s *Server) checkTournamentMode() {
 
 		// Check for time limit
 		if s.gameState.T_remain <= 0 && !s.gameState.GameOver {
-			// Time's up - determine winner by planets owned
+			// Time's up - determine winner(s) by planets owned
+			// First pass: find the maximum planet count
 			maxPlanets := 0
-			winningTeam := 0
-			for i, count := range s.gameState.TeamPlanets {
+			for _, count := range s.gameState.TeamPlanets {
 				if count > maxPlanets {
 					maxPlanets = count
-					winningTeam = 1 << i
 				}
 			}
 
-			if winningTeam > 0 {
+			// Second pass: collect all teams with max planet count as co-victors
+			winningTeams := 0
+			if maxPlanets > 0 {
+				for i, count := range s.gameState.TeamPlanets {
+					if count == maxPlanets {
+						winningTeams |= 1 << i // Use bitwise OR to combine team flags
+					}
+				}
+			}
+
+			if winningTeams > 0 {
 				s.gameState.GameOver = true
-				s.gameState.Winner = winningTeam
+				s.gameState.Winner = winningTeams
 				s.gameState.WinType = "timeout"
 				s.announceVictory()
 			}

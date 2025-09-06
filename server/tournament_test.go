@@ -313,3 +313,271 @@ func TestTournamentPlayerReset(t *testing.T) {
 		}
 	}
 }
+
+func TestTournamentTimeoutCoVictory(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+	server.broadcast = make(chan ServerMessage, 10)
+
+	// Set up tournament mode with timed out condition
+	server.gameState.T_mode = true
+	server.gameState.T_start = 0
+	server.gameState.Frame = 18010 // More than 30 minutes (1800 * 10 frames/sec = 18000)
+	server.gameState.GameOver = false
+	server.gameState.Winner = 0
+	server.gameState.WinType = ""
+
+	// Add enough active players to maintain tournament mode
+	for i := 0; i < 4; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamFed,
+			Connected: true,
+		}
+	}
+	for i := 4; i < 8; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamRom,
+			Connected: true,
+		}
+	}
+
+	// Set up team planet counts where Fed and Rom tie with 15 each, Kli has 10
+	server.gameState.TeamPlanets[0] = 15 // Federation
+	server.gameState.TeamPlanets[1] = 15 // Romulan
+	server.gameState.TeamPlanets[2] = 10 // Klingon
+	server.gameState.TeamPlanets[3] = 0  // Orion
+
+	server.checkTournamentMode()
+
+	// Game should be over with both Fed and Rom as co-victors
+	if !server.gameState.GameOver {
+		t.Error("Game should be over after tournament timeout")
+	}
+
+	expectedWinner := game.TeamFed | game.TeamRom // Both teams combined
+	if server.gameState.Winner != expectedWinner {
+		t.Errorf("Expected winner to be Fed|Rom (%d), got %d", expectedWinner, server.gameState.Winner)
+	}
+
+	if server.gameState.WinType != "timeout" {
+		t.Errorf("Expected win type 'timeout', got '%s'", server.gameState.WinType)
+	}
+
+	// Check that victory message was broadcast
+	select {
+	case msg := <-server.broadcast:
+		if msg.Type != MsgTypeMessage {
+			t.Errorf("Expected message type %s, got %s", MsgTypeMessage, msg.Type)
+		}
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Error("Expected message data to be a map")
+		}
+		if data["type"] != "victory" {
+			t.Errorf("Expected victory message, got %s", data["type"])
+		}
+		// Check that message contains both team names
+		messageText, ok := data["text"].(string)
+		if !ok {
+			t.Error("Expected message text to be a string")
+		} else {
+			if !contains(messageText, "Federation") {
+				t.Errorf("Message should contain 'Federation', got: %s", messageText)
+			}
+			if !contains(messageText, "Romulan") {
+				t.Errorf("Message should contain 'Romulan', got: %s", messageText)
+			}
+			if !contains(messageText, "share victory") {
+				t.Errorf("Message should indicate shared victory, got: %s", messageText)
+			}
+		}
+	default:
+		t.Error("Expected victory broadcast message")
+	}
+}
+
+func TestTournamentTimeoutSingleWinnerUnchanged(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+	server.broadcast = make(chan ServerMessage, 10)
+
+	// Set up tournament mode with timed out condition
+	server.gameState.T_mode = true
+	server.gameState.T_start = 0
+	server.gameState.Frame = 18010 // More than 30 minutes
+	server.gameState.GameOver = false
+	server.gameState.Winner = 0
+	server.gameState.WinType = ""
+
+	// Add enough active players to maintain tournament mode
+	for i := 0; i < 4; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamFed,
+			Connected: true,
+		}
+	}
+	for i := 4; i < 8; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamRom,
+			Connected: true,
+		}
+	}
+
+	// Set up team planet counts where Fed wins with 20, others have less
+	server.gameState.TeamPlanets[0] = 20 // Federation (clear winner)
+	server.gameState.TeamPlanets[1] = 15 // Romulan
+	server.gameState.TeamPlanets[2] = 5  // Klingon
+	server.gameState.TeamPlanets[3] = 0  // Orion
+
+	server.checkTournamentMode()
+
+	// Game should be over with only Fed as victor
+	if !server.gameState.GameOver {
+		t.Error("Game should be over after tournament timeout")
+	}
+
+	if server.gameState.Winner != game.TeamFed {
+		t.Errorf("Expected winner to be Fed only (%d), got %d", game.TeamFed, server.gameState.Winner)
+	}
+
+	if server.gameState.WinType != "timeout" {
+		t.Errorf("Expected win type 'timeout', got '%s'", server.gameState.WinType)
+	}
+
+	// Check that victory message was broadcast
+	select {
+	case msg := <-server.broadcast:
+		if msg.Type != MsgTypeMessage {
+			t.Errorf("Expected message type %s, got %s", MsgTypeMessage, msg.Type)
+		}
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Error("Expected message data to be a map")
+		}
+		// Check that message contains single team name
+		messageText, ok := data["text"].(string)
+		if !ok {
+			t.Error("Expected message text to be a string")
+		} else {
+			if !contains(messageText, "Federation") {
+				t.Errorf("Message should contain 'Federation', got: %s", messageText)
+			}
+			if contains(messageText, "share") {
+				t.Errorf("Message should not indicate shared victory for single winner, got: %s", messageText)
+			}
+		}
+	default:
+		t.Error("Expected victory broadcast message")
+	}
+}
+
+func TestTournamentTimeoutThreeWayTie(t *testing.T) {
+	// Create a test server
+	server := NewServer()
+	server.broadcast = make(chan ServerMessage, 10)
+
+	// Set up tournament mode with timed out condition
+	server.gameState.T_mode = true
+	server.gameState.T_start = 0
+	server.gameState.Frame = 18010
+	server.gameState.GameOver = false
+	server.gameState.Winner = 0
+	server.gameState.WinType = ""
+
+	// Add enough active players to maintain tournament mode  
+	// Need at least 4 players per team for 3 teams to maintain tournament
+	for i := 0; i < 4; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamFed,
+			Connected: true,
+		}
+	}
+	for i := 4; i < 8; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamRom,
+			Connected: true,
+		}
+	}
+	for i := 8; i < 12; i++ {
+		server.gameState.Players[i] = &game.Player{
+			ID:        i,
+			Status:    game.StatusAlive,
+			Team:      game.TeamKli,
+			Connected: true,
+		}
+	}
+
+	// Set up team planet counts where Fed, Rom, and Kli tie with 13 each
+	server.gameState.TeamPlanets[0] = 13 // Federation
+	server.gameState.TeamPlanets[1] = 13 // Romulan
+	server.gameState.TeamPlanets[2] = 13 // Klingon
+	server.gameState.TeamPlanets[3] = 1  // Orion
+
+	server.checkTournamentMode()
+
+	// Game should be over with Fed, Rom, and Kli as co-victors
+	if !server.gameState.GameOver {
+		t.Error("Game should be over after tournament timeout")
+	}
+
+	expectedWinner := game.TeamFed | game.TeamRom | game.TeamKli
+	if server.gameState.Winner != expectedWinner {
+		t.Errorf("Expected winner to be Fed|Rom|Kli (%d), got %d", expectedWinner, server.gameState.Winner)
+	}
+
+	// Check that victory message contains all three team names
+	select {
+	case msg := <-server.broadcast:
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Error("Expected message data to be a map")
+		}
+		messageText, ok := data["text"].(string)
+		if !ok {
+			t.Error("Expected message text to be a string")
+		} else {
+			if !contains(messageText, "Federation") {
+				t.Errorf("Message should contain 'Federation', got: %s", messageText)
+			}
+			if !contains(messageText, "Romulan") {
+				t.Errorf("Message should contain 'Romulan', got: %s", messageText)
+			}
+			if !contains(messageText, "Klingon") {
+				t.Errorf("Message should contain 'Klingon', got: %s", messageText)
+			}
+			if !contains(messageText, "share victory") {
+				t.Errorf("Message should indicate shared victory, got: %s", messageText)
+			}
+		}
+	default:
+		t.Error("Expected victory broadcast message")
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			containsInner(s, substr)))
+}
+
+func containsInner(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

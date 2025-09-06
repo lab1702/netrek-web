@@ -166,29 +166,79 @@ func (s *Server) checkVictoryConditions() {
 	}
 }
 
+// getTeamNamesFromFlag converts a combined team flag to a slice of team names
+func getTeamNamesFromFlag(teamFlag int) []string {
+	var names []string
+	if teamFlag&game.TeamFed != 0 {
+		names = append(names, "Federation")
+	}
+	if teamFlag&game.TeamRom != 0 {
+		names = append(names, "Romulan")
+	}
+	if teamFlag&game.TeamKli != 0 {
+		names = append(names, "Klingon")
+	}
+	if teamFlag&game.TeamOri != 0 {
+		names = append(names, "Orion")
+	}
+	return names
+}
+
+// formatTeamNames formats a list of team names for display
+func formatTeamNames(names []string) string {
+	if len(names) == 0 {
+		return "Unknown"
+	}
+	if len(names) == 1 {
+		return names[0]
+	}
+	if len(names) == 2 {
+		return names[0] + " & " + names[1]
+	}
+	// For 3+ teams, use commas with final "&"
+	result := ""
+	for i, name := range names {
+		if i == len(names)-1 {
+			result += " & " + name
+		} else if i > 0 {
+			result += ", " + name
+		} else {
+			result = name
+		}
+	}
+	return result
+}
+
 // announceVictory sends victory message to all clients
 func (s *Server) announceVictory() {
-	teamName := ""
-	switch s.gameState.Winner {
-	case game.TeamFed:
-		teamName = "Federation"
-	case game.TeamRom:
-		teamName = "Romulan"
-	case game.TeamKli:
-		teamName = "Klingon"
-	case game.TeamOri:
-		teamName = "Orion"
-	}
+	teamNames := getTeamNamesFromFlag(s.gameState.Winner)
+	teamNameStr := formatTeamNames(teamNames)
 
 	var message string
 	if s.gameState.WinType == "genocide" {
-		message = fmt.Sprintf("🎉 GENOCIDE! %s team has eliminated all enemies! Victory!", teamName)
+		if len(teamNames) > 1 {
+			message = fmt.Sprintf("🎉 GENOCIDE! %s teams have eliminated all enemies! Shared victory!", teamNameStr)
+		} else {
+			message = fmt.Sprintf("🎉 GENOCIDE! %s team has eliminated all enemies! Victory!", teamNameStr)
+		}
 	} else if s.gameState.WinType == "conquest" {
-		message = fmt.Sprintf("🎉 CONQUEST! %s team has captured all planets! Victory!", teamName)
+		if len(teamNames) > 1 {
+			message = fmt.Sprintf("🎉 CONQUEST! %s teams have captured all planets! Shared victory!", teamNameStr)
+		} else {
+			message = fmt.Sprintf("🎉 CONQUEST! %s team has captured all planets! Victory!", teamNameStr)
+		}
 	} else if s.gameState.WinType == "domination" {
-		message = fmt.Sprintf("🏆 DOMINATION! %s team controls all owned planets and enemies have no armies! Victory!", teamName)
+		if len(teamNames) > 1 {
+			message = fmt.Sprintf("🏆 DOMINATION! %s teams control all owned planets and enemies have no armies! Shared victory!", teamNameStr)
+		} else {
+			message = fmt.Sprintf("🏆 DOMINATION! %s team controls all owned planets and enemies have no armies! Victory!", teamNameStr)
+		}
 	} else if s.gameState.WinType == "timeout" {
-		message = fmt.Sprintf("⏱️ TIME LIMIT! %s team wins by controlling the most planets!", teamName)
+		if len(teamNames) > 1 {
+			message = fmt.Sprintf("⏱️ TIME LIMIT! %s teams share victory by controlling the most planets!", teamNameStr)
+		} else {
+			message = fmt.Sprintf("⏱️ TIME LIMIT! %s team wins by controlling the most planets!", teamNameStr)
+		}
 	}
 
 	// Broadcast victory message
