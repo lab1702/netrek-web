@@ -21,38 +21,46 @@
             align-items: center;
             justify-content: center;
             background-image: 
-                radial-gradient(circle at 20% 50%, rgba(0, 255, 0, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(0, 255, 0, 0.05) 0%, transparent 50%);
+                radial-gradient(circle at 25% 25%, rgba(0, 255, 0, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(0, 255, 0, 0.04) 0%, transparent 50%);
         }
         
         .container {
-            max-width: 1024px;
+            max-width: 800px;
             padding: 20px;
             text-align: center;
         }
         
+        /* === MAIN TITLE SECTION === */
         h1 {
-            font-size: 4em;
-            margin-bottom: 20px;
-            text-shadow: 0 0 20px #0f0;
-            animation: glow 2s ease-in-out infinite alternate;
+            font-size: 3.5em;
+            margin-bottom: 15px;
+            text-shadow: 0 0 15px #0f0;
+            animation: glow 3s ease-in-out infinite alternate;
         }
         
         @keyframes glow {
-            from { text-shadow: 0 0 20px #0f0; }
-            to { text-shadow: 0 0 30px #0f0, 0 0 40px #0a0; }
+            from { text-shadow: 0 0 15px #0f0; }
+            to { text-shadow: 0 0 25px #0f0, 0 0 35px #0a0; }
         }
         
         .subtitle {
-            font-size: 1.2em;
+            font-size: 1.1em;
             color: #0a0;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
         
+        .warning {
+            color: #ff0;
+            margin: 15px 0;
+            font-size: 1em;
+        }
+        
+        /* === PLAY BUTTON === */
         .play-button {
             display: inline-block;
-            padding: 20px 40px;
-            font-size: 1.5em;
+            padding: 18px 35px;
+            font-size: 1.4em;
             background: transparent;
             border: 2px solid #0f0;
             color: #0f0;
@@ -63,12 +71,13 @@
             cursor: pointer;
             position: relative;
             overflow: hidden;
+            margin-bottom: 40px;
         }
         
         .play-button:hover {
             background: #0f0;
             color: #000;
-            box-shadow: 0 0 30px #0f0;
+            box-shadow: 0 0 25px #0f0;
             transform: scale(1.05);
         }
         
@@ -80,7 +89,7 @@
             width: 100%;
             height: 2px;
             background: linear-gradient(90deg, transparent, #0f0, transparent);
-            animation: scan 2s linear infinite;
+            animation: scan 3s linear infinite;
         }
         
         @keyframes scan {
@@ -88,64 +97,74 @@
             100% { left: 100%; }
         }
         
-        .info-section {
-            margin-top: 60px;
-            padding: 30px;
-            border: 1px solid #0a0;
-            background: rgba(0, 255, 0, 0.02);
-        }
-        
+        /* === COMPACT INFO GRID === */
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 30px;
-            margin-top: 30px;
+            margin: 40px 0;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
         
-        .info-box {
+        .info-section {
             padding: 20px;
-            border: 1px solid #0f0;
-            background: rgba(0, 0, 0, 0.5);
-        }
-        
-        .info-box h3 {
-            color: #0f0;
-            margin-bottom: 10px;
-            font-size: 1.2em;
-        }
-        
-        .info-box p {
-            color: #0a0;
-            font-size: 0.9em;
-            line-height: 1.5;
-        }
-        
-        .controls {
-            margin-top: 40px;
-            padding: 20px;
-            background: #111;
             border: 1px solid #0a0;
+            background: rgba(0, 255, 0, 0.03);
+        }
+        
+        .info-section h3 {
+            color: #0f0;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        /* === TEAMS === */
+        .teams {
             text-align: left;
         }
         
-        .controls h3 {
-            color: #0f0;
-            margin-bottom: 15px;
-            text-align: center;
+        .team-list {
+            list-style: none;
+            padding: 0;
         }
         
-        .control-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+        .team-list li {
+            padding: 8px 0;
+            color: #0a0;
+            border-bottom: 1px solid #030;
+        }
+        
+        .team-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .team-name {
+            color: #0f0;
+            font-weight: bold;
+        }
+        
+        /* === ESSENTIAL CONTROLS === */
+        .essentials {
+            text-align: left;
+        }
+        
+        .control-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .control-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #030;
             font-size: 0.9em;
         }
         
-        .control-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px;
-            border-bottom: 1px solid #030;
+        .control-list li:last-child {
+            border-bottom: none;
         }
         
         .key {
@@ -157,178 +176,106 @@
             color: #0a0;
         }
         
+        /* === FEATURES === */
         .features {
-            margin-top: 40px;
-            color: #0a0;
+            margin: 40px 0;
+            padding: 20px;
+            border: 1px solid #0a0;
+            background: rgba(0, 255, 0, 0.02);
         }
         
-        .features ul {
+        .features h3 {
+            color: #0f0;
+            margin-bottom: 15px;
+        }
+        
+        .feature-list {
             list-style: none;
             padding: 0;
+            text-align: left;
         }
         
-        .features li {
-            padding: 10px;
-            margin: 5px 0;
+        .feature-list li {
+            padding: 8px 0;
+            color: #0a0;
             border-left: 3px solid #0f0;
-            padding-left: 20px;
+            padding-left: 15px;
+            margin: 5px 0;
         }
         
+        /* === FOOTER === */
         .footer {
-            margin-top: 60px;
-            padding-top: 20px;
+            margin-top: 40px;
+            padding-top: 15px;
             border-top: 1px solid #0a0;
             color: #080;
             font-size: 0.8em;
         }
         
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin: 30px 0;
-        }
-        
-        .stat {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 2em;
-            color: #0f0;
-            font-weight: bold;
-        }
-        
-        .stat-label {
-            font-size: 0.9em;
-            color: #0a0;
-            margin-top: 5px;
+        /* === RESPONSIVE === */
+        @media (max-width: 640px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            h1 {
+                font-size: 2.5em;
+            }
+            
+            .container {
+                padding: 15px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- === MAIN HEADER === -->
         <h1>NETREK-WEB</h1>
-        <p class="subtitle">A Web Implementation of the Original Internet Team Space Battle Game</p>
-        <p style="color: #ff0; margin: 10px 0; font-size: 1.1em;">⚠️ PROOF OF CONCEPT - Work in Progress ⚠️</p>
+        <p class="subtitle">Web Implementation of the Classic Internet Space Battle Game</p>
+        <p class="warning">⚠️ PROOF OF CONCEPT - Work in Progress ⚠️</p>
         
         <a href="game.html" class="play-button">Launch Game</a>
         
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-number">1986</div>
-                <div class="stat-label">Original Release</div>
+        <!-- === COMPACT INFO GRID === -->
+        <div class="info-grid">
+            <div class="info-section teams">
+                <h3>Choose Your Side</h3>
+                <ul class="team-list">
+                    <li><span class="team-name">Federation</span> - Defense & Unity</li>
+                    <li><span class="team-name">Romulans</span> - Stealth & Cunning</li>
+                    <li><span class="team-name">Klingons</span> - Honor & Combat</li>
+                    <li><span class="team-name">Orions</span> - Chaos & Profit</li>
+                </ul>
             </div>
-            <div class="stat">
-                <div class="stat-number">4</div>
-                <div class="stat-label">Teams</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number">64</div>
-                <div class="stat-label">Max Players</div>
-            </div>
-        </div>
-        
-        <div class="info-section">
-            <h2>Welcome to the Galaxy</h2>
-            <div class="info-grid">
-                <div class="info-box">
-                    <h3>Federation</h3>
-                    <p>The peaceful explorers, strong in defense and teamwork</p>
-                </div>
-                <div class="info-box">
-                    <h3>Romulans</h3>
-                    <p>Masters of cloaking technology and stealth tactics</p>
-                </div>
-                <div class="info-box">
-                    <h3>Klingons</h3>
-                    <p>Aggressive warriors with powerful weapons</p>
-                </div>
-                <div class="info-box">
-                    <h3>Orions</h3>
-                    <p>Pirates and mercenaries, unpredictable in battle</p>
-                </div>
+            
+            <div class="info-section essentials">
+                <h3>Essential Controls</h3>
+                <ul class="control-list">
+                    <li><span class="key">Left Click</span> <span class="action">Fire Torpedo</span></li>
+                    <li><span class="key">Right Click</span> <span class="action">Set Course</span></li>
+                    <li><span class="key">0-9</span> <span class="action">Set Speed</span></li>
+                    <li><span class="key">S</span> <span class="action">Shields</span></li>
+                    <li><span class="key">C</span> <span class="action">Cloak</span></li>
+                </ul>
             </div>
         </div>
         
-        <div class="controls">
-            <h3>Essential Controls</h3>
-            <div class="control-grid">
-                <div class="control-item">
-                    <span class="key">Left Click</span>
-                    <span class="action">Fire Torpedo</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">Middle Click</span>
-                    <span class="action">Fire Phaser</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">Right Click</span>
-                    <span class="action">Set Course</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">0-9</span>
-                    <span class="action">Set Speed</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">! @ #</span>
-                    <span class="action">Speed 10-12</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">S</span>
-                    <span class="action">Toggle Shields</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">C</span>
-                    <span class="action">Toggle Cloak</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">L</span>
-                    <span class="action">Lock On Target</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">O</span>
-                    <span class="action">Orbit/Break Orbit</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">R</span>
-                    <span class="action">Repair Mode</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">D</span>
-                    <span class="action">Detonate Torps</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">T/Y</span>
-                    <span class="action">Tractor/Pressor</span>
-                </div>
-                <div class="control-item">
-                    <span class="key">\</span>
-                    <span class="action">Practice Mode</span>
-                </div>
-            </div>
-        </div>
-        
+        <!-- === FEATURES === -->
         <div class="features">
-            <h3>Current Features (Proof of Concept)</h3>
-            <ul>
-                <li>Core NETREK gameplay mechanics</li>
-                <li>Real-time multiplayer space combat</li>
-                <li>Seven ship types: Scout, Destroyer, Cruiser, Battleship, Assault, Starbase, Galaxy</li>
-                <li>Team-based warfare with planet conquest</li>
-                <li>Practice mode with AI bots for testing</li>
-                <li>Physics simulation with turn rates and momentum</li>
-                <li>Cloaking, shields, tractors, and repair systems</li>
-                <li>Lock-on targeting for navigation and combat</li>
-                <li>Tactical and galactic map views</li>
+            <h3>Core Features</h3>
+            <ul class="feature-list">
+                <li>Real-time multiplayer space combat with physics simulation</li>
+                <li>Team-based warfare across 4 galactic empires with planet conquest</li>
+                <li>Seven ship classes from Scout to Galaxy-class battleships</li>
+                <li>Practice mode with AI bots for skill development</li>
             </ul>
         </div>
         
+        <!-- === FOOTER === -->
         <div class="footer">
-            <p>NETREK-WEB - A modern web implementation of the classic game</p>
-            <p style="color: #ff0; margin: 10px 0;">This is a proof-of-concept version. Expect bugs and incomplete features.</p>
-            <p>NETREK-WEB built with Go and WebSockets</p>
-            <p style="margin-top: 10px; color: #0f0;">Created by "lab" - who used to play from the MTEK lab at Chalmers University of Technology, Gothenburg, Sweden in the late 80s and early 90s</p>
+            <p>Built with Go + WebSockets • Created by "lab" • Homage to the MTEK days at Chalmers '86-'91</p>
         </div>
     </div>
 </body>
