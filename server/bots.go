@@ -5,6 +5,7 @@ import (
 	"github.com/lab1702/netrek-web/game"
 	"math"
 	"math/rand"
+	"strings"
 )
 
 // AddBot adds a new bot player to the game
@@ -923,22 +924,25 @@ func (s *Server) findNearestFuelPlanet(p *game.Player) *game.Planet {
 }
 
 // AutoBalanceBots adds or removes bots to balance teams
+// Players and bots count equally as team members for balancing
 func (s *Server) AutoBalanceBots() {
-	// Count human players per team
+	// Count all team members (both human players and bots)
 	teamCounts := make(map[int]int)
-	teamBots := make(map[int][]int)
+	teams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
 
-	for i, p := range s.gameState.Players {
+	// Initialize team counts
+	for _, team := range teams {
+		teamCounts[team] = 0
+	}
+
+	for _, p := range s.gameState.Players {
 		if p.Status == game.StatusAlive && p.Connected {
-			if p.IsBot {
-				teamBots[p.Team] = append(teamBots[p.Team], i)
-			} else {
-				teamCounts[p.Team]++
-			}
+			// Count both human players and bots equally
+			teamCounts[p.Team]++
 		}
 	}
 
-	// Find team with most players
+	// Find team with most members (players + bots)
 	maxCount := 0
 	for _, count := range teamCounts {
 		if count > maxCount {
@@ -946,15 +950,70 @@ func (s *Server) AutoBalanceBots() {
 		}
 	}
 
+	// If no one is on the server, don't add bots
+	if maxCount == 0 {
+		s.broadcast <- ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": "Auto-balance: no players on server, no bots added",
+				"type": "info",
+			},
+		}
+		return
+	}
+
 	// Balance teams by adding bots with appropriate ship types
-	teams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
+	botsAdded := make(map[int]int)
+	totalBotsAdded := 0
+
 	for _, team := range teams {
 		deficit := maxCount - teamCounts[team]
 		for deficit > 0 {
 			// Choose ship type based on team needs
 			ship := s.selectBotShipType(team)
 			s.AddBot(team, ship)
+			botsAdded[team]++
+			totalBotsAdded++
 			deficit--
+		}
+	}
+
+	// Send feedback message
+	if totalBotsAdded == 0 {
+		s.broadcast <- ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": "Auto-balance: teams already balanced, no bots added",
+				"type": "info",
+			},
+		}
+	} else {
+		// Build a descriptive message about what was added
+		var messages []string
+		teamNames := map[int]string{
+			game.TeamFed: "Federation",
+			game.TeamRom: "Romulan",
+			game.TeamKli: "Klingon",
+			game.TeamOri: "Orion",
+		}
+
+		for _, team := range teams {
+			if botsAdded[team] > 0 {
+				botWord := "bot"
+				if botsAdded[team] > 1 {
+					botWord = "bots"
+				}
+				messages = append(messages, fmt.Sprintf("%d %s to %s", botsAdded[team], botWord, teamNames[team]))
+			}
+		}
+
+		messageText := fmt.Sprintf("Auto-balance: added %s", strings.Join(messages, ", "))
+		s.broadcast <- ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": messageText,
+				"type": "info",
+			},
 		}
 	}
 }
