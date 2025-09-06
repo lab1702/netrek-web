@@ -860,6 +860,7 @@ function handleServerMessage(msg) {
                 dir: msg.data.dir || 0, // Direction for missed phasers
                 x: msg.data.x || 0,     // X coordinate for plasma hits
                 y: msg.data.y || 0,     // Y coordinate for plasma hits
+                range: msg.data.range || 5000, // Ship-specific phaser range, fallback to 5000
                 life: 10 // Frames to display
             });
             // Play phaser sound when we see a phaser fired
@@ -1163,7 +1164,7 @@ function renderTactical() {
             toY = centerY + (phaser.y - myPlayer.y) * scale;
         } else {
             // Phaser missed - draw in direction fired
-            const phaserRange = 5000 * scale; // Phaser range 5000 units in screen pixels
+            const phaserRange = (phaser.range || 5000) * scale; // Use ship-specific phaser range in screen pixels
             toX = fromX + Math.cos(phaser.dir) * phaserRange;
             toY = fromY + Math.sin(phaser.dir) * phaserRange;
         }

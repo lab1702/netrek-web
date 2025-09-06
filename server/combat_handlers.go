@@ -240,10 +240,11 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			c.server.broadcast <- ServerMessage{
 				Type: "phaser",
 				Data: map[string]interface{}{
-					"from": c.PlayerID,
-					"to":   -2, // Special code for plasma hit
-					"x":    plasma.X,
-					"y":    plasma.Y,
+					"from":  c.PlayerID,
+					"to":    -2, // Special code for plasma hit
+					"x":     plasma.X,
+					"y":     plasma.Y,
+					"range": myPhaserRange,
 				},
 			}
 			return // Plasma takes priority if hit
@@ -300,8 +301,9 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			c.server.broadcast <- ServerMessage{
 				Type: "phaser",
 				Data: map[string]interface{}{
-					"from": c.PlayerID,
-					"to":   target.ID,
+					"from":  c.PlayerID,
+					"to":    target.ID,
+					"range": myPhaserRange,
 				},
 			}
 		}
@@ -311,9 +313,10 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		c.server.broadcast <- ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
-				"from": c.PlayerID,
-				"to":   -1,     // -1 indicates no target
-				"dir":  course, // Direction the phaser was fired
+				"from":  c.PlayerID,
+				"to":    -1,     // -1 indicates no target
+				"dir":   course, // Direction the phaser was fired
+				"range": myPhaserRange,
 			},
 		}
 	}
