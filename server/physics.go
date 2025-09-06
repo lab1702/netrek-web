@@ -179,16 +179,7 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 	var targetX, targetY float64
 	validTarget := false
 
-	if p.LockType == "player" {
-		if p.LockTarget < game.MaxPlayers {
-			target := s.gameState.Players[p.LockTarget]
-			if target.Status == game.StatusAlive {
-				targetX = target.X
-				targetY = target.Y
-				validTarget = true
-			}
-		}
-	} else if p.LockType == "planet" {
+	if p.LockType == "planet" {
 		if p.LockTarget < game.MaxPlanets {
 			planet := s.gameState.Planets[p.LockTarget]
 			targetX = planet.X

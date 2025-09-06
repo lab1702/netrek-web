@@ -492,7 +492,7 @@ func TestTournamentTimeoutThreeWayTie(t *testing.T) {
 	server.gameState.Winner = 0
 	server.gameState.WinType = ""
 
-	// Add enough active players to maintain tournament mode  
+	// Add enough active players to maintain tournament mode
 	// Need at least 4 players per team for 3 teams to maintain tournament
 	for i := 0; i < 4; i++ {
 		server.gameState.Players[i] = &game.Player{

@@ -94,17 +94,13 @@ func (c *Client) handleLock(data json.RawMessage) {
 		return
 	}
 
-	// Validate lock target type
-	if lockData.Type != "player" && lockData.Type != "planet" {
+	// Validate lock target type - only allow "planet" or "none"
+	if lockData.Type != "planet" && lockData.Type != "none" {
 		return
 	}
 
 	// Validate target ID based on type
-	if lockData.Type == "player" {
-		if lockData.Target < 0 || lockData.Target >= game.MaxPlayers {
-			return
-		}
-	} else if lockData.Type == "planet" {
+	if lockData.Type == "planet" {
 		if lockData.Target < 0 || lockData.Target >= game.MaxPlanets {
 			return
 		}
@@ -134,22 +130,7 @@ func (c *Client) handleLock(data json.RawMessage) {
 	}
 
 	// Validate target and set course
-	if lockData.Type == "player" {
-		if lockData.Target < 0 || lockData.Target >= game.MaxPlayers {
-			return
-		}
-		target := c.server.gameState.Players[lockData.Target]
-		if target.Status != game.StatusAlive {
-			return
-		}
-		p.LockType = "player"
-		p.LockTarget = lockData.Target
-
-		// Set desired course toward target (ship will turn at normal rate)
-		dx := target.X - p.X
-		dy := target.Y - p.Y
-		p.DesDir = math.Atan2(dy, dx)
-	} else if lockData.Type == "planet" {
+	if lockData.Type == "planet" {
 		if lockData.Target < 0 || lockData.Target >= game.MaxPlanets {
 			return
 		}

@@ -589,11 +589,11 @@ function handleKeyPress(key) {
             sendMessage({ type: 'repair', data: {} });
             break;
         case 'l':
-            // Lock on to nearest player or planet to mouse cursor
+            // Lock on to nearest planet to mouse cursor (no player locking)
             if (gameState.myPlayerID >= 0) {
                 const myPlayer = gameState.players[gameState.myPlayerID];
                 if (myPlayer) {
-                    let closestTarget = null;
+                    let closestPlanet = null;
                     let closestDist = Infinity;
                     let mouseX, mouseY;
                     
@@ -612,23 +612,6 @@ function handleKeyPress(key) {
                         mouseY = myPlayer.y + (controls.mouseY - centerY) / scale;
                     }
                     
-                    // Check players - find closest to mouse position
-                    for (let i = 0; i < gameState.players.length; i++) {
-                        if (i === gameState.myPlayerID) continue;
-                        const player = gameState.players[i];
-                        if (!player || player.status !== 2) continue;
-                        
-                        const dist = Math.sqrt(
-                            Math.pow(player.x - mouseX, 2) + 
-                            Math.pow(player.y - mouseY, 2)
-                        );
-                        
-                        if (dist < closestDist) {
-                            closestDist = dist;
-                            closestTarget = { type: 'player', target: i };
-                        }
-                    }
-                    
                     // Check planets - find closest to mouse position
                     for (let i = 0; i < gameState.planets.length; i++) {
                         const planet = gameState.planets[i];
@@ -641,17 +624,17 @@ function handleKeyPress(key) {
                         
                         if (dist < closestDist) {
                             closestDist = dist;
-                            closestTarget = { type: 'planet', target: i };
+                            closestPlanet = { type: 'planet', target: i };
                         }
                     }
                     
-                    if (closestTarget) {
-                        // If already locked on this target, clear lock
-                        if (myPlayer.lockType === closestTarget.type && 
-                            myPlayer.lockTarget === closestTarget.target) {
+                    if (closestPlanet) {
+                        // If already locked on this planet, clear lock
+                        if (myPlayer.lockType === 'planet' && 
+                            myPlayer.lockTarget === closestPlanet.target) {
                             sendMessage({ type: 'lock', data: { type: 'none', target: -1 } });
                         } else {
-                            sendMessage({ type: 'lock', data: closestTarget });
+                            sendMessage({ type: 'lock', data: closestPlanet });
                         }
                     }
                 }
@@ -1771,11 +1754,6 @@ function updateDashboard() {
             if (player.beaming) statusText += ' [BEAMING]';
         } else if (player.repairing) {
             statusText = 'REPAIR MODE';
-        } else if (player.lockType === 'player' && player.lockTarget >= 0) {
-            const target = gameState.players[player.lockTarget];
-            if (target) {
-                statusText = `Lock: ${target.name}`;
-            }
         } else if (player.lockType === 'planet' && player.lockTarget >= 0) {
             const target = gameState.planets[player.lockTarget];
             if (target) {
