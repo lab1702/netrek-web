@@ -298,7 +298,8 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 
 	// Aggressive torpedo usage - wider criteria than normal combat
 	// Torpedoes can be fired in any direction regardless of ship facing
-	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
+	// Use velocity-adjusted range to prevent fuse expiry on fast targets
+	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
 	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
@@ -315,9 +316,9 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 		return
 	}
 
-	// Enhanced plasma usage for ships that have it - scale with torpedo range
-	plasmaDefenseRange := effectiveTorpRange * 0.90 // ~90% of torp range for defense
-	plasmaMinRange := effectiveTorpRange * 0.25     // ~25% of torp range minimum
+	// Enhanced plasma usage for ships that have it - scale with velocity-adjusted torpedo range
+	plasmaDefenseRange := effectiveTorpRange * 0.90 // ~90% of velocity-adjusted torp range
+	plasmaMinRange := effectiveTorpRange * 0.25     // ~25% of velocity-adjusted torp range
 	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel > 3000 {
 		s.fireBotPlasma(p, enemy)
 		p.BotCooldown = 15
@@ -333,8 +334,8 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 
 	// More aggressive torpedo usage than normal starbase combat
 	// Torpedoes can be fired in any direction regardless of ship facing
-	// Use ship-specific torpedo range to prevent fuse expiry
-	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
+	// Use velocity-adjusted range to prevent fuse expiry
+	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
 	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 6 // Faster than normal starbase firing

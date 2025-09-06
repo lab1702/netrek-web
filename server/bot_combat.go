@@ -103,7 +103,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Enhanced torpedo firing with prediction and spread patterns
 	// Torpedoes can be fired in any direction regardless of ship facing
-	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
+	// Use velocity-adjusted range to prevent fuse expiry on fast targets
+	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, target)
 	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
 		// Use spread pattern at medium range for area denial
 		midRangeLow := effectiveTorpRange * 0.45  // ~45% of effective range
@@ -117,8 +118,9 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Fire when enemy is running away - use extended range for fleeing targets
-	if dist < effectiveTorpRange*1.2 && p.NumTorps < game.MaxTorps-4 && p.Fuel > 1500 {
+	// Fire when enemy is running away - use velocity-adjusted range to prevent fuse expiry
+	velocityAdjustedRange := s.getVelocityAdjustedTorpRange(p, target)
+	if dist < velocityAdjustedRange && p.NumTorps < game.MaxTorps-4 && p.Fuel > 1500 {
 		targetAngleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
 		targetRunAngle := math.Abs(target.Dir - targetAngleToUs)
 		if targetRunAngle > math.Pi {

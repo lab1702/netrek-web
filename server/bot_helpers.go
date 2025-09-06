@@ -12,6 +12,30 @@ import (
 //     // Implementation is in bot_jitter.go
 // }
 
+// getVelocityAdjustedTorpRange calculates torpedo range adjusted for target velocity
+// to prevent fuse expiry on fast-moving targets
+func (s *Server) getVelocityAdjustedTorpRange(p *game.Player, target *game.Player) float64 {
+	shipStats := game.ShipData[p.Ship]
+	baseRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
+
+	// Calculate target's speed as a fraction of maximum possible speed
+	targetSpeed := target.Speed
+	maxPossibleSpeed := 12.0 // Scout's max speed (highest in game)
+	speedRatio := targetSpeed / maxPossibleSpeed
+
+	// Reduce firing range for faster targets to ensure torpedo hits before fuse expiry
+	// Fast targets (>75% max speed) get 10% range reduction
+	// Very fast targets (>90% max speed) get 20% range reduction
+	if speedRatio > 0.9 {
+		return baseRange * 0.8 // 20% reduction for very fast targets
+	} else if speedRatio > 0.75 {
+		return baseRange * 0.9 // 10% reduction for fast targets
+	}
+
+	// For slower targets, use full effective range
+	return baseRange
+}
+
 // getBotArmyCapacity returns army carrying capacity
 func (s *Server) getBotArmyCapacity(p *game.Player) int {
 	switch p.Ship {
