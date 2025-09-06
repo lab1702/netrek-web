@@ -2208,6 +2208,21 @@ function getMaxDamage(shipType) {
 
 // Bot control functions for practice mode
 
+function balanceTeams() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        // Not connected to server
+        return;
+    }
+    
+    sendMessage({ 
+        type: 'message', 
+        data: { 
+            text: '/balance',
+            to: 'all'
+        } 
+    });
+}
+
 function clearBots() {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
         // Not connected to server
