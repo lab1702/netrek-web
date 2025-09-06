@@ -97,57 +97,41 @@
             100% { left: 100%; }
         }
         
-        /* === COMPACT INFO GRID === */
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 30px;
+        /* === ESSENTIAL CONTROLS === */
+        .essentials-container {
             margin: 40px 0;
             max-width: 600px;
             margin-left: auto;
             margin-right: auto;
-        }
-        
-        .info-section {
             padding: 20px;
             border: 1px solid #0a0;
             background: rgba(0, 255, 0, 0.03);
         }
         
-        .info-section h3 {
+        .essentials-container h3 {
+            color: #0f0;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        
+        .essentials-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+        
+        .control-column {
+            text-align: left;
+        }
+        
+        .control-column h4 {
             color: #0f0;
             margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-        
-        /* === TEAMS === */
-        .teams {
-            text-align: left;
-        }
-        
-        .team-list {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .team-list li {
-            padding: 8px 0;
-            color: #0a0;
-            border-bottom: 1px solid #030;
-        }
-        
-        .team-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .team-name {
-            color: #0f0;
-            font-weight: bold;
-        }
-        
-        /* === ESSENTIAL CONTROLS === */
-        .essentials {
-            text-align: left;
+            font-size: 1em;
+            text-align: center;
+            border-bottom: 1px solid #0a0;
+            padding-bottom: 8px;
         }
         
         .control-list {
@@ -214,7 +198,7 @@
         
         /* === RESPONSIVE === */
         @media (max-width: 640px) {
-            .info-grid {
+            .essentials-grid {
                 grid-template-columns: 1fr;
                 gap: 20px;
             }
@@ -238,29 +222,28 @@
         
         <a href="game.html" class="play-button">Launch Game</a>
         
-        <!-- === COMPACT INFO GRID === -->
-        <div class="info-grid">
-            <div class="info-section teams">
-                <h3>Choose Your Side</h3>
-                <ul class="team-list">
-                    <li><span class="team-name">Federation</span> - Defense & Unity</li>
-                    <li><span class="team-name">Romulans</span> - Stealth & Cunning</li>
-                    <li><span class="team-name">Klingons</span> - Honor & Combat</li>
-                    <li><span class="team-name">Orions</span> - Chaos & Profit</li>
-                </ul>
-            </div>
-            
-            <div class="info-section essentials">
-                <h3>Essential Controls</h3>
-                <ul class="control-list">
-                    <li><span class="key">Left Click</span> <span class="action">Fire Torpedo</span></li>
-                    <li><span class="key">Middle Click</span> <span class="action">Fire Phaser</span></li>
-                    <li><span class="key">Right Click</span> <span class="action">Set Course</span></li>
-                    <li><span class="key">0-9</span> <span class="action">Set Speed</span></li>
-                    <li><span class="key">S</span> <span class="action">Shields</span></li>
-                    <li><span class="key">C</span> <span class="action">Cloak</span></li>
-                    <li><span class="key">?</span> <span class="action">Help</span></li>
-                </ul>
+        <!-- === ESSENTIAL CONTROLS === -->
+        <div class="essentials-container">
+            <h3>Essential Controls</h3>
+            <div class="essentials-grid">
+                <div class="control-column">
+                    <h4>Mouse Commands</h4>
+                    <ul class="control-list">
+                        <li><span class="key">Left Click</span> <span class="action">Fire Torpedo</span></li>
+                        <li><span class="key">Middle Click</span> <span class="action">Fire Phaser</span></li>
+                        <li><span class="key">Right Click</span> <span class="action">Set Course</span></li>
+                    </ul>
+                </div>
+                
+                <div class="control-column">
+                    <h4>Keyboard Commands</h4>
+                    <ul class="control-list">
+                        <li><span class="key">0-9</span> <span class="action">Set Speed</span></li>
+                        <li><span class="key">S</span> <span class="action">Shields</span></li>
+                        <li><span class="key">C</span> <span class="action">Cloak</span></li>
+                        <li><span class="key">?</span> <span class="action">Help</span></li>
+                    </ul>
+                </div>
             </div>
         </div>
         
