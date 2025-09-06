@@ -142,13 +142,22 @@
             text-shadow: 0 0 5px currentColor;
         }
         
-        #main-display {
+        #game-wrapper {
             display: flex;
             height: calc(100vh - 100px); /* Account for dashboard */
             justify-content: center;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        #main-display {
+            display: flex;
+            flex: 0 0 auto;
+            justify-content: center;
             align-items: center;
             gap: 2px;
-            padding: 20px;
+            padding: 10px;
         }
         
         #tactical-view {
@@ -267,11 +276,9 @@
         }
         
         #messages {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 250px;
-            bottom: 110px; /* 100px dashboard + 10px spacing */
+            flex: 1 1 200px;
+            max-width: 320px;
+            height: calc(100vh - 130px); /* Account for dashboard + padding */
             background: rgba(0, 0, 0, 0.8);
             border: 1px solid #808080;
             padding: 5px;
@@ -297,11 +304,9 @@
         }
         
         #player-list {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 250px;
-            bottom: 110px; /* 100px dashboard + 10px spacing */
+            flex: 1 1 200px;
+            max-width: 320px;
+            height: calc(100vh - 130px); /* Account for dashboard + padding */
             background: rgba(0, 0, 0, 0.8);
             border: 1px solid #808080;
             padding: 5px;
@@ -512,6 +517,21 @@
             from { opacity: 1; }
             to { opacity: 0.7; }
         }
+        
+        @media (max-width: 1200px) {
+            #game-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            #messages, #player-list {
+                width: 100%;
+                max-width: none;
+                flex: 0 0 200px;
+                height: 200px;
+                margin: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -600,17 +620,19 @@
             <span class="counter-item" style="color: #00ffff;">ORI: <span id="ori-planets">0</span></span>
             <span class="counter-item" style="color: #888888;">IND: <span id="ind-planets">0</span></span>
         </div>
-        <div id="main-display">
-            <div id="tactical-view">
-                <canvas id="tactical"></canvas>
+        <div id="game-wrapper">
+            <div id="messages"></div>
+            <div id="main-display">
+                <div id="tactical-view">
+                    <canvas id="tactical"></canvas>
+                </div>
+                <div id="galactic-view">
+                    <canvas id="galactic-map"></canvas>
+                </div>
             </div>
-            <div id="galactic-view">
-                <canvas id="galactic-map"></canvas>
-            </div>
+            <div id="player-list"></div>
         </div>
         <div id="alert-status" style="display: none;"></div>
-        <div id="messages"></div>
-        <div id="player-list"></div>
         <div id="dashboard">
             <div class="stat">
                 <div class="stat-label">SHIELDS</div>
