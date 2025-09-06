@@ -103,15 +103,7 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		p.OverheatTimer--
 		if p.OverheatTimer <= 0 {
 			p.EngineOverheat = false
-			// Send message about engines cooling
-			s.broadcast <- ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": fmt.Sprintf("%s's engines have cooled down", formatPlayerName(p)),
-					"type": "info",
-					"from": playerIndex, // Include player ID for team color
-				},
-			}
+			// Engine cooling no longer generates a message
 		}
 	} else if p.ETemp > maxETemp {
 		// Check for overheat - chance increases with temperature
@@ -132,16 +124,7 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 			// Disable tractor/pressor beams
 			p.Tractoring = -1
 			p.Pressoring = -1
-
-			// Send warning message
-			s.broadcast <- ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": fmt.Sprintf("%s's engines have OVERHEATED!", formatPlayerName(p)),
-					"type": "warning",
-					"from": playerIndex, // Include player ID for team color
-				},
-			}
+			// Engine overheating no longer generates a message
 		}
 	}
 
