@@ -947,6 +947,13 @@ function handleServerMessage(msg) {
                 break; // Don't update dashboard/player list when returning to lobby
             }
             
+            // Check if player slot was wiped (game reset) - player becomes null or StatusFree
+            if (gameState.myPlayerID >= 0 && (!myPlayer || myPlayer.status === StatusFree) && !uiState.inOutfitScreen) {
+                gameState.myPlayerID = -1; // Reset to lobby state
+                showLoginScreenAfterReset();
+                break; // Don't update dashboard/player list when returning to lobby
+            }
+            
             updateDashboard();
             updatePlayerList();
             break;

@@ -264,48 +264,20 @@ func (s *Server) resetGame() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Create new game state
+	// Create completely new game state - wipes all slots
 	newState := game.NewGameState()
-
-	// Preserve connected players but reset their status
-	for i, p := range s.gameState.Players {
-		if p.Connected {
-			// For bots, disconnect them when game resets
-			if p.IsBot {
-				// Mark bot as disconnected so slot becomes free
-				newState.Players[i].Status = game.StatusFree
-				newState.Players[i].Connected = false
-				newState.Players[i].IsBot = false
-			} else {
-				// For human players, preserve connection
-				newState.Players[i] = &game.Player{
-					ID:         i,
-					Name:       p.Name,
-					Team:       p.Team,
-					Ship:       p.Ship,
-					Status:     game.StatusOutfit,
-					Connected:  true,
-					Tractoring: -1,
-					Pressoring: -1,
-					Orbiting:   -1,
-				}
-				// Set initial position and stats
-				shipStats := game.ShipData[p.Ship]
-				newState.Players[i].X = float64(game.TeamHomeX[p.Team]) + float64(i%4)*1000
-				newState.Players[i].Y = float64(game.TeamHomeY[p.Team]) + float64(i/4)*1000
-				newState.Players[i].Shields = shipStats.MaxShields
-				newState.Players[i].Fuel = shipStats.MaxFuel
-			}
-		}
-	}
-
 	s.gameState = newState
+
+	// Reset all connected clients back to lobby (no player slot assigned)
+	for _, client := range s.clients {
+		client.PlayerID = -1 // Back to lobby - no slot assigned
+	}
 
 	// Announce game reset
 	s.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
-			"text": "Game has been reset! New round starting...",
+			"text": "🔄 Game reset! All players returned to lobby. Choose team & ship again.",
 			"type": "info",
 		},
 	}

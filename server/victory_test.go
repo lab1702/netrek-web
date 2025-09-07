@@ -237,6 +237,13 @@ func TestResetGame(t *testing.T) {
 	server := NewServer()
 	server.broadcast = make(chan ServerMessage, 10)
 
+	// Create mock clients to test client PlayerID reset
+	server.clients = make(map[int]*Client)
+	client1 := &Client{ID: 1, PlayerID: 0}
+	client2 := &Client{ID: 2, PlayerID: 1}
+	server.clients[1] = client1
+	server.clients[2] = client2
+
 	// Set up some players
 	server.gameState.Players[0] = &game.Player{
 		ID:        0,
@@ -260,20 +267,26 @@ func TestResetGame(t *testing.T) {
 	// Reset the game
 	server.resetGame()
 
-	// Check that human player is preserved but moved to outfit status
-	if server.gameState.Players[0].Status != game.StatusOutfit {
-		t.Errorf("Expected human player to be in outfit status, got %d", server.gameState.Players[0].Status)
-	}
-	if !server.gameState.Players[0].Connected {
-		t.Error("Expected human player to remain connected")
+	// Check that ALL player slots are completely wiped (StatusFree)
+	for i := 0; i < game.MaxPlayers; i++ {
+		p := server.gameState.Players[i]
+		if p.Status != game.StatusFree {
+			t.Errorf("Expected player slot %d to be StatusFree (%d), got %d", i, game.StatusFree, p.Status)
+		}
+		if p.Connected {
+			t.Errorf("Expected player slot %d to be disconnected, got Connected=true", i)
+		}
+		if p.Name != "" {
+			t.Errorf("Expected player slot %d name to be empty, got '%s'", i, p.Name)
+		}
 	}
 
-	// Check that bot is disconnected
-	if server.gameState.Players[1].Connected {
-		t.Error("Expected bot to be disconnected")
+	// Check that all clients are reset back to lobby (PlayerID = -1)
+	if client1.PlayerID != -1 {
+		t.Errorf("Expected client1 PlayerID to be -1 (lobby), got %d", client1.PlayerID)
 	}
-	if server.gameState.Players[1].Status != game.StatusFree {
-		t.Errorf("Expected bot to be free, got %d", server.gameState.Players[1].Status)
+	if client2.PlayerID != -1 {
+		t.Errorf("Expected client2 PlayerID to be -1 (lobby), got %d", client2.PlayerID)
 	}
 
 	// Check that a reset message was broadcast
@@ -281,6 +294,13 @@ func TestResetGame(t *testing.T) {
 	case msg := <-server.broadcast:
 		if msg.Type != MsgTypeMessage {
 			t.Errorf("Expected message type %s, got %s", MsgTypeMessage, msg.Type)
+		}
+		data, ok := msg.Data.(map[string]interface{})
+		if !ok {
+			t.Error("Expected message data to be a map")
+		}
+		if data["type"] != "info" {
+			t.Errorf("Expected info message, got %s", data["type"])
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Expected a broadcast message but didn't receive one")
