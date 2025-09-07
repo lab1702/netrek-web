@@ -54,22 +54,46 @@ go test -cover ./...
 
 ### Server-Side Structure
 - **main.go**: Entry point, sets up HTTP server, serves static files, and WebSocket endpoint
-- **server/**: Core game server logic
-  - `handlers.go`: HTTP and WebSocket handlers, client message processing
-  - `websocket.go`: Game loop, physics, combat mechanics, planet interactions
-  - `bots.go`: Main bot AI coordination and initialization
-  - `bot_combat.go`: Bot combat decision-making and target selection
-  - `bot_helpers.go`: Utility functions for bot AI operations
-  - `bot_jitter.go`: Position jittering system to prevent bot clustering
-  - `bot_navigation.go`: Bot movement and pathfinding logic
-  - `bot_planet.go`: Bot planet capture and strategic decisions
-  - `bot_types.go`: Bot-specific data structures and constants
-  - `bot_weapons.go`: Bot weapon firing and targeting systems
-  - `game_helpers.go`: Utility functions for game mechanics
+
+- **server/**: Core game server logic organized into focused modules
+  - **Handler Modules**: Modular message processing system
+    - `handlers.go`: Main HTTP and WebSocket handler coordination
+    - `handler_utils.go`: Shared handler utilities and data structures
+    - `game_state_handlers.go`: Login, quit, and player state management
+    - `movement_handlers.go`: Movement, orbit, and lock-on handlers
+    - `combat_handlers.go`: Weapon systems and combat mechanics
+    - `ship_management_handlers.go`: Repair, beam up/down, and bombing
+    - `communication_handlers.go`: All messaging systems (team, all, individual)
+    - `bot_handlers.go`: Bot management commands and practice mode
+
+  - **Game Engine**: Core game mechanics and physics
+    - `websocket.go`: Game loop, WebSocket management, and state broadcasting
+    - `physics.go`: Physics simulation, collision detection, and movement
+    - `projectiles.go`: Torpedo and projectile systems
+    - `systems.go`: Ship systems (shields, weapons, engines, cloak)
+    - `planets.go`: Planet mechanics, capture logic, and interactions
+    - `tournament.go`: Tournament mode activation and management
+    - `victory.go`: Victory conditions and game ending logic
+
+  - **Bot AI System**: Intelligent computer opponents
+    - `bots.go`: Main bot coordination, initialization, and lifecycle
+    - `bot_combat.go`: Combat decision-making and target selection
+    - `bot_navigation.go`: Movement, pathfinding, and strategic positioning
+    - `bot_planet.go`: Planet capture strategies and army management
+    - `bot_weapons.go`: Weapon firing, targeting, and aim calculation
+    - `bot_jitter.go`: Position randomization to prevent clustering
+    - `bot_helpers.go`: Utility functions for bot AI operations
+    - `bot_types.go`: Bot-specific data structures and constants
+
+  - **Utilities and Support**:
+    - `game_helpers.go`: General game utility functions
+    - `aimcalc/intercept.go`: Advanced torpedo targeting and interception calculations
+    - `aimcalc/intercept_test.go`: Test coverage for targeting algorithms
+
 - **game/**: Game data structures and initialization
   - `types.go`: Core game types (Player, Planet, Torpedo, GameState, etc.)
-  - `planets.go`: Planet initialization and configurations
-  - `torp.go`: Torpedo physics calculations and range functions
+  - `planets.go`: Planet initialization and strategic configurations
+  - `torp.go`: Torpedo physics calculations, range functions, and ballistics
 
 ### Client-Side Structure  
 - **static/**: Web client files
@@ -108,12 +132,31 @@ go test -cover ./...
 The project includes comprehensive test coverage for critical components:
 
 ### Test Files
-- **game/torp_test.go**: Tests torpedo physics calculations and range functions
-- **server/bot_jitter_test.go**: Tests bot position jittering system
-- **server/bots_test.go**: Tests bot AI behaviors and decision-making
-- **server/handlers_test.go**: Tests HTTP and WebSocket handlers
-- **server/starbase_fire_test.go**: Tests starbase weapon systems
-- **server/weapon_direction_test.go**: Tests weapon targeting calculations
+
+Comprehensive test coverage across all critical systems:
+
+#### Game Logic Tests
+- **game/torp_test.go**: Torpedo physics calculations, range functions, and ballistics
+
+#### Server Core Tests
+- **server/handlers_test.go**: HTTP and WebSocket message handlers
+- **server/harness_test.go**: Test harness utilities and setup functions
+- **server/test_helpers.go**: Shared testing utilities and mock functions
+
+#### Bot AI System Tests
+- **server/bots_test.go**: Bot behaviors, decision-making, and coordination
+- **server/bot_jitter_test.go**: Position jittering and clustering prevention
+
+#### Combat System Tests
+- **server/starbase_fire_test.go**: Starbase weapon systems and defensive capabilities
+- **server/weapon_direction_test.go**: Weapon targeting calculations and accuracy
+
+#### Game Feature Tests
+- **server/tournament_test.go**: Tournament mode activation and management
+- **server/victory_test.go**: Victory conditions and game ending scenarios
+
+#### Utility Tests
+- **server/aimcalc/intercept_test.go**: Advanced targeting algorithms and interception calculations
 
 ### Running Tests
 ```bash
