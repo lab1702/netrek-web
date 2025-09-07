@@ -198,6 +198,19 @@ let canvases = {
 // Ship names
 const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
 
+// Player status constants (matching server-side types.go)
+const StatusFree = 0;
+const StatusOutfit = 1;
+const StatusAlive = 2;
+const StatusExplode = 3;
+const StatusDead = 4;
+const StatusObserve = 6;
+
+// UI state tracking
+let uiState = {
+    inOutfitScreen: false
+};
+
 // Utility functions for team handling in victories
 // Mirrors server-side logic from victory.go
 function getTeamNamesFromFlag(teamFlag) {
@@ -729,7 +742,75 @@ function updateMovement(player, desiredSpeed) {
     });
 }
 
+// Show login screen after game reset (return to team/ship selection)
+function showLoginScreenAfterReset() {
+    // Prevent duplicate calls
+    if (uiState.inOutfitScreen) return;
+    uiState.inOutfitScreen = true;
+    
+    console.log('Returning to team/ship selection after game reset');
+    
+    // Hide game interface, show login screen
+    document.getElementById('game').style.display = 'none';
+    document.getElementById('login').style.display = 'block';
+    
+    // Clear victory overlay state
+    gameState.gameOver = false;
+    
+    // Get current player to pre-select their team
+    const myPlayer = gameState.players[gameState.myPlayerID];
+    if (myPlayer && myPlayer.team) {
+        // Pre-select the radio button for current team
+        const teamValue = myPlayer.team;
+        const teamRadio = document.querySelector(`input[name="team"][value="${teamValue}"]`);
+        if (teamRadio) {
+            teamRadio.checked = true;
+        }
+        
+        // Pre-select the radio button for current ship
+        const shipValue = myPlayer.ship;
+        const shipRadio = document.querySelector(`input[name="ship"][value="${shipValue}"]`);
+        if (shipRadio) {
+            shipRadio.checked = true;
+        }
+    }
+    
+    // Update team counts for lobby display
+    updateTeamStats();
+}
+
+// Rejoin game with new team/ship selection (reuse existing WebSocket)
+function reOutfit() {
+    let name = document.getElementById('playerName').value || 'Player';
+    
+    // Validate and sanitize player name
+    name = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+    if (!name) name = 'Player';
+    
+    const team = parseInt(document.querySelector('input[name="team"]:checked').value);
+    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value);
+    
+    console.log('Rejoining game with team:', team, 'ship:', ship);
+    
+    // Hide login, show game
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+    uiState.inOutfitScreen = false;
+    
+    // Send outfit message to rejoin with new selection
+    sendMessage({
+        type: 'login', // Server expects 'login' type for both initial and rejoin
+        data: { name: name, team: team, ship: ship }
+    });
+}
+
 function connect() {
+    // If already connected and in outfit screen, rejoin instead of reconnecting
+    if (ws && ws.readyState === WebSocket.OPEN && uiState.inOutfitScreen) {
+        reOutfit();
+        return;
+    }
+    
     let name = document.getElementById('playerName').value || 'Player';
     
     // Validate and sanitize player name
@@ -859,6 +940,13 @@ function handleServerMessage(msg) {
                 }
             }
             
+            // Check if player should return to outfit screen after reset
+            const myPlayer = gameState.players[gameState.myPlayerID];
+            if (myPlayer && myPlayer.status === StatusOutfit && !uiState.inOutfitScreen) {
+                showLoginScreenAfterReset();
+                break; // Don't update dashboard/player list when returning to lobby
+            }
+            
             updateDashboard();
             updatePlayerList();
             break;
@@ -949,6 +1037,11 @@ function render() {
 }
 
 function renderTactical() {
+    // Don't render anything if player is in outfit screen
+    if (uiState.inOutfitScreen) {
+        return;
+    }
+    
     const ctx = canvases.tacticalCtx;
     const width = canvases.tactical.width;
     const height = canvases.tactical.height;
