@@ -2119,6 +2119,7 @@ function showInfoWindow() {
                 closestDistance = dist;
                 closestTarget = player;
                 targetType = 'player';
+                closestTarget.playerIndex = i; // Store the player index for team/slot display
             }
         }
         
@@ -2178,6 +2179,7 @@ function showInfoWindow() {
                 closestDistance = dist;
                 closestTarget = player;
                 targetType = 'player';
+                closestTarget.playerIndex = i; // Store the player index for team/slot display
             }
         }
     }
@@ -2206,7 +2208,8 @@ function showInfoWindow() {
                 }
                 window.infoWindow.showPlanetInfo(closestTarget, windowX, windowY);
             } else if (targetType === 'player') {
-                window.infoWindow.showPlayerInfo(closestTarget, windowX, windowY);
+                const playerIndex = closestTarget.playerIndex !== undefined ? closestTarget.playerIndex : -1;
+                window.infoWindow.showPlayerInfo(closestTarget, windowX, windowY, playerIndex);
             }
         }
     } else {

@@ -1,5 +1,13 @@
 // Planet/Player Info Window - Based on original Netrek client inform.c
 
+// Helper function to format team letter and slot number (F01 format)
+function formatTeamSlot(player, playerIndex) {
+    const teamMap = {0: 'I', 1: 'F', 2: 'R', 4: 'K', 8: 'O'};
+    const letter = teamMap[player.team] || 'I';
+    const slot = String(playerIndex).padStart(2, '0');
+    return letter + slot;           // e.g. F01
+}
+
 class InfoWindow {
     constructor() {
         this.visible = false;
@@ -10,6 +18,7 @@ class InfoWindow {
         this.targetType = null; // 'planet' or 'player'
         this.windowX = 0;
         this.windowY = 0;
+        this.playerIndex = -1; // Store player index for team/slot display
     }
     
     // Create the info window element
@@ -108,7 +117,7 @@ class InfoWindow {
     }
     
     // Show player information
-    showPlayerInfo(player, x, y) {
+    showPlayerInfo(player, x, y, playerIndex = -1) {
         this.createWindow(x, y);
         
         // Store target info
@@ -116,14 +125,19 @@ class InfoWindow {
         this.targetType = 'player';
         this.windowX = x;
         this.windowY = y;
+        this.playerIndex = playerIndex; // Store the player index for updates
         
         const shipTypes = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
         const shipName = shipTypes[player.ship] || '??';
         
         let html = '';
         
-        // Player name, rank, ship type
+        // Player name, rank, ship type with team/slot identifier
         html += `<div style="color: ${this.getTeamColor(player.team)}; font-weight: bold;">`;
+        if (playerIndex >= 0) {
+            const teamSlot = formatTeamSlot(player, playerIndex);
+            html += `<span style="font-weight: bold; margin-right: 8px; color: ${this.getTeamColor(player.team)};">${teamSlot}</span>`;
+        }
         html += `${player.name} (${player.rank || 'Ensign'})`;
         html += '</div>';
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
@@ -261,8 +275,12 @@ class InfoWindow {
             const shipTypes = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
             const shipName = shipTypes[updatedTarget.ship] || '??';
             
-            // Player name, rank, ship type
+            // Player name, rank, ship type with team/slot identifier
             html += `<div style="color: ${this.getTeamColor(updatedTarget.team)}; font-weight: bold;">`;
+            if (this.playerIndex >= 0) {
+                const teamSlot = formatTeamSlot(updatedTarget, this.playerIndex);
+                html += `<span style="font-weight: bold; margin-right: 8px; color: ${this.getTeamColor(updatedTarget.team)};">${teamSlot}</span>`;
+            }
             html += `${updatedTarget.name} (${updatedTarget.rank || 'Ensign'})`;
             html += '</div>';
             const kd = updatedTarget.deaths > 0 ? (updatedTarget.kills / updatedTarget.deaths).toFixed(2) : Math.floor(updatedTarget.kills).toFixed(1);
@@ -307,6 +325,7 @@ class InfoWindow {
         this.visible = false;
         this.currentTarget = null;
         this.targetType = null;
+        this.playerIndex = -1;
     }
     
     // Check if window is visible
