@@ -1901,6 +1901,12 @@ function updateDashboard() {
     const armiesEl = document.getElementById('armies');
     if (armiesEl) {
         armiesEl.textContent = `${player.armies || 0} / ${maxArmies}`;
+        // Gray out armies section if kill streak is less than 2
+        if (killStreak < 2) {
+            armiesEl.style.color = '#888'; // Gray
+        } else {
+            armiesEl.style.color = '#0f0'; // Green (normal)
+        }
     }
     
     const statusEl = document.getElementById('status');
