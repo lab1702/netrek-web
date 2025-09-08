@@ -25,7 +25,7 @@ func formatPlayerName(p *game.Player) string {
 
 	// Player ID is the slot number (0-based in internal, but display as 1-based)
 	slot := p.ID
-	return fmt.Sprintf("%s [%s%d]", p.Name, teamName, slot)
+	return fmt.Sprintf("%s [%s%02d]", p.Name, teamName, slot)
 }
 
 // respawnPlayer respawns a dead player at their home planet
