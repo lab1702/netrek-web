@@ -1985,7 +1985,7 @@ function updateAlertStatus() {
 
 function updatePlayerList() {
     const list = document.getElementById('player-list');
-    let html = '<div style="border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;"><span>ID  PLAYERS</span><span>KS/K/D/KD</span></div>';
+    let html = '<div style="border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;"><span>ID   PLAYERS</span><span>KS/K/D/KD</span></div>';
     
     // Map team IDs to letters
     const teamLetters = {
