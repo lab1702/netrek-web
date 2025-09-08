@@ -228,52 +228,6 @@
             text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
         }
         
-        .bar {
-            width: 100px;
-            height: 8px;
-            background: #222;
-            border: 1px solid #0f0;
-            margin-top: 5px;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        
-        .bar-fill {
-            height: 100%;
-            background: linear-gradient(to right, #0a0, #0f0);
-            transition: width 0.3s;
-            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-        }
-        
-        .damage-fill {
-            background: linear-gradient(to right, #f80, #f00);
-            box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
-        }
-        
-        .fuel-fill {
-            background: linear-gradient(to right, #08f, #0ff);
-            box-shadow: 0 0 5px rgba(0, 200, 255, 0.5);
-        }
-        
-        .wtemp-fill {
-            background: linear-gradient(to right, #f40, #f80);
-            box-shadow: 0 0 5px rgba(255, 128, 0, 0.5);
-        }
-        
-        .etemp-fill {
-            background: linear-gradient(to right, #fa0, #ff0);
-            box-shadow: 0 0 5px rgba(255, 200, 0, 0.5);
-        }
-        
-        .speed-fill {
-            background: linear-gradient(to right, #808, #f0f);
-            box-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
-        }
-        
-        .armies-fill {
-            background: linear-gradient(to right, #080, #0f0);
-            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-        }
         
         #messages {
             flex: 1 1 200px;
@@ -637,37 +591,30 @@
             <div class="stat">
                 <div class="stat-label">SHIELDS</div>
                 <div class="stat-value" id="shields">100</div>
-                <div class="bar"><div class="bar-fill" id="shields-bar" style="width: 100%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">DAMAGE</div>
                 <div class="stat-value" id="damage" style="color: #fa0">0</div>
-                <div class="bar"><div class="bar-fill damage-fill" id="damage-bar" style="width: 0%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">FUEL</div>
                 <div class="stat-value" id="fuel" style="color: #0ff">10000</div>
-                <div class="bar"><div class="bar-fill fuel-fill" id="fuel-bar" style="width: 100%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">WTEMP</div>
                 <div class="stat-value" id="wtemp" style="color: #f80">0</div>
-                <div class="bar"><div class="bar-fill wtemp-fill" id="wtemp-bar" style="width: 0%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">ETEMP</div>
                 <div class="stat-value" id="etemp" style="color: #ff0">0</div>
-                <div class="bar"><div class="bar-fill etemp-fill" id="etemp-bar" style="width: 0%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">SPEED</div>
                 <div class="stat-value" id="speed">0</div>
-                <div class="bar"><div class="bar-fill speed-fill" id="speed-bar" style="width: 0%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">ARMIES</div>
                 <div class="stat-value" id="armies" style="color: #0f0">0</div>
-                <div class="bar"><div class="bar-fill armies-fill" id="armies-bar" style="width: 0%"></div></div>
             </div>
             <div class="stat">
                 <div class="stat-label">STATUS</div>

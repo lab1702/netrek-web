@@ -1875,13 +1875,6 @@ function updateDashboard() {
         }
     }
     
-    // Update speed bar
-    const speedBar = document.getElementById('speed-bar');
-    if (speedBar && player.ship !== undefined) {
-        const maxSpeed = getMaxSpeed(player.ship);
-        const speedPercent = Math.min(100, (player.speed / maxSpeed) * 100);
-        speedBar.style.width = speedPercent + '%';
-    }
     
     // Warning sounds (limit to once every 2 seconds)
     const now = Date.now();
@@ -1945,24 +1938,6 @@ function updateDashboard() {
         }
     }
     
-    // Update bars
-    const maxShields = getMaxShields(player.ship);
-    const maxDamage = getMaxDamage(player.ship);
-    const maxFuel = getMaxFuel(player.ship);
-    const maxArmies = getMaxArmies(player.ship);
-    
-    document.getElementById('shields-bar').style.width = 
-        `${(player.shields / maxShields) * 100}%`;
-    document.getElementById('damage-bar').style.width = 
-        `${(player.damage / maxDamage) * 100}%`;
-    document.getElementById('fuel-bar').style.width = 
-        `${(player.fuel / maxFuel) * 100}%`;
-    document.getElementById('armies-bar').style.width = 
-        `${((player.armies || 0) / maxArmies) * 100}%`;
-    document.getElementById('wtemp-bar').style.width = 
-        `${Math.min((player.wtemp || 0) / 1000, 1) * 100}%`; // Max at 1000
-    document.getElementById('etemp-bar').style.width = 
-        `${Math.min((player.etemp || 0) / 1000, 1) * 100}%`; // Max at 1000
     
     // Update alert status display
     updateAlertStatus();
