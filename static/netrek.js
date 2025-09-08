@@ -1833,13 +1833,19 @@ function updateDashboard() {
         }
     }
     
-    // Update stats
-    document.getElementById('shields').textContent = player.shields || 0;
-    document.getElementById('damage').textContent = player.damage || 0;
-    document.getElementById('fuel').textContent = player.fuel || 0;
+    // Update stats with current/max format where applicable
+    const maxShields = getMaxShields(player.ship);
+    const maxDamage = getMaxDamage(player.ship);
+    const maxFuel = getMaxFuel(player.ship);
+    const maxSpeed = getMaxSpeed(player.ship);
+    const maxArmies = getMaxArmies(player.ship);
+    
+    document.getElementById('shields').textContent = `${player.shields || 0} / ${maxShields}`;
+    document.getElementById('damage').textContent = `${player.damage || 0} / ${maxDamage}`;
+    document.getElementById('fuel').textContent = `${player.fuel || 0} / ${maxFuel}`;
     document.getElementById('wtemp').textContent = player.wtemp || 0;
     document.getElementById('etemp').textContent = player.etemp || 0;
-    document.getElementById('speed').textContent = Math.round(player.speed || 0);
+    document.getElementById('speed').textContent = `${Math.round(player.speed || 0)} / ${maxSpeed}`;
     
     // Update KS/K/D stats
     const killStreak = Math.floor(player.killsStreak || 0);
@@ -1894,7 +1900,7 @@ function updateDashboard() {
     // Update armies and orbit status
     const armiesEl = document.getElementById('armies');
     if (armiesEl) {
-        armiesEl.textContent = player.armies || 0;
+        armiesEl.textContent = `${player.armies || 0} / ${maxArmies}`;
     }
     
     const statusEl = document.getElementById('status');
