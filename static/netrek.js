@@ -1853,7 +1853,7 @@ function updateDashboard() {
     const deaths = player.deaths || 0;
     const kdaEl = document.getElementById('kda-stats');
     if (kdaEl) {
-        kdaEl.textContent = `${killStreak}/${kills}/${deaths}`;
+        kdaEl.textContent = `${killStreak} / ${kills} / ${deaths}`;
         // Color based on kill streak
         if (killStreak >= 5) {
             kdaEl.style.color = '#ff0'; // Yellow for high streak
@@ -2034,7 +2034,7 @@ function updatePlayerList() {
         
         html += `<div class="player-entry ${teamClass}" style="display: flex; justify-content: space-between; ${deadStyle}">
             <span><span style="font-family: monospace; margin-right: 4px;">${playerID}</span> ${player.name || 'Player'} (${shipType})</span>
-            <span style="font-size: 9px;">${Math.floor(killsStreak)}/${Math.floor(kills)}/${deaths}/${kd}</span>
+            <span style="font-size: 9px;">${Math.floor(killsStreak)} / ${Math.floor(kills)} / ${deaths} / ${kd}</span>
         </div>`;
     }
     
