@@ -1675,7 +1675,7 @@ function renderTactical() {
             8: 'O'   // Ori
         };
         const teamLetter = teamLetters[player.team] || 'I';
-        const playerLabel = teamLetter + i;
+        const playerLabel = teamLetter + i.toString().padStart(2, '0');
         
         ctx.fillStyle = teamColors[player.team] || '#fff';
         ctx.font = i === gameState.myPlayerID ? 'bold 9px monospace' : '9px monospace';
@@ -1775,7 +1775,7 @@ function renderGalactic() {
         
         // Draw player as team letter + slot number (e.g., "R45")
         const teamLetter = teamLetters[player.team] || 'I';
-        const playerLabel = teamLetter + i;
+        const playerLabel = teamLetter + i.toString().padStart(2, '0');
         
         ctx.fillStyle = teamColors[player.team] || '#fff';
         ctx.font = i === gameState.myPlayerID ? 'bold 10px monospace' : '9px monospace';
@@ -2027,7 +2027,7 @@ function updatePlayerList() {
         
         // Create team/slot identifier
         const teamLetter = teamLetters[player.team] || 'I';
-        const playerID = teamLetter + player.slot;
+        const playerID = teamLetter + player.slot.toString().padStart(2, '0');
         
         // Add opacity style for dead players
         const deadStyle = isDead ? 'opacity: 0.4;' : '';
