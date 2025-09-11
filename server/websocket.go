@@ -188,12 +188,9 @@ func (s *Server) gameLoop() {
 	ticker := time.NewTicker(game.UpdateInterval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			s.updateGame()
-			s.sendGameState()
-		}
+	for range ticker.C {
+		s.updateGame()
+		s.sendGameState()
 	}
 }
 

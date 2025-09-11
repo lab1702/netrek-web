@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/lab1702/netrek-web/game"
 	"math"
 	"math/rand"
 	"strings"
+
+	"github.com/lab1702/netrek-web/game"
 )
 
 // AddBot adds a new bot player to the game
@@ -254,10 +255,8 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 		// If carrying armies, prioritize delivering them to NEUTRAL planets
 		if p.Armies > 0 {
-			var targetPlanet *game.Planet
-
 			// First, look for neutral planets only
-			targetPlanet = s.findNearestNeutralPlanet(p)
+			targetPlanet := s.findNearestNeutralPlanet(p)
 
 			if targetPlanet != nil {
 				dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
