@@ -1,4 +1,4 @@
-package aimcalc
+package server
 
 import (
 	"math"

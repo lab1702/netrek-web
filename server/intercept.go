@@ -1,4 +1,4 @@
-package aimcalc
+package server
 
 import (
 	"math"
@@ -84,7 +84,7 @@ func InterceptDirection(shooterPos, targetPos Point2D, targetVel Vector2D, projS
 	// a = velSq - projSpeed²
 	// b = 2 * (relX*relVelX + relY*relVelY)
 	// c = distSq
-
+	//
 	a := velSq - projSpeed*projSpeed
 	b := 2.0 * (relX*relVelX + relY*relVelY)
 	c := distSq
