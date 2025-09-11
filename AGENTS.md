@@ -32,6 +32,7 @@
 - One logical change per commit; present tense, imperative; ~72 char subject.
 - PRs must include: clear description, rationale, test plan/steps, linked issues. Add screenshots/GIFs for `static/` UI changes.
 - Pre-submit: `go fmt ./...` and `go test ./...` must pass.
+- The user will do all `git push` commands.
 
 ## Security & Configuration Tips (Optional)
 - No secrets in repo. Configure via env vars/Docker (`docker-compose.yml`).
