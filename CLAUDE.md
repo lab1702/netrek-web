@@ -88,7 +88,7 @@ The server is organized into focused handler modules:
 
 - **Embedded Static Files**: Uses Go 1.16+ embed for bundling static files into the binary
 - **WebSocket Library**: Uses gorilla/websocket for WebSocket handling
-- **Game Loop**: 50ms tick rate (20 FPS) for physics simulation
+- **Game Loop**: 100ms tick rate (10 FPS) for physics simulation
 - **Coordinate System**: 2D space with (0,0) at top-left, max coordinates at (100000, 100000)
 - **Team IDs**: 0=Federation, 1=Romulan, 2=Klingon, 3=Orion
 - **Ship Types**: 0=Scout, 1=Destroyer, 2=Cruiser, 3=Battleship, 4=Assault, 5=Starbase, 6=Galaxy
