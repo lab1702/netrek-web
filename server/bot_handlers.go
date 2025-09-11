@@ -2,10 +2,10 @@ package server
 
 import (
 	"fmt"
-	"github.com/lab1702/netrek-web/game"
 	"math/rand"
 	"strings"
-	"time"
+
+	"github.com/lab1702/netrek-web/game"
 )
 
 // handleBotCommand processes bot-related slash commands
@@ -140,7 +140,6 @@ func (c *Client) handleBotCommand(cmd string) {
 
 		// Add bots using balanced selection to ensure ship type diversity
 		// Use a round-robin approach that interleaves teams and ship types
-		rand.Seed(time.Now().UnixNano())
 		consecutiveFailures := 0
 		maxConsecutiveFailures := len(teams) * len(allShipTypes) * 3 // Safety limit
 
