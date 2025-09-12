@@ -226,6 +226,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if dist < OrbitDistance {
 				// Start orbiting for repair
 				p.Orbiting = targetPlanet.ID
+				targetPlanet.Info |= p.Team // Update planet info
 				p.DesSpeed = 0
 				p.Shields_up = false
 				// Activate repair mode if damaged over 50%
@@ -268,6 +269,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					// At planet
 					if p.Orbiting != targetPlanet.ID {
 						p.Orbiting = targetPlanet.ID
+						targetPlanet.Info |= p.Team // Update planet info
 						p.DesSpeed = 0
 					}
 
@@ -349,6 +351,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				// At planet - perform appropriate action
 				if p.Orbiting != targetPlanet.ID {
 					p.Orbiting = targetPlanet.ID
+					targetPlanet.Info |= p.Team // Update planet info
 					p.DesSpeed = 0
 				}
 
@@ -546,6 +549,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					// Quick bomb and run
 					if planet.Armies > 0 && planet.Owner != p.Team {
 						p.Orbiting = planet.ID
+						planet.Info |= p.Team // Update planet info
 						p.Bombing = true
 						p.DesSpeed = 0
 						p.BotCooldown = 30
@@ -634,6 +638,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 			if dist < OrbitDistance {
 				// Safe at friendly planet - repair
 				p.Orbiting = safetyPlanet.ID
+				safetyPlanet.Info |= p.Team // Update planet info
 				p.DesSpeed = 0
 				p.Shields_up = false
 				if needRepair {
@@ -702,6 +707,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 			} else {
 				// Close to threatened planet - defend it
 				p.Orbiting = threatenedPlanet.ID
+				threatenedPlanet.Info |= p.Team // Update planet info
 				p.DesSpeed = 0
 				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 10
@@ -725,6 +731,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 			} else {
 				// Near core planet - defend it
 				p.Orbiting = corePlanet.ID
+				corePlanet.Info |= p.Team // Update planet info
 				p.DesSpeed = 0
 				p.Shields_up = enemyDist < game.StarbaseEnemyDetectRange
 				// Combat handled by priority check above, no need for duplicate logic

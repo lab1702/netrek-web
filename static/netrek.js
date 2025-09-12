@@ -918,6 +918,17 @@ function handleServerMessage(msg) {
             gameState.winner = msg.data.winner;
             gameState.winType = msg.data.winType;
             
+            // Debug: Log planet info for first few planets
+            if (gameState.tMode && gameState.frame % 50 === 0) {
+                console.log('T-mode planet info:', 
+                    gameState.planets.slice(0, 3).map(p => ({
+                        name: p.name, 
+                        info: p.info,
+                        owner: p.owner
+                    }))
+                );
+            }
+            
             // Update planet counter
             updatePlanetCounter();
             gameState.tMode = msg.data.tMode || false;
@@ -1216,9 +1227,13 @@ function renderTactical() {
         if (screenX < -50 || screenX > width + 50 || 
             screenY < -50 || screenY > height + 50) continue;
         
+        // Check if we have info on this planet (for t-mode scouting)
+        // Only apply scouting rules in tournament mode
+        const hasInfo = gameState.tMode ? !!(planet.info & myPlayer.team) : true;
+        
         // Use traditional planet renderer if available
         if (window.planetRenderer && window.planetRenderer.initialized) {
-            window.planetRenderer.drawTacticalPlanet(ctx, planet, screenX, screenY);
+            window.planetRenderer.drawTacticalPlanet(ctx, planet, screenX, screenY, hasInfo);
         } else {
             // Fallback to gradient rendering
             const planetRadius = 20;
@@ -1227,31 +1242,39 @@ function renderTactical() {
                 screenX, screenY, planetRadius
             );
             
-            const baseColor = teamColors[planet.owner];
-            if (baseColor) {
-                // Owned planet - team colored
-                if (baseColor === '#ff0') { // Fed
-                    gradient.addColorStop(0, '#ffd');
-                    gradient.addColorStop(0.5, '#ff0');
-                    gradient.addColorStop(1, '#cc0');
-                } else if (baseColor === '#f00') { // Rom
-                    gradient.addColorStop(0, '#fcc');
-                    gradient.addColorStop(0.5, '#f00');
-                    gradient.addColorStop(1, '#800');
-                } else if (baseColor === '#0f0') { // Kli
-                    gradient.addColorStop(0, '#cfc');
-                    gradient.addColorStop(0.5, '#0f0');
-                    gradient.addColorStop(1, '#080');
-                } else if (baseColor === '#0ff') { // Ori
-                    gradient.addColorStop(0, '#cff');
-                    gradient.addColorStop(0.5, '#0ff');
-                    gradient.addColorStop(1, '#088');
+            // Show actual color only if we have info, otherwise show as unknown
+            if (hasInfo) {
+                const baseColor = teamColors[planet.owner];
+                if (baseColor) {
+                    // Owned planet - team colored
+                    if (baseColor === '#ff0') { // Fed
+                        gradient.addColorStop(0, '#ffd');
+                        gradient.addColorStop(0.5, '#ff0');
+                        gradient.addColorStop(1, '#cc0');
+                    } else if (baseColor === '#f00') { // Rom
+                        gradient.addColorStop(0, '#fcc');
+                        gradient.addColorStop(0.5, '#f00');
+                        gradient.addColorStop(1, '#800');
+                    } else if (baseColor === '#0f0') { // Kli
+                        gradient.addColorStop(0, '#cfc');
+                        gradient.addColorStop(0.5, '#0f0');
+                        gradient.addColorStop(1, '#080');
+                    } else if (baseColor === '#0ff') { // Ori
+                        gradient.addColorStop(0, '#cff');
+                        gradient.addColorStop(0.5, '#0ff');
+                        gradient.addColorStop(1, '#088');
+                    }
+                } else {
+                    // Neutral planet - gray
+                    gradient.addColorStop(0, '#bbb');
+                    gradient.addColorStop(0.5, '#888');
+                    gradient.addColorStop(1, '#444');
                 }
             } else {
-                // Neutral planet - gray
-                gradient.addColorStop(0, '#bbb');
-                gradient.addColorStop(0.5, '#888');
-                gradient.addColorStop(1, '#444');
+                // Unknown planet - darker gray
+                gradient.addColorStop(0, '#666');
+                gradient.addColorStop(0.5, '#444');
+                gradient.addColorStop(1, '#222');
             }
             
             ctx.fillStyle = gradient;
@@ -1260,15 +1283,15 @@ function renderTactical() {
             ctx.fill();
             
             // Planet border
-            ctx.strokeStyle = teamColors[planet.owner] || '#666';
+            ctx.strokeStyle = hasInfo ? (teamColors[planet.owner] || '#666') : '#444';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(screenX, screenY, planetRadius, 0, Math.PI * 2);
             ctx.stroke();
             ctx.lineWidth = 1;
             
-            // Planet name
-            ctx.fillStyle = teamColors[planet.owner] || '#888';
+            // Planet name - always show the name
+            ctx.fillStyle = hasInfo ? (teamColors[planet.owner] || '#888') : '#666';
             ctx.font = '10px monospace';
             ctx.textAlign = 'center';
             ctx.fillText(planet.name, screenX, screenY + 30);
@@ -1701,6 +1724,10 @@ function renderGalactic() {
     // Scale to fit galaxy
     const scale = width / 100000;
     
+    // Get my player to check team for planet info
+    const myPlayer = gameState.myPlayerID >= 0 ? gameState.players[gameState.myPlayerID] : null;
+    const myTeam = myPlayer ? myPlayer.team : 1;
+    
     // Draw planets
     for (const planet of gameState.planets) {
         if (!planet) continue;
@@ -1708,16 +1735,23 @@ function renderGalactic() {
         const x = planet.x * scale;
         const y = planet.y * scale;
         
+        // Check if we have info on this planet
+        // Only apply scouting rules in tournament mode
+        const hasInfo = gameState.tMode ? !!(planet.info & myTeam) : true;
+        
         // Use traditional planet renderer if available
         if (window.planetRenderer && window.planetRenderer.initialized) {
-            window.planetRenderer.drawGalacticPlanet(ctx, planet, x, y);
+            window.planetRenderer.drawGalacticPlanet(ctx, planet, x, y, hasInfo);
         } else {
             // Fallback to text labels
             ctx.font = '9px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle = teamColors[planet.owner] || '#888';
-            ctx.fillText(planet.label || planet.name.substring(0, 3).toUpperCase(), x, y);
+            // Show actual color if we have info, otherwise gray
+            ctx.fillStyle = hasInfo ? (teamColors[planet.owner] || '#888') : '#444';
+            // Always show planet label
+            const label = planet.label || planet.name.substring(0, 3).toUpperCase();
+            ctx.fillText(label, x, y);
         }
     }
     
@@ -1731,7 +1765,6 @@ function renderGalactic() {
     };
     
     // Draw players
-    const myPlayer = gameState.myPlayerID >= 0 ? gameState.players[gameState.myPlayerID] : null;
     for (let i = 0; i < gameState.players.length; i++) {
         const player = gameState.players[i];
         if (!player) continue;

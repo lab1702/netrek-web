@@ -3,8 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/lab1702/netrek-web/game"
+	"log"
 	"math"
+	
+	"github.com/lab1702/netrek-web/game"
 )
 
 // handleMove processes movement commands
@@ -213,5 +215,11 @@ func (c *Client) handleOrbit(data json.RawMessage) {
 		// In original: dir + 64 where 256 units = 2*PI, so 64 = PI/2
 		p.Dir = angle + math.Pi/2
 		p.DesDir = p.Dir
+
+		// Update planet info - team now has scouted this planet
+		oldInfo := planet.Info
+		planet.Info |= p.Team
+		log.Printf("Player %s (team %d) orbited planet %s. Info updated from %d to %d", 
+			p.Name, p.Team, planet.Name, oldInfo, planet.Info)
 	}
 }

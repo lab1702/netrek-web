@@ -39,6 +39,19 @@ func (s *Server) checkTournamentMode() {
 		game.InitPlanets(s.gameState)
 		game.InitINLPlanetFlags(s.gameState)
 
+		// Reset planet info - teams only know about their own planets at start
+		for _, planet := range s.gameState.Planets {
+			if planet != nil {
+				// Each team only has info on planets they own
+				if planet.Owner != game.TeamNone {
+					planet.Info = planet.Owner
+				} else {
+					// Neutral planets are unknown to everyone
+					planet.Info = 0
+				}
+			}
+		}
+
 		// Clear all torpedoes and plasmas for clean start
 		s.gameState.Torps = make([]*game.Torpedo, 0)
 		s.gameState.Plasmas = make([]*game.Plasma, 0)

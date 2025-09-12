@@ -75,7 +75,8 @@ class InfoWindow {
         const myTeam = myPlayer ? myPlayer.team : 1;
         
         // Check if we have info on this planet (scouted by our team)
-        if (planet.info && (planet.info & myTeam)) {
+        // Only apply scouting rules in tournament mode
+        if (!gameState.tMode || (planet.info && (planet.info & myTeam))) {
             // Planet name and owner
             const ownerName = this.getTeamName(planet.owner);
             html += `<div style="color: ${this.getTeamColor(planet.owner)}; font-weight: bold;">`;
@@ -108,9 +109,9 @@ class InfoWindow {
             html += info.join('');
             html += '</div>';
         } else {
-            // No info on this planet
-            html += `<div>${planet.name}</div>`;
-            html += '<div style="margin-top: 4px; color: #888;">No other info</div>';
+            // No info on this planet - show name but indicate it's unscouted
+            html += `<div style="color: #888; font-weight: bold;">${planet.name} (Unscouted)</div>`;
+            html += '<div style="margin-top: 4px; color: #666;">Orbit to reveal owner and armies</div>';
         }
         
         this.element.innerHTML = html;
@@ -234,7 +235,8 @@ class InfoWindow {
             const myTeam = myPlayer ? myPlayer.team : 1;
             
             // Check if we have info on this planet (scouted by our team)
-            if (updatedTarget.info && (updatedTarget.info & myTeam)) {
+            // Only apply scouting rules in tournament mode
+            if (!gameState.tMode || (updatedTarget.info && (updatedTarget.info & myTeam))) {
                 // Planet name and owner
                 const ownerName = this.getTeamName(updatedTarget.owner);
                 html += `<div style="color: ${this.getTeamColor(updatedTarget.owner)}; font-weight: bold;">`;
@@ -267,9 +269,9 @@ class InfoWindow {
                 html += info.join('');
                 html += '</div>';
             } else {
-                // No info on this planet
-                html += `<div>${updatedTarget.name}</div>`;
-                html += '<div style="margin-top: 4px; color: #888;">No other info</div>';
+                // No info on this planet - show name but indicate it's unscouted
+                html += `<div style="color: #888; font-weight: bold;">${updatedTarget.name} (Unscouted)</div>`;
+                html += '<div style="margin-top: 4px; color: #666;">Orbit to reveal owner and armies</div>';
             }
         } else if (this.targetType === 'player') {
             const shipTypes = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];

@@ -198,6 +198,9 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 				p.LockType = "none"
 				p.LockTarget = -1
 
+				// Update planet info - team now has scouted this planet
+				planet.Info |= p.Team
+
 				// Send orbit confirmation
 				s.broadcast <- ServerMessage{
 					Type: MsgTypeMessage,

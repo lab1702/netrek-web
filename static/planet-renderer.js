@@ -248,59 +248,99 @@ class PlanetRenderer {
     }
     
     // Draw a planet on the galactic map
-    drawGalacticPlanet(ctx, planet, x, y) {
-        const sprite = this.getPlanetSprite(planet, true);
-        if (sprite) {
-            // Draw bitmap centered at position
-            try {
-                ctx.drawImage(sprite, x - 8, y - 8);
-            } catch (e) {
-                // Failed to draw sprite
-                // Fallback on error
+    drawGalacticPlanet(ctx, planet, x, y, hasInfo = true) {
+        if (hasInfo) {
+            // We have info - show actual planet
+            const sprite = this.getPlanetSprite(planet, true);
+            if (sprite) {
+                // Draw bitmap centered at position
+                try {
+                    ctx.drawImage(sprite, x - 8, y - 8);
+                } catch (e) {
+                    // Failed to draw sprite
+                    // Fallback on error
+                    this.drawEmptyPlanetCircle(ctx, planet, x, y);
+                }
+            } else {
+                // Draw empty circle for planets without resources
                 this.drawEmptyPlanetCircle(ctx, planet, x, y);
             }
+            
+            // Draw planet name below
+            ctx.fillStyle = this.teamColors[planet.owner] || '#888';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
         } else {
-            // Draw empty circle for planets without resources
-            this.drawEmptyPlanetCircle(ctx, planet, x, y);
+            // Unknown planet - show as gray with ???
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#444';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
         }
-        
-        // Draw planet name below
-        ctx.fillStyle = this.teamColors[planet.owner] || '#888';
-        ctx.font = '9px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
     }
     
     // Draw a planet on the tactical map (would use 30x30 bitmaps)
-    drawTacticalPlanet(ctx, planet, x, y, scale = 1) {
+    drawTacticalPlanet(ctx, planet, x, y, hasInfo = true, scale = 1) {
         // For now, use galactic sprites scaled up
         // In a full implementation, we'd have separate 30x30 tactical sprites
-        const sprite = this.getPlanetSprite(planet, true);
+        const sprite = hasInfo ? this.getPlanetSprite(planet, true) : null;
         
-        if (sprite) {
-            ctx.save();
-            ctx.translate(x, y);
-            // Scale up for tactical - original was 16x16, scale to 32x32
-            ctx.scale(scale * 2, scale * 2); 
-            ctx.drawImage(sprite, -8, -8); // Center the 16x16 sprite
-            ctx.restore();
+        if (hasInfo) {
+            // We have info - show actual planet
+            if (sprite) {
+                ctx.save();
+                ctx.translate(x, y);
+                // Scale up for tactical - original was 16x16, scale to 32x32
+                ctx.scale(scale * 2, scale * 2); 
+                ctx.drawImage(sprite, -8, -8); // Center the 16x16 sprite
+                ctx.restore();
+            } else {
+                // Draw empty circle for planets without resources
+                const radius = 20 * scale;
+                ctx.strokeStyle = this.teamColors[planet.owner] || '#888';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Draw planet name
+            ctx.fillStyle = this.teamColors[planet.owner] || '#888';
+            ctx.font = `${12 * scale}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(planet.name, x, y + 20 * scale);
         } else {
-            // Draw empty circle for planets without resources
+            // Unknown planet - show as dark gray with ???
             const radius = 20 * scale;
-            ctx.strokeStyle = this.teamColors[planet.owner] || '#888';
+            ctx.strokeStyle = '#444';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.stroke();
+            
+            // Fill with dark gray
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw planet name (grayed out for unknown)
+            ctx.fillStyle = '#666';
+            ctx.font = `${12 * scale}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(planet.name, x, y + 20 * scale);
         }
-        
-        // Draw planet name
-        ctx.fillStyle = this.teamColors[planet.owner] || '#888';
-        ctx.font = `${12 * scale}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(planet.name, x, y + 20 * scale);
     }
 }
 
