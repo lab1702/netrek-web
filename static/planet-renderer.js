@@ -240,7 +240,9 @@ class PlanetRenderer {
     drawEmptyPlanetCircle(ctx, planet, x, y) {
         // Draw circle outline - slightly smaller than 16x16 to match bitmap visual size
         // Bitmaps have a circle that's about 14 pixels diameter
-        ctx.strokeStyle = this.teamColors[planet.owner] || '#888';
+        // Use lighter gray (#aaa) for scouted neutral planets vs darker gray (#888) for general
+        const isNeutral = planet.owner === 0 || planet.owner === -1;
+        ctx.strokeStyle = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(x, y, 6.5, 0, Math.PI * 2);
@@ -252,8 +254,13 @@ class PlanetRenderer {
         if (hasInfo) {
             // We have info - show actual planet
             const sprite = this.getPlanetSprite(planet, true);
-            if (sprite) {
-                // Draw bitmap centered at position
+            
+            // For neutral planets with no resources, draw empty circle instead of sprite
+            const hasNoResources = !(planet.flags & (16 | 32 | 64)); // No repair, fuel, or agri
+            const isNeutral = planet.owner === 0 || planet.owner === -1;
+            
+            if (sprite && !(isNeutral && hasNoResources)) {
+                // Draw bitmap centered at position (for planets with resources or owned planets)
                 try {
                     ctx.drawImage(sprite, x - 8, y - 8);
                 } catch (e) {
@@ -262,23 +269,40 @@ class PlanetRenderer {
                     this.drawEmptyPlanetCircle(ctx, planet, x, y);
                 }
             } else {
-                // Draw empty circle for planets without resources
+                // Draw empty circle for scouted neutral planets without resources
                 this.drawEmptyPlanetCircle(ctx, planet, x, y);
             }
             
             // Draw planet name below
-            ctx.fillStyle = this.teamColors[planet.owner] || '#888';
+            // Use lighter gray for scouted neutral planets
+            const isNeutralPlanet = planet.owner === 0 || planet.owner === -1;
+            ctx.fillStyle = isNeutralPlanet ? '#aaa' : (this.teamColors[planet.owner] || '#888');
             ctx.font = '9px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
         } else {
-            // Unknown planet - show as gray with ???
-            ctx.strokeStyle = '#444';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(x, y, 6.5, 0, Math.PI * 2);
-            ctx.stroke();
+            // Unknown planet - show sprite with '?' (use neutral sprite)
+            const sprite = this.sprites['indmplanet'] || this.sprites['mplanet'];
+            if (sprite) {
+                try {
+                    ctx.drawImage(sprite, x - 8, y - 8);
+                } catch (e) {
+                    // Fallback to circle on error
+                    ctx.strokeStyle = '#444';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            } else {
+                // Fallback if no sprite available
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
             
             ctx.fillStyle = '#444';
             ctx.font = '9px monospace';
@@ -292,11 +316,17 @@ class PlanetRenderer {
     drawTacticalPlanet(ctx, planet, x, y, hasInfo = true, scale = 1) {
         // For now, use galactic sprites scaled up
         // In a full implementation, we'd have separate 30x30 tactical sprites
-        const sprite = hasInfo ? this.getPlanetSprite(planet, true) : null;
         
         if (hasInfo) {
             // We have info - show actual planet
-            if (sprite) {
+            const sprite = this.getPlanetSprite(planet, true);
+            
+            // For neutral planets with no resources, draw empty circle instead of sprite
+            const hasNoResources = !(planet.flags & (16 | 32 | 64)); // No repair, fuel, or agri
+            const isNeutral = planet.owner === 0 || planet.owner === -1;
+            
+            if (sprite && !(isNeutral && hasNoResources)) {
+                // Draw bitmap for planets with resources or owned planets
                 ctx.save();
                 ctx.translate(x, y);
                 // Scale up for tactical - original was 16x16, scale to 32x32
@@ -304,9 +334,11 @@ class PlanetRenderer {
                 ctx.drawImage(sprite, -8, -8); // Center the 16x16 sprite
                 ctx.restore();
             } else {
-                // Draw empty circle for planets without resources
+                // Draw empty circle for scouted neutral planets without resources
                 const radius = 20 * scale;
-                ctx.strokeStyle = this.teamColors[planet.owner] || '#888';
+                // Use lighter gray (#aaa) for scouted neutral planets
+                const isNeutralPlanet = planet.owner === 0 || planet.owner === -1;
+                ctx.strokeStyle = isNeutralPlanet ? '#aaa' : (this.teamColors[planet.owner] || '#888');
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -314,25 +346,38 @@ class PlanetRenderer {
             }
             
             // Draw planet name
-            ctx.fillStyle = this.teamColors[planet.owner] || '#888';
+            // Use lighter gray for scouted neutral planets
+            const isNeutralForName = planet.owner === 0 || planet.owner === -1;
+            ctx.fillStyle = isNeutralForName ? '#aaa' : (this.teamColors[planet.owner] || '#888');
             ctx.font = `${12 * scale}px monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(planet.name, x, y + 20 * scale);
         } else {
-            // Unknown planet - show as dark gray with ???
-            const radius = 20 * scale;
-            ctx.strokeStyle = '#444';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // Fill with dark gray
-            ctx.fillStyle = '#222';
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
+            // Unknown planet - show sprite with '?' (use neutral sprite)
+            const sprite = this.sprites['indmplanet'] || this.sprites['mplanet'];
+            if (sprite) {
+                ctx.save();
+                ctx.translate(x, y);
+                // Scale up for tactical - original was 16x16, scale to 32x32
+                ctx.scale(scale * 2, scale * 2);
+                ctx.drawImage(sprite, -8, -8); // Center the 16x16 sprite
+                ctx.restore();
+            } else {
+                // Fallback if no sprite available
+                const radius = 20 * scale;
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Fill with dark gray
+                ctx.fillStyle = '#222';
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
             
             // Draw planet name (grayed out for unknown)
             ctx.fillStyle = '#666';
