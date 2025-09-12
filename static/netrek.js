@@ -2147,7 +2147,7 @@ function showInfoWindow() {
             const screenX = centerX + dx;
             const screenY = centerY + dy;
             
-            const dist = Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2);
+            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = player;
@@ -2165,7 +2165,7 @@ function showInfoWindow() {
             const screenX = centerX + dx;
             const screenY = centerY + dy;
             
-            const dist = Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2);
+            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = planet;
@@ -2187,7 +2187,7 @@ function showInfoWindow() {
             const screenX = planet.x * scale;
             const screenY = planet.y * scale;
             
-            const dist = Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2);
+            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = planet;
@@ -2207,7 +2207,7 @@ function showInfoWindow() {
             const screenX = player.x * scale;
             const screenY = player.y * scale;
             
-            const dist = Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2);
+            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = player;
@@ -2218,7 +2218,7 @@ function showInfoWindow() {
     }
     
     // Show info window if we found something close enough
-    if (closestTarget && closestDistance < 2500) { // Within 50 pixels
+    if (closestTarget && closestDistance < 100) { // Within 100 pixels
         if (window.infoWindow) {
             // Get actual screen coordinates for window placement
             const rect = controls.activeCanvas === 'tactical' ? 
@@ -2228,17 +2228,6 @@ function showInfoWindow() {
             const windowY = rect.top + mouseY;
             
             if (targetType === 'planet') {
-                // For now, assume we have info on all planets we can see
-                // In a real game, this would come from the server based on scouting
-                if (closestTarget.info === undefined || closestTarget.info === 0) {
-                    // Set info bit for our team (allows us to see planet details)
-                    const myPlayer = gameState.players[gameState.myPlayerID];
-                    if (myPlayer) {
-                        closestTarget.info = myPlayer.team; // Set our team's bit
-                    } else {
-                        closestTarget.info = 15; // All teams for testing
-                    }
-                }
                 window.infoWindow.showPlanetInfo(closestTarget, windowX, windowY);
             } else if (targetType === 'player') {
                 const playerIndex = closestTarget.playerIndex !== undefined ? closestTarget.playerIndex : -1;
