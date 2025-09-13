@@ -62,8 +62,8 @@ Prerequisites: Go 1.25+
 ```bash
 git clone https://github.com/lab1702/netrek-web.git
 cd netrek-web
-go build -o netrek-web main.go
-./netrek-web -port 8080
+go build
+./netrek-web
 ```
 
 ### Docker
@@ -177,6 +177,7 @@ go test ./server
 go test ./game
 
 # Code quality checks
+go fmt ./...
 go vet ./...
 go build ./...
 ```

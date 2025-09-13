@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
-	
+
 	"github.com/lab1702/netrek-web/game"
 )
 
@@ -219,7 +219,7 @@ func (c *Client) handleOrbit(data json.RawMessage) {
 		// Update planet info - team now has scouted this planet
 		oldInfo := planet.Info
 		planet.Info |= p.Team
-		log.Printf("Player %s (team %d) orbited planet %s. Info updated from %d to %d", 
+		log.Printf("Player %s (team %d) orbited planet %s. Info updated from %d to %d",
 			p.Name, p.Team, planet.Name, oldInfo, planet.Info)
 	}
 }
