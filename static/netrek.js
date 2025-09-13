@@ -873,12 +873,12 @@ function connect() {
     
     ws.onerror = (error) => {
         // WebSocket error
-        addMessage('Connection error!', 'warning');
+        addMessage('Connection error!', 'warning', null, null, 'messages-all');
     };
     
     ws.onclose = () => {
         // Disconnected from server
-        addMessage('Disconnected from server', 'warning');
+        addMessage('Disconnected from server', 'warning', null, null, 'messages-all');
     };
 }
 
@@ -892,7 +892,7 @@ function handleServerMessage(msg) {
     switch(msg.type) {
         case 'login_success':
             gameState.myPlayerID = msg.data.player_id;
-            addMessage(`Joined as player ${msg.data.player_id}`, 'team');
+            addMessage(`Joined as player ${msg.data.player_id}`, 'info', null, null, 'messages-all');
             break;
             
         case 'update':
@@ -981,8 +981,21 @@ function handleServerMessage(msg) {
             const msgType = msg.data.type || '';
             const fromPlayer = msg.data.from !== undefined ? msg.data.from : null;
             const teamId = msg.data.team !== undefined ? msg.data.team : null;
-            addMessage(msg.data.text, msgType, fromPlayer, teamId);
-            
+
+            // Add message to appropriate panel(s)
+            if (msgType === 'team') {
+                // Team messages go to both TEAM and ALL panels
+                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-team');
+                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-all');
+            } else if (msgType === 'private') {
+                // Private messages go to both PLAYER and ALL panels
+                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-player');
+                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-all');
+            } else {
+                // All other messages go to ALL panel
+                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-all');
+            }
+
             // Play message sound for certain types
             if (msgType === 'kill' || msgType === 'death') {
             } else if (msgType === 'warning') {
@@ -1008,7 +1021,7 @@ function handleServerMessage(msg) {
             break;
             
         case 'error':
-            addMessage(msg.data, 'warning', null, null);
+            addMessage(msg.data, 'warning', null, null, 'messages-all');
             break;
     }
 }
@@ -2257,15 +2270,47 @@ function sendChatMessage() {
     hideMessageInput();
 }
 
-function addMessage(text, type = '', fromPlayer = null, teamId = null) {
-    const messages = document.getElementById('messages');
+function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPanel = null) {
+    // Determine which panel to use
+    let panelId = 'messages-all'; // Default to ALL panel
+
+    // Get my player's team
+    const myPlayer = gameState.myPlayerID >= 0 ? gameState.players[gameState.myPlayerID] : null;
+    const myTeam = myPlayer ? myPlayer.team : null;
+
+    if (targetPanel) {
+        // Explicit panel specified
+        panelId = targetPanel;
+    } else if (type === 'team' || (teamId !== null && teamId === myTeam)) {
+        // Team messages go to TEAM panel
+        panelId = 'messages-team';
+    } else if (type === 'private' || type === 'privmsg') {
+        // Private messages go to PLAYER panel
+        panelId = 'messages-player';
+    }
+
+    const messages = document.getElementById(panelId);
+    if (!messages) {
+        // Fallback to old single messages div if it exists
+        const fallback = document.getElementById('messages');
+        if (fallback) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            div.style.color = '#888';
+            fallback.appendChild(div);
+            fallback.scrollTop = fallback.scrollHeight;
+        }
+        return;
+    }
+
     const div = document.createElement('div');
     div.className = `message ${type}`;
     div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
-    
+
     // Set color based on team or player
     let color = '#888'; // Default gray for server messages
-    
+
     if (fromPlayer !== null && gameState.players && gameState.players[fromPlayer]) {
         // Use the sender's team color
         const player = gameState.players[fromPlayer];
@@ -2280,11 +2325,11 @@ function addMessage(text, type = '', fromPlayer = null, teamId = null) {
         // Info messages stay gray
         color = '#888';
     }
-    
+
     div.style.color = color;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    
+
     // Remove old messages
     while (messages.children.length > 100) {
         messages.removeChild(messages.firstChild);

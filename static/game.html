@@ -228,18 +228,47 @@
         }
         
         
-        #messages {
+        #messages-container {
             flex: 1 1 200px;
             max-width: 320px;
             height: calc(100vh - 130px); /* Account for dashboard + padding */
             background: rgba(0, 0, 0, 0.8);
             border: 1px solid #808080;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px solid #404040;
+            min-height: 0; /* Important for flex children with overflow */
+        }
+
+        .message-panel:last-child {
+            border-bottom: none;
+        }
+
+        .message-label {
+            background: rgba(0, 255, 0, 0.1);
+            color: #0f0;
+            padding: 2px 5px;
+            font-size: 10px;
+            font-weight: bold;
+            border-bottom: 1px solid #0a0;
+            text-align: center;
+        }
+
+        .messages {
+            flex: 1;
             padding: 5px;
             overflow-y: auto;
             font-size: 9px;
-            z-index: 10;
+            min-height: 0; /* Important for overflow to work in flex container */
         }
-        
+
         .message {
             margin: 2px 0;
         }
@@ -574,7 +603,20 @@
             <span class="counter-item" style="color: #888888;">IND: <span id="ind-planets">0</span></span>
         </div>
         <div id="game-wrapper">
-            <div id="messages"></div>
+            <div id="messages-container">
+                <div class="message-panel">
+                    <div class="message-label">ALL</div>
+                    <div id="messages-all" class="messages"></div>
+                </div>
+                <div class="message-panel">
+                    <div class="message-label">TEAM</div>
+                    <div id="messages-team" class="messages"></div>
+                </div>
+                <div class="message-panel">
+                    <div class="message-label">PLAYER</div>
+                    <div id="messages-player" class="messages"></div>
+                </div>
+            </div>
             <div id="main-display">
                 <div id="tactical-view">
                     <canvas id="tactical"></canvas>
