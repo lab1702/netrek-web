@@ -117,7 +117,7 @@ The project is organized into clear modules for maintainability and scalability:
   - `bot_helpers.go`, `bot_types.go` - Supporting utilities
 
 - **Utilities**: Supporting systems
-  - `aimcalc/intercept.go` - Advanced torpedo targeting calculations
+  - `intercept.go` - Advanced torpedo targeting calculations
   - `game_helpers.go` - Game utility functions
 
 #### Client Architecture (`static/`)
@@ -152,13 +152,14 @@ The project includes comprehensive test coverage for all critical systems:
 - **Bot AI System**: 
   - `server/bots_test.go` - Bot behaviors and decision-making
   - `server/bot_jitter_test.go` - Position jittering system
-- **Combat Systems**: 
+- **Combat Systems**:
   - `server/starbase_fire_test.go` - Starbase weapon systems
   - `server/weapon_direction_test.go` - Weapon targeting calculations
-- **Game Features**: 
+- **Game Features**:
   - `server/tournament_test.go` - Tournament mode logic
   - `server/victory_test.go` - Victory condition testing
-- **Utilities**: `server/aimcalc/intercept_test.go` - Advanced targeting algorithms
+  - `server/formatting_test.go` - Message formatting tests
+- **Utilities**: `server/intercept_test.go` - Advanced targeting algorithms
 
 #### Running Tests
 ```bash
@@ -174,7 +175,6 @@ go test -cover ./...
 # Run specific test package
 go test ./server
 go test ./game
-go test ./server/aimcalc
 
 # Code quality checks
 go vet ./...
