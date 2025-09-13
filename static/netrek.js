@@ -1146,18 +1146,12 @@ function renderTactical() {
         return; // Don't render game elements during victory screen
     }
     
-    // Draw stars
-    ctx.fillStyle = '#444';
-    for (let i = 0; i < 100; i++) {
-        const x = (i * 137) % width;
-        const y = (i * 89) % height;
-        ctx.fillRect(x, y, 1, 1);
-    }
-    
+    // Don't render if we don't have a valid player  
     if (gameState.myPlayerID < 0) {
         return;
     }
     
+    // Get my player
     const myPlayer = gameState.players[gameState.myPlayerID];
     if (!myPlayer) {
         return;
