@@ -363,3 +363,61 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 		return
 	}
 }
+
+// considerTorpedoDetonation checks if bot should detonate torpedoes for area denial
+func (s *Server) considerTorpedoDetonation(p *game.Player) bool {
+	// Check if we have torpedoes in flight
+	if p.NumTorps == 0 {
+		return false
+	}
+
+	// Look for scenarios where detonation would be beneficial
+	for _, torp := range s.gameState.Torps {
+		if torp.Owner != p.ID || torp.Status != 1 {
+			continue
+		}
+
+		// Check for enemies near our torpedoes
+		for _, enemy := range s.gameState.Players {
+			if enemy.Status != game.StatusAlive || enemy.Team == p.Team {
+				continue
+			}
+
+			dist := game.Distance(torp.X, torp.Y, enemy.X, enemy.Y)
+
+			// Detonate if enemy is in blast radius but torpedo won't hit directly
+			if dist < 2500 && dist > 800 {
+				// Check if torpedo is not heading directly at enemy
+				dx := enemy.X - torp.X
+				dy := enemy.Y - torp.Y
+				angleToEnemy := math.Atan2(dy, dx)
+				angleDiff := math.Abs(angleToEnemy - torp.Dir)
+				if angleDiff > math.Pi {
+					angleDiff = 2*math.Pi - angleDiff
+				}
+
+				// Detonate if torpedo is passing by the enemy
+				if angleDiff > math.Pi/6 {
+					return true
+				}
+			}
+
+			// Detonate if multiple enemies are clustered
+			if dist < 3000 {
+				nearbyCount := 0
+				for _, other := range s.gameState.Players {
+					if other.Status == game.StatusAlive && other.Team == enemy.Team && other.ID != enemy.ID {
+						if game.Distance(torp.X, torp.Y, other.X, other.Y) < 3500 {
+							nearbyCount++
+						}
+					}
+				}
+				if nearbyCount >= 1 {
+					return true // Detonate for area damage on clustered enemies
+				}
+			}
+		}
+	}
+
+	return false
+}

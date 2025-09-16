@@ -99,28 +99,57 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
+	// Enhanced team coordination with target broadcasting
+	if coordinatedCooldown := s.coordinateTeamAttack(p, target); coordinatedCooldown > 0 {
+		p.BotCooldown = coordinatedCooldown // Sync with team for volley fire
+	}
+
+	// Broadcast high-value targets to nearby allies
+	s.broadcastTargetToAllies(p, target, p.BotTargetValue)
+
+	// Check for torpedo detonation opportunities for area denial
+	if s.considerTorpedoDetonation(p) {
+		// Detonate all our torpedoes for area damage
+		for _, torp := range s.gameState.Torps {
+			if torp.Owner == p.ID && torp.Status == 1 {
+				torp.Status = 2 // Exploding
+			}
+		}
+		p.BotCooldown = 3
+	}
+
 	// Weapon usage - no facing restrictions needed
 
 	// Enhanced torpedo firing with prediction and spread patterns
 	// Torpedoes can be fired in any direction regardless of ship facing
 	// Use velocity-adjusted range to prevent fuse expiry on fast targets
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, target)
-	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 2000 && p.WTemp < 80 {
-		// Use spread pattern at medium range for area denial
-		midRangeLow := effectiveTorpRange * 0.45  // ~45% of effective range
-		midRangeHigh := effectiveTorpRange * 0.75 // ~75% of effective range
-		if dist > midRangeLow && dist < midRangeHigh && p.NumTorps < game.MaxTorps-4 {
-			s.fireTorpedoSpread(p, target, 3)
-			p.BotCooldown = 8
+
+	// Check for burst fire opportunity on vulnerable targets
+	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
+	burstFireMode := targetDamageRatio > 0.7 && dist < effectiveTorpRange*0.6 // Burst when target is heavily damaged and in close range
+	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < 90 { // Lower fuel threshold, higher temp tolerance
+		if burstFireMode && p.NumTorps < game.MaxTorps-6 && p.Fuel > 2500 {
+			// Burst fire mode - rapid successive torpedoes for kill securing
+			s.fireTorpedoSpread(p, target, 4) // Fire 4-torpedo burst
+			p.BotCooldown = 2 // Very short cooldown for follow-up
 		} else {
-			s.fireEnhancedTorpedo(p, target)
-			p.BotCooldown = 6
+			// Use spread pattern at medium range for area denial
+			midRangeLow := effectiveTorpRange * 0.45  // ~45% of effective range
+			midRangeHigh := effectiveTorpRange * 0.75 // ~75% of effective range
+			if dist > midRangeLow && dist < midRangeHigh && p.NumTorps < game.MaxTorps-4 {
+				s.fireTorpedoSpread(p, target, 3)
+				p.BotCooldown = 5 // Reduced from 8 to 5 for higher fire rate
+			} else {
+				s.fireEnhancedTorpedo(p, target)
+				p.BotCooldown = 3 // Reduced from 6 to 3 for aggressive combat
+			}
 		}
 	}
 
 	// Fire when enemy is running away - use velocity-adjusted range to prevent fuse expiry
 	velocityAdjustedRange := s.getVelocityAdjustedTorpRange(p, target)
-	if dist < velocityAdjustedRange && p.NumTorps < game.MaxTorps-4 && p.Fuel > 1500 {
+	if dist < velocityAdjustedRange && p.NumTorps < game.MaxTorps-3 && p.Fuel > 1000 { // More aggressive thresholds
 		targetAngleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
 		targetRunAngle := math.Abs(target.Dir - targetAngleToUs)
 		if targetRunAngle > math.Pi {
@@ -128,7 +157,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 		if targetRunAngle < math.Pi/3 && target.Speed > float64(shipStats.MaxSpeed)*0.5 {
 			s.fireBotTorpedoWithLead(p, target)
-			p.BotCooldown = 8
+			p.BotCooldown = 4 // Reduced from 8 to 4
 		}
 	}
 
@@ -137,37 +166,35 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
 	if dist < myPhaserRange {
 		phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
-		if p.Fuel >= phaserCost*2 && p.WTemp < 80 {
+		if p.Fuel >= phaserCost && p.WTemp < 90 { // Lower fuel requirement, higher temp tolerance
 			targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 			// Calculate if phaser would be a kill shot
 			phaserDamage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
 			wouldKill := target.Damage+int(phaserDamage) >= targetStats.MaxDamage
 
-			if wouldKill || targetDamageRatio > 0.6 || dist < 1200 || target.Cloaked {
+			// More aggressive phaser usage
+			if wouldKill || targetDamageRatio > 0.5 || dist < 1500 || target.Cloaked {
 				s.fireBotPhaser(p, target)
-				p.BotCooldown = 10
+				p.BotCooldown = 5 // Reduced from 10 to 5
 			}
 		}
 	}
-
-	// Variable for plasma usage
-	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 
 	// Predictive shield management
 	s.managePredictiveShields(p, target, dist, closestTorpDist)
 
 	// Enhanced plasma usage for area control
-	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 4000 {
+	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 { // Lower fuel threshold
 		// Use plasma for area denial or finishing damaged enemies
 		// Scale plasma ranges with effective torpedo range
 		plasmaLongRange := effectiveTorpRange * 0.85  // ~85% of torp range
 		plasmaShortRange := effectiveTorpRange * 0.30 // ~30% of torp range
 		plasmaKillRange := effectiveTorpRange * 0.65  // ~65% of torp range
 		if (dist < plasmaLongRange && dist > plasmaShortRange && target.Speed < 4) ||
-			(targetDamageRatio > 0.7 && dist < plasmaKillRange) ||
+			(targetDamageRatio > 0.6 && dist < plasmaKillRange) || // Lower damage threshold
 			(target.Orbiting >= 0 && dist < effectiveTorpRange) {
 			s.fireBotPlasma(p, target)
-			p.BotCooldown = 20
+			p.BotCooldown = 12 // Reduced from 20 to 12
 		}
 	}
 

@@ -459,6 +459,8 @@ type Player struct {
 	// Bot fields
 	IsBot               bool    `json:"isBot"`
 	BotTarget           int     `json:"-"` // Current target player ID
+	BotTargetLockTime   int     `json:"-"` // Ticks remaining for target lock
+	BotTargetValue      float64 `json:"-"` // Current target's value score
 	BotPlanetApproachID int     `json:"-"` // Planet ID bot is trying to approach (-1 if none)
 	BotDefenseTarget    int     `json:"-"` // Planet ID bot is actively defending (-1 if none)
 	BotGoalX            float64 `json:"-"` // Navigation goal
@@ -585,6 +587,8 @@ func NewGameStateWithMode(inlMode bool) *GameState {
 			BotDefenseTarget:    -1,
 			BotPlanetApproachID: -1,
 			BotTarget:           -1,
+			BotTargetLockTime:   0,
+			BotTargetValue:      0,
 			NextShipType:        -1, // No pending refit by default for fresh slots
 		}
 	}

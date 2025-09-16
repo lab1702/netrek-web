@@ -147,8 +147,8 @@ func (s *Server) shouldFocusFire(p, ally, target *game.Player) bool {
 	targetStats := game.ShipData[target.Ship]
 	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 
-	// Focus fire on damaged enemies
-	if targetDamageRatio > 0.5 {
+	// Focus fire on damaged enemies (lower threshold for better coordination)
+	if targetDamageRatio > 0.4 {
 		return true
 	}
 
@@ -158,11 +158,22 @@ func (s *Server) shouldFocusFire(p, ally, target *game.Player) bool {
 	}
 
 	// Focus fire on high-value targets
-	if target.Kills > 5 {
+	if target.Kills > 3 { // Lower threshold
 		return true
 	}
 
-	return false
+	// Focus on isolated targets
+	isolated := true
+	for _, enemy := range s.gameState.Players {
+		if enemy.Status == game.StatusAlive && enemy.Team == target.Team && enemy.ID != target.ID {
+			if game.Distance(target.X, target.Y, enemy.X, enemy.Y) < 5000 {
+				isolated = false
+				break
+			}
+		}
+	}
+
+	return isolated
 }
 
 // selectBotShipType chooses appropriate ship type based on team composition
@@ -244,11 +255,40 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 	}
 }
 
-// selectBestCombatTarget selects the optimal combat target
+// selectBestCombatTarget selects the optimal combat target with persistence
 func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 	var bestTarget *game.Player
 	bestScore := -999999.0
+	var currentTargetScore float64
 
+	// Check if we have a current target lock
+	if p.BotTarget >= 0 && p.BotTargetLockTime > 0 {
+		// Decay the lock timer
+		p.BotTargetLockTime--
+
+		// Check if current target is still valid
+		if p.BotTarget < len(s.gameState.Players) {
+			currentTarget := s.gameState.Players[p.BotTarget]
+			if currentTarget.Status == game.StatusAlive && currentTarget.Team != p.Team {
+				dist := game.Distance(p.X, p.Y, currentTarget.X, currentTarget.Y)
+				if dist < 30000 { // Extended range for target persistence
+					// Calculate current target's score with persistence bonus
+					currentTargetScore = s.calculateTargetScore(p, currentTarget, dist)
+					currentTargetScore += 3000 // Persistence bonus to prevent thrashing
+					bestTarget = currentTarget
+					bestScore = currentTargetScore
+				}
+			}
+		}
+
+		// Clear lock if target is invalid
+		if bestTarget == nil {
+			p.BotTargetLockTime = 0
+			p.BotTarget = -1
+		}
+	}
+
+	// Evaluate all potential targets
 	for i, other := range s.gameState.Players {
 		if other.Status != game.StatusAlive || other.Team == p.Team || i == p.ID {
 			continue
@@ -259,55 +299,142 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 			continue // Too far
 		}
 
-		// Multi-factor scoring
-		score := 20000.0 / dist
+		score := s.calculateTargetScore(p, other, dist)
 
-		// Target prioritization
-		otherStats := game.ShipData[other.Ship]
-		damageRatio := float64(other.Damage) / float64(otherStats.MaxDamage)
-
-		// Prefer damaged enemies
-		score += damageRatio * 4000
-
-		// High priority: carriers
-		if other.Armies > 0 {
-			score += 10000 + float64(other.Armies)*1000
+		// Only switch targets if new target is significantly better
+		if p.BotTargetLockTime > 0 && i == p.BotTarget {
+			// This is our current target, already evaluated above
+			continue
 		}
 
-		// Prefer enemies we can catch
-		speedDiff := float64(game.ShipData[p.Ship].MaxSpeed - otherStats.MaxSpeed)
-		if speedDiff > 0 {
-			score += speedDiff * 200
-		}
-
-		// Avoid cloaked ships unless close
-		if other.Cloaked {
-			if dist > 2000 {
-				score -= 6000
-			} else {
-				score += 2000 // Decloak them
+		// Require 20% better score to switch targets when locked
+		if p.BotTargetLockTime > 0 {
+			if score > bestScore * 1.2 {
+				bestScore = score
+				bestTarget = other
+			}
+		} else {
+			// No lock, switch to any better target
+			if score > bestScore {
+				bestScore = score
+				bestTarget = other
 			}
 		}
+	}
 
-		// Prefer isolated enemies
-		isolated := true
-		for _, ally := range s.gameState.Players {
-			if ally.Status == game.StatusAlive && ally.Team == other.Team && ally.ID != other.ID {
-				if game.Distance(other.X, other.Y, ally.X, ally.Y) < 5000 {
-					isolated = false
-					break
-				}
-			}
-		}
-		if isolated {
-			score += 1500
-		}
-
-		if score > bestScore {
-			bestScore = score
-			bestTarget = other
+	// Update target lock
+	if bestTarget != nil {
+		if p.BotTarget != bestTarget.ID {
+			// New target - establish lock
+			p.BotTarget = bestTarget.ID
+			p.BotTargetLockTime = 30 // 3 seconds at 10Hz
+			p.BotTargetValue = bestScore
+		} else if p.BotTargetLockTime < 10 {
+			// Refresh lock on same target
+			p.BotTargetLockTime = 10
 		}
 	}
 
 	return bestTarget
+}
+
+// calculateTargetScore calculates the value score for a potential target
+func (s *Server) calculateTargetScore(p *game.Player, target *game.Player, dist float64) float64 {
+	// Multi-factor scoring
+	score := 20000.0 / dist
+
+	// Target prioritization
+	targetStats := game.ShipData[target.Ship]
+	damageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
+
+	// Prefer damaged enemies (higher bonus for nearly dead targets)
+	if damageRatio > 0.8 {
+		score += 8000 // Almost dead - high priority
+	} else if damageRatio > 0.5 {
+		score += damageRatio * 5000
+	} else {
+		score += damageRatio * 3000
+	}
+
+	// High priority: carriers
+	if target.Armies > 0 {
+		score += 10000 + float64(target.Armies)*1500
+	}
+
+	// Prefer enemies we can catch
+	speedDiff := float64(game.ShipData[p.Ship].MaxSpeed - targetStats.MaxSpeed)
+	if speedDiff > 0 {
+		score += speedDiff * 300
+	}
+
+	// Avoid cloaked ships unless close
+	if target.Cloaked {
+		if dist > 2000 {
+			score -= 6000
+		} else {
+			score += 2000 // Decloak them
+		}
+	}
+
+	// Prefer isolated enemies
+	isolated := true
+	for _, ally := range s.gameState.Players {
+		if ally.Status == game.StatusAlive && ally.Team == target.Team && ally.ID != target.ID {
+			if game.Distance(target.X, target.Y, ally.X, ally.Y) < 5000 {
+				isolated = false
+				break
+			}
+		}
+	}
+	if isolated {
+		score += 2000
+	}
+
+	return score
+}
+
+// coordinateTeamAttack checks if multiple allies are attacking the same target and coordinates timing
+func (s *Server) coordinateTeamAttack(p *game.Player, target *game.Player) int {
+	attackingAllies := 0
+	totalCooldown := 0
+
+	// Count allies attacking the same target
+	for _, ally := range s.gameState.Players {
+		if ally.Status == game.StatusAlive && ally.Team == p.Team && ally.ID != p.ID && ally.IsBot {
+			// Check if ally is targeting the same enemy
+			if ally.BotTarget == target.ID {
+				attackingAllies++
+				totalCooldown += ally.BotCooldown
+			}
+		}
+	}
+
+	// If multiple allies are attacking, synchronize cooldowns for volley fire
+	if attackingAllies > 0 {
+		// Average cooldown for synchronized firing
+		return totalCooldown / (attackingAllies + 1)
+	}
+
+	return -1 // No coordination needed
+}
+
+// broadcastTargetToAllies shares high-value target information with nearby allies
+func (s *Server) broadcastTargetToAllies(p *game.Player, target *game.Player, targetValue float64) {
+	// High-value targets (carriers, heavily damaged ships)
+	if targetValue > 15000 || target.Armies > 0 {
+		// Check for nearby allies to coordinate with
+		for _, ally := range s.gameState.Players {
+			if ally.Status == game.StatusAlive && ally.Team == p.Team && ally.ID != p.ID && ally.IsBot {
+				dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
+				if dist < 15000 { // Within coordination range
+					// If ally has no target or a lower-value target, suggest switching
+					if ally.BotTarget < 0 || ally.BotTargetValue < targetValue*0.8 {
+						ally.BotTarget = target.ID
+						ally.BotTargetLockTime = 20 // Short lock for coordination
+						ally.BotTargetValue = targetValue
+					}
+				}
+			}
+		}
+	}
 }
