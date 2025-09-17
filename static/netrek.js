@@ -528,6 +528,13 @@ function handleKeyPress(key) {
             windowClosed = true;
         }
         
+        // Close practice panel if open
+        const practicePanel = document.getElementById('practice-panel');
+        if (practicePanel && practicePanel.classList.contains('show')) {
+            practicePanel.classList.remove('show');
+            windowClosed = true;
+        }
+        
         if (windowClosed) {
             return;
         }
