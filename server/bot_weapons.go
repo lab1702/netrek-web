@@ -6,6 +6,19 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
+// targetVelocity returns the target's effective velocity in world units per tick.
+// If the target is orbiting a planet, we compute tangential orbital velocity;
+// otherwise we fall back to straight-line velocity from Speed/Dir.
+func (s *Server) targetVelocity(t *game.Player) Vector2D {
+	if vx, vy, ok := s.OrbitalVelocity(t); ok {
+		return Vector2D{X: vx, Y: vy}
+	}
+	return Vector2D{
+		X: t.Speed * math.Cos(t.Dir) * 20,
+		Y: t.Speed * math.Sin(t.Dir) * 20,
+	}
+}
+
 // Weapons AI Functions
 // This file contains all functions related to weapon operations:
 // - Torpedo firing and targeting
@@ -26,10 +39,7 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 	// Use unified intercept solver
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := Vector2D{
-		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
-		Y: target.Speed * math.Sin(target.Dir) * 20,
-	}
+	targetVel := s.targetVelocity(target)
 	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 
 	// Calculate intercept direction
@@ -128,10 +138,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	// Use unified intercept solver for plasma
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := Vector2D{
-		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
-		Y: target.Speed * math.Sin(target.Dir) * 20,
-	}
+	targetVel := s.targetVelocity(target)
 	projSpeed := float64(shipStats.PlasmaSpeed * 20) // Convert to units/tick
 	fireDir, _ := InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
 
@@ -166,10 +173,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 	// Use unified intercept solver
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := Vector2D{
-		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
-		Y: target.Speed * math.Sin(target.Dir) * 20,
-	}
+	targetVel := s.targetVelocity(target)
 	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 
 	// Calculate intercept direction
@@ -209,10 +213,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	// Use unified intercept solver for base direction
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := Vector2D{
-		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
-		Y: target.Speed * math.Sin(target.Dir) * 20,
-	}
+	targetVel := s.targetVelocity(target)
 	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 	baseDir, _ := InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
 
@@ -261,10 +262,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	// Use unified intercept solver
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := Vector2D{
-		X: target.Speed * math.Cos(target.Dir) * 20, // Convert to units/tick
-		Y: target.Speed * math.Sin(target.Dir) * 20,
-	}
+	targetVel := s.targetVelocity(target)
 	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
 	fireDir, _ := InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
 
