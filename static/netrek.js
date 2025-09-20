@@ -1451,28 +1451,10 @@ function renderTactical() {
         
         if (screenX < -20 || screenX > width + 20 || screenY < -20 || screenY > height + 20) continue;
         
-        // Plasma appears as larger, pulsing energy ball
-        const pulseSize = 8 + Math.sin(gameState.frame * 0.2) * 3;
-        
-        // Outer glow
+        // Draw plasma as 8x8 square (looks like torpedo but bigger)
+        const size = 8; // twice regular torpedo size
         ctx.fillStyle = teamColors[plasma.team] || '#888';
-        ctx.globalAlpha = 0.3;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, pulseSize * 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Middle ring
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, pulseSize * 1.2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Core
-        ctx.fillStyle = '#fff';
-        ctx.globalAlpha = 1;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, pulseSize * 0.5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
     }
     
     // Draw tractor/pressor beams
