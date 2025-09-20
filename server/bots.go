@@ -61,16 +61,7 @@ func (s *Server) AddBot(team, ship int) {
 	p.NumTorps = 0
 	p.NumPlasma = 0
 
-	// Announce bot joined
-	s.broadcast <- ServerMessage{
-		Type: MsgTypeMessage,
-		Data: map[string]interface{}{
-			"text": fmt.Sprintf("%s has joined the game", formatPlayerName(p)),
-			"type": "info",
-			"from": botID,
-			"team": team,
-		},
-	}
+	// Bot join messages are suppressed to reduce chat clutter
 }
 
 // UpdateBots updates all bot players' AI
@@ -882,15 +873,7 @@ func (s *Server) RemoveBot(botID int) {
 	p.Connected = false
 	p.IsBot = false
 
-	// Announce bot left
-	s.broadcast <- ServerMessage{
-		Type: MsgTypeMessage,
-		Data: map[string]interface{}{
-			"text": fmt.Sprintf("%s has left the game", formatPlayerName(p)),
-			"type": "info",
-			"from": botID,
-		},
-	}
+	// Bot leave messages are suppressed to reduce chat clutter
 }
 
 // Helper functions for bot AI
