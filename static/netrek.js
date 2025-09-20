@@ -262,16 +262,7 @@ async function init() {
     canvases.tacticalCtx = canvases.tactical.getContext('2d');
     canvases.galacticCtx = canvases.galactic.getContext('2d');
     
-    // Initialize planet renderer (but don't let it block canvas setup)
-    if (window.planetRenderer) {
-        try {
-            await window.planetRenderer.init();
-            // Planet renderer initialized
-        } catch (err) {
-            // Failed to initialize planet renderer
-            // Continue without traditional planets
-        }
-    }
+    // Planet renderer is now simple circles - no initialization needed
     
     // Initialize ship renderer
     if (window.shipRenderer) {
@@ -1240,8 +1231,8 @@ function renderTactical() {
         // Only apply scouting rules in tournament mode
         const hasInfo = gameState.tMode ? !!(planet.info & myPlayer.team) : true;
         
-        // Use traditional planet renderer if available
-        if (window.planetRenderer && window.planetRenderer.initialized) {
+        // Use simplified planet renderer
+        if (window.planetRenderer) {
             window.planetRenderer.drawTacticalPlanet(ctx, planet, screenX, screenY, hasInfo);
         } else {
             // Fallback to gradient rendering
@@ -1730,8 +1721,8 @@ function renderGalactic() {
         // Only apply scouting rules in tournament mode
         const hasInfo = gameState.tMode ? !!(planet.info & myTeam) : true;
         
-        // Use traditional planet renderer if available
-        if (window.planetRenderer && window.planetRenderer.initialized) {
+        // Use simplified planet renderer
+        if (window.planetRenderer) {
             window.planetRenderer.drawGalacticPlanet(ctx, planet, x, y, hasInfo);
         } else {
             // Fallback to text labels
