@@ -984,20 +984,19 @@ function handleServerMessage(msg) {
             break;
             
         case 'message':
-            // Handle death messages and other game messages
+            // Handle player chat and server-generated messages
             const msgType = msg.data.type || '';
             const fromPlayer = msg.data.from !== undefined ? msg.data.from : null;
             const teamId = msg.data.team !== undefined ? msg.data.team : null;
 
-            // Add message to appropriate panel(s)
-            // Route based on whether it's from a player or the server
-            if (fromPlayer !== null || msgType === 'team' || msgType === 'private') {
-                // Messages from players (including "all" public messages) go to PLAYER MESSAGES panel
-                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-player');
-            } else {
-                // Server-generated messages (kills, deaths, warnings, info, etc.) go to SERVER MESSAGES panel
-                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-server');
-            }
+            // Route messages based on type: player chat vs server events
+            // Player-to-player chat messages (typed by users)
+            const chatTypes = ['all', 'team', 'private'];
+            const isPlayerChat = chatTypes.includes(msgType);
+            const targetPanel = isPlayerChat ? 'messages-player' : 'messages-server';
+            
+            // Add message to appropriate panel
+            addMessage(msg.data.text, msgType, fromPlayer, teamId, targetPanel);
 
             // Play message sound for certain types
             if (msgType === 'kill' || msgType === 'death') {
@@ -2256,17 +2255,21 @@ function sendChatMessage() {
 }
 
 function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPanel = null) {
-    // Determine which panel to use
-    let panelId = 'messages-server'; // Default to SERVER MESSAGES panel
+    // Determine which panel to use for message routing
+    let panelId = 'messages-server'; // Default: all unknown messages go to SERVER MESSAGES panel
 
     if (targetPanel) {
-        // Explicit panel specified
+        // Explicit panel was specified by caller - use it directly
         panelId = targetPanel;
-    } else if (fromPlayer !== null || type === 'team' || type === 'private' || type === 'privmsg') {
-        // Messages from players (including "all" public messages) go to PLAYER MESSAGES panel
-        panelId = 'messages-player';
+    } else {
+        // Fallback logic for backward compatibility (this should rarely be used now)
+        // Note: The new routing logic in handleServerMessage should always specify targetPanel
+        const playerChatTypes = ['all', 'team', 'private', 'privmsg'];
+        if (playerChatTypes.includes(type)) {
+            panelId = 'messages-player';
+        }
+        // All other types (kill, info, warning, error, etc.) default to messages-server
     }
-    // Server-generated messages (kills, deaths, warnings, info, etc.) go to SERVER MESSAGES panel
 
     const messages = document.getElementById(panelId);
     if (!messages) {
