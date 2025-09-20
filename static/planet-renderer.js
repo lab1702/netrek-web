@@ -29,17 +29,9 @@ class PlanetRenderer {
         
         if (letters.length === 0) return;
         
-        // Use contrasting color for letters (black on light colors, white on dark)
+        // Use same color as planet outline for resource letters
         const isNeutral = planet.owner === 0 || planet.owner === -1;
-        const planetColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
-        
-        // Choose text color based on background brightness
-        let textColor = '#000'; // Default to black
-        if (planetColor === '#ff0000' || planetColor === '#00ff00' || planetColor === '#0000ff') {
-            textColor = '#fff'; // White on dark colors
-        } else if (planetColor === '#ffff00' || planetColor === '#00ffff') {
-            textColor = '#000'; // Black on bright colors
-        }
+        const textColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
         
         ctx.fillStyle = textColor;
         ctx.font = 'bold 6px monospace';
@@ -125,17 +117,9 @@ class PlanetRenderer {
         
         if (letters.length === 0) return;
         
-        // Use contrasting color for letters (black on light colors, white on dark)
+        // Use same color as planet outline for resource letters
         const isNeutral = planet.owner === 0 || planet.owner === -1;
-        const planetColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
-        
-        // Choose text color based on background brightness
-        let textColor = '#000'; // Default to black
-        if (planetColor === '#ff0000' || planetColor === '#00ff00' || planetColor === '#0000ff') {
-            textColor = '#fff'; // White on dark colors
-        } else if (planetColor === '#ffff00' || planetColor === '#00ffff') {
-            textColor = '#000'; // Black on bright colors
-        }
+        const textColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
         
         ctx.fillStyle = textColor;
         ctx.font = `bold ${10 * scale}px monospace`;
