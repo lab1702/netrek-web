@@ -15,19 +15,16 @@ class PlanetRenderer {
     
     // Draw resource letters inside planet circle
     drawResourceLetters(ctx, planet, x, y, radius) {
-        if (!planet.flags) return;
+        // Check for resources - always show all three positions
+        const hasAgri = planet.flags ? (planet.flags & 64) !== 0 : false;   // Agricultural
+        const hasRepair = planet.flags ? (planet.flags & 16) !== 0 : false; // Repair  
+        const hasFuel = planet.flags ? (planet.flags & 32) !== 0 : false;   // Fuel
         
-        // Check for resources
-        const hasAgri = (planet.flags & 64) !== 0;   // Agricultural
-        const hasRepair = (planet.flags & 16) !== 0; // Repair  
-        const hasFuel = (planet.flags & 32) !== 0;   // Fuel
+        // Build resource string with spaces for missing resources
+        const resourceString = (hasAgri ? 'A' : ' ') + (hasRepair ? 'R' : ' ') + (hasFuel ? 'F' : ' ');
         
-        let letters = [];
-        if (hasAgri) letters.push('A');
-        if (hasRepair) letters.push('R');
-        if (hasFuel) letters.push('F');
-        
-        if (letters.length === 0) return;
+        // Only draw if there are any resources
+        if (!hasAgri && !hasRepair && !hasFuel) return;
         
         // Use same color as planet outline for resource letters
         const isNeutral = planet.owner === 0 || planet.owner === -1;
@@ -38,20 +35,8 @@ class PlanetRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // Position letters based on count
-        if (letters.length === 1) {
-            // Single letter in center
-            ctx.fillText(letters[0], x, y);
-        } else if (letters.length === 2) {
-            // Two letters side by side
-            ctx.fillText(letters[0], x - 3, y);
-            ctx.fillText(letters[1], x + 3, y);
-        } else if (letters.length === 3) {
-            // Three letters in triangle formation
-            ctx.fillText(letters[0], x, y - 3);
-            ctx.fillText(letters[1], x - 3, y + 2);
-            ctx.fillText(letters[2], x + 3, y + 2);
-        }
+        // Draw the full resource string centered
+        ctx.fillText(resourceString, x, y);
     }
     
     // Draw a planet on the galactic map
@@ -103,19 +88,16 @@ class PlanetRenderer {
     
     // Draw resource letters inside tactical planet circle (scaled version)
     drawResourceLettersTactical(ctx, planet, x, y, radius, scale) {
-        if (!planet.flags) return;
+        // Check for resources - always show all three positions
+        const hasAgri = planet.flags ? (planet.flags & 64) !== 0 : false;   // Agricultural
+        const hasRepair = planet.flags ? (planet.flags & 16) !== 0 : false; // Repair  
+        const hasFuel = planet.flags ? (planet.flags & 32) !== 0 : false;   // Fuel
         
-        // Check for resources
-        const hasAgri = (planet.flags & 64) !== 0;   // Agricultural
-        const hasRepair = (planet.flags & 16) !== 0; // Repair  
-        const hasFuel = (planet.flags & 32) !== 0;   // Fuel
+        // Build resource string with spaces for missing resources
+        const resourceString = (hasAgri ? 'A' : ' ') + (hasRepair ? 'R' : ' ') + (hasFuel ? 'F' : ' ');
         
-        let letters = [];
-        if (hasAgri) letters.push('A');
-        if (hasRepair) letters.push('R');
-        if (hasFuel) letters.push('F');
-        
-        if (letters.length === 0) return;
+        // Only draw if there are any resources
+        if (!hasAgri && !hasRepair && !hasFuel) return;
         
         // Use same color as planet outline for resource letters
         const isNeutral = planet.owner === 0 || planet.owner === -1;
@@ -126,20 +108,8 @@ class PlanetRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // Position letters based on count (scaled for tactical view)
-        if (letters.length === 1) {
-            // Single letter in center
-            ctx.fillText(letters[0], x, y);
-        } else if (letters.length === 2) {
-            // Two letters side by side
-            ctx.fillText(letters[0], x - 6 * scale, y);
-            ctx.fillText(letters[1], x + 6 * scale, y);
-        } else if (letters.length === 3) {
-            // Three letters in triangle formation
-            ctx.fillText(letters[0], x, y - 6 * scale);
-            ctx.fillText(letters[1], x - 6 * scale, y + 4 * scale);
-            ctx.fillText(letters[2], x + 6 * scale, y + 4 * scale);
-        }
+        // Draw the full resource string centered
+        ctx.fillText(resourceString, x, y);
     }
     
     // Draw a planet on the tactical map
