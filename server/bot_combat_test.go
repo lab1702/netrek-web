@@ -50,7 +50,7 @@ func TestBotCombatImprovements(t *testing.T) {
 
 	// Position bots near each other and enemy in range
 	bot1.X, bot1.Y = 50000, 50000
-	bot2.X, bot2.Y = 51000, 50000 // Near bot1 for coordination
+	bot2.X, bot2.Y = 51000, 50000   // Near bot1 for coordination
 	enemy.X, enemy.Y = 53000, 50000 // In combat range
 
 	// Damage enemy to test burst fire mode

@@ -164,20 +164,20 @@ func TestInterceptAccuracyWithOrbitalVelocity(t *testing.T) {
 	shipStats := game.ShipData[shooter.Ship]
 	projSpeed := float64(shipStats.TorpSpeed * 20)
 
-_, oldOk := InterceptDirectionSimple(shooterPos, targetPos, oldTargetVel, projSpeed)
-if !oldOk {
-	t.Fatal("Old intercept calculation should succeed")
-}
+	_, oldOk := InterceptDirectionSimple(shooterPos, targetPos, oldTargetVel, projSpeed)
+	if !oldOk {
+		t.Fatal("Old intercept calculation should succeed")
+	}
 
 	// Calculate intercept using new method (orbital velocity)
 	newTargetVel := server.targetVelocity(target)
-_, newOk := InterceptDirectionSimple(shooterPos, targetPos, newTargetVel, projSpeed)
-if !newOk {
-	t.Fatal("New intercept calculation should succeed")
-}
+	_, newOk := InterceptDirectionSimple(shooterPos, targetPos, newTargetVel, projSpeed)
+	if !newOk {
+		t.Fatal("New intercept calculation should succeed")
+	}
 
-// Simulate target movement for a few ticks to see which prediction is better
-ticks := 10.0
+	// Simulate target movement for a few ticks to see which prediction is better
+	ticks := 10.0
 
 	// Future target position using orbital mechanics
 	angularVel := math.Pi / 64.0

@@ -196,7 +196,7 @@ let canvases = {
 };
 
 // Ship names
-const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
+const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
 
 // Player status constants (matching server-side types.go)
 const StatusFree = 0;
@@ -2355,12 +2355,12 @@ function getTeamName(team) {
 }
 
 function getMaxShields(shipType) {
-    const shields = [75, 85, 100, 130, 80, 500, 140];
+    const shields = [75, 85, 100, 130, 80, 500]; // Scout, DD, CA, BB, AS, SB
     return shields[shipType] || 100;
 }
 
 function getMaxDamage(shipType) {
-    const damage = [75, 85, 100, 130, 200, 600, 120];
+    const damage = [75, 85, 100, 130, 200, 600]; // Scout, DD, CA, BB, AS, SB
     return damage[shipType] || 100;
 }
 
@@ -2431,16 +2431,16 @@ function fillWithBots() {
 }
 
 function getMaxFuel(shipType) {
-    const fuel = [5000, 7000, 10000, 14000, 6000, 60000, 12000];
+    const fuel = [5000, 7000, 10000, 14000, 6000, 60000]; // Scout, DD, CA, BB, AS, SB
     return fuel[shipType] || 10000;
 }
 
 function getMaxSpeed(shipType) {
-    const speeds = [12, 10, 9, 8, 8, 2, 9]; // Scout, DD, CA, BB, AS, SB, GA
+    const speeds = [12, 10, 9, 8, 8, 2]; // Scout, DD, CA, BB, AS, SB
     return speeds[shipType] || 10;
 }
 
 function getMaxArmies(shipType) {
-    const armies = [2, 5, 10, 6, 20, 25, 5]; // Scout, DD, CA, BB, AS, SB, GA
+    const armies = [2, 5, 10, 6, 20, 25]; // Scout, DD, CA, BB, AS, SB
     return armies[shipType] || 10;
 }

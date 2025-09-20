@@ -55,8 +55,6 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 				fuelUsage += 3
 			case game.ShipStarbase:
 				fuelUsage += 6
-			case game.ShipGalaxy:
-				fuelUsage += 3 // Using same as cruiser
 			}
 		}
 

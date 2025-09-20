@@ -309,7 +309,7 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 
 		// Require 20% better score to switch targets when locked
 		if p.BotTargetLockTime > 0 {
-			if score > bestScore * 1.2 {
+			if score > bestScore*1.2 {
 				bestScore = score
 				bestTarget = other
 			}

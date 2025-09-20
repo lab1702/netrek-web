@@ -117,7 +117,6 @@ const (
 	ShipBattleship
 	ShipAssault
 	ShipStarbase
-	ShipGalaxy
 )
 
 // ShipStats holds the specifications for each ship type
@@ -349,39 +348,6 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        3,
 		EngCool:        5,
 		CloakCost:      75,
-		DetCost:        100,
-	},
-	ShipGalaxy: {
-		Name:           "Galaxy",
-		MaxSpeed:       9,
-		MaxFuel:        12000,
-		MaxShields:     140,
-		MaxDamage:      120,
-		MaxArmies:      5,
-		TorpDamage:     40,
-		TorpSpeed:      13,
-		TorpFuse:       35, // Fixed: Was 30, should be 35
-		PhaserDamage:   100,
-		PlasmaDamage:   100,
-		PlasmaSpeed:    15,
-		PlasmaFuse:     33,     // Original Netrek value
-		TurnRate:       192500, // Original Netrek turn rate
-		Mass:           2050,
-		TractorStr:     3000,
-		HasPlasma:      true,
-		MaxWpnTemp:     1000,
-		MaxEngTemp:     1000,
-		TorpFuelMult:   7,
-		PhaserFuelMult: 7,
-		PlasmaFuelMult: 30,
-		TractorRange:   1.0,
-		AccInt:         150,
-		DecInt:         240,
-		RepairRate:     112,
-		FuelRecharge:   13,
-		WpnCool:        2,
-		EngCool:        5,
-		CloakCost:      26,
 		DetCost:        100,
 	},
 }

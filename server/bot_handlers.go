@@ -44,7 +44,7 @@ func (c *Client) handleBotCommand(cmd string) {
 				c.send <- ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
-						"text": "Invalid ship type. Usage: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB|GA]",
+						"text": "Invalid ship type. Usage: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB]",
 						"type": "warning",
 					},
 				}
@@ -113,7 +113,6 @@ func (c *Client) handleBotCommand(cmd string) {
 			int(game.ShipBattleship), // 3
 			int(game.ShipAssault),    // 4
 			int(game.ShipStarbase),   // 5
-			int(game.ShipGalaxy),     // 6
 		}
 
 		teams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
@@ -257,7 +256,7 @@ func (c *Client) handleBotCommand(cmd string) {
 			c.send <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
-					"text": "Usage: /refit SC|DD|CA|BB|AS|SB|GA",
+					"text": "Usage: /refit SC|DD|CA|BB|AS|SB",
 					"type": "warning",
 				},
 			}
@@ -271,7 +270,7 @@ func (c *Client) handleBotCommand(cmd string) {
 			c.send <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
-					"text": "Invalid ship type. Usage: /refit SC|DD|CA|BB|AS|SB|GA",
+					"text": "Invalid ship type. Usage: /refit SC|DD|CA|BB|AS|SB",
 					"type": "warning",
 				},
 			}
@@ -322,7 +321,7 @@ func (c *Client) handleBotCommand(cmd string) {
 		c.send <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": "Bot commands: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB|GA] | /removebot | /balance | /clearbots | /fillbots | /refit SC|DD|CA|BB|AS|SB|GA",
+				"text": "Bot commands: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB] | /removebot | /balance | /clearbots | /fillbots | /refit SC|DD|CA|BB|AS|SB",
 				"type": "info",
 			},
 		}

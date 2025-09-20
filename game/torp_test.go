@@ -36,11 +36,6 @@ func TestMaxTorpRange(t *testing.T) {
 			expected: 16 * 20 * 30, // TorpSpeed=16, TorpUnitFactor=20, TorpFuse=30 = 9600
 		},
 		{
-			name:     "Galaxy",
-			shipType: ShipGalaxy,
-			expected: 13 * 20 * 35, // TorpSpeed=13, TorpUnitFactor=20, TorpFuse=35 = 9100
-		},
-		{
 			name:     "Starbase",
 			shipType: ShipStarbase,
 			expected: 14 * 20 * 30, // TorpSpeed=14, TorpUnitFactor=20, TorpFuse=30 = 8400
@@ -144,7 +139,6 @@ func TestEffectiveTorpRangeForShip(t *testing.T) {
 		{ShipBattleship, 0.75},
 		{ShipAssault, 0.65},
 		{ShipStarbase, 0.80},
-		{ShipGalaxy, 0.75},
 	}
 
 	for _, tc := range testCases {
@@ -191,7 +185,7 @@ func TestEffectiveTorpRangeForShip(t *testing.T) {
 // TestTorpedoSurvivalMargin tests that torpedoes have sufficient time to reach targets
 // at the effective range before their fuse expires
 func TestTorpedoSurvivalMargin(t *testing.T) {
-	for shipType := ShipScout; shipType <= ShipGalaxy; shipType++ {
+	for shipType := ShipScout; shipType <= ShipStarbase; shipType++ {
 		t.Run(ShipData[shipType].Name, func(t *testing.T) {
 			stats := ShipData[shipType]
 			effectiveRange := EffectiveTorpRangeForShip(shipType, stats)
@@ -220,7 +214,7 @@ func TestTorpedoSurvivalMargin(t *testing.T) {
 func TestRangeComparison(t *testing.T) {
 	t.Log("=== Torpedo Range Comparison (Old 0.85 vs New Ship-Specific) ===")
 
-	for shipType := ShipScout; shipType <= ShipGalaxy; shipType++ {
+	for shipType := ShipScout; shipType <= ShipStarbase; shipType++ {
 		stats := ShipData[shipType]
 		maxRange := MaxTorpRange(stats)
 		old85Range := int(float64(maxRange) * 0.85)

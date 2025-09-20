@@ -22,7 +22,6 @@ var ShipSafetyFactor = map[ShipType]float64{
 	ShipBattleship: 0.75, // Slower torps but longer fuse
 	ShipAssault:    0.65, // Fast torps but need to close for armies
 	ShipStarbase:   0.80, // Stationary platform, can afford longer shots
-	ShipGalaxy:     0.75, // Balanced ship with good fuse time
 }
 
 // MaxTorpRange returns the absolute maximum distance a torpedo can fly

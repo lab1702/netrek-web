@@ -15,7 +15,6 @@ var shipAlias = map[string]int{
 	"BB": 3, "BATTLESHIP": 3,
 	"AS": 4, "ASSAULT": 4,
 	"SB": 5, "STARBASE": 5,
-	"GA": 6, "GALAXY": 6,
 }
 
 // Handler data structures

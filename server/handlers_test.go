@@ -389,7 +389,7 @@ func TestRefitCommandNoArgs(t *testing.T) {
 			t.Errorf("Expected message data to be map[string]interface{}")
 		}
 		text, ok := data["text"].(string)
-		if !ok || text != "Usage: /refit SC|DD|CA|BB|AS|SB|GA" {
+		if !ok || text != "Usage: /refit SC|DD|CA|BB|AS|SB" {
 			t.Errorf("Expected usage message, got: %v", text)
 		}
 	default:
