@@ -71,13 +71,7 @@ class PlanetRenderer {
             const isNeutral = planet.owner === 0 || planet.owner === -1;
             const planetColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
             
-            // Draw filled circle
-            ctx.fillStyle = planetColor;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw border
+            // Draw circle outline only
             ctx.strokeStyle = planetColor;
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -173,13 +167,7 @@ class PlanetRenderer {
             const isNeutral = planet.owner === 0 || planet.owner === -1;
             const planetColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
             
-            // Draw filled circle
-            ctx.fillStyle = planetColor;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw border
+            // Draw circle outline only
             ctx.strokeStyle = planetColor;
             ctx.lineWidth = 2;
             ctx.beginPath();
