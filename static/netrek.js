@@ -2293,17 +2293,15 @@ function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPan
     if (fromPlayer !== null && gameState.players && gameState.players[fromPlayer]) {
         // Use the sender's team color
         const player = gameState.players[fromPlayer];
-        color = teamColors[player.team] || '#888';
+        color = teamColors[player.team] || color;
     } else if (teamId !== null) {
         // Use explicit team color if provided
-        color = teamColors[teamId] || '#888';
+        color = teamColors[teamId] || color;
     } else if (type === 'warning' || type === 'error') {
         // Warning/error messages in red
         color = '#f88';
-    } else if (type === 'info') {
-        // Info messages stay gray
-        color = '#888';
     }
+    // Info messages use team color if available, otherwise stay default gray
 
     div.style.color = color;
     messages.appendChild(div);

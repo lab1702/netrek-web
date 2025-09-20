@@ -68,6 +68,7 @@ func (s *Server) AddBot(team, ship int) {
 			"text": fmt.Sprintf("%s has joined the game", formatPlayerName(p)),
 			"type": "info",
 			"from": botID,
+			"team": team,
 		},
 	}
 }
