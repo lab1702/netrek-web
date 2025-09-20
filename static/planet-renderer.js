@@ -282,31 +282,22 @@ class PlanetRenderer {
             ctx.textBaseline = 'top';
             ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
         } else {
-            // Unknown planet - show sprite with '?' (use neutral sprite)
-            const sprite = this.sprites['indmplanet'] || this.sprites['mplanet'];
-            if (sprite) {
-                try {
-                    ctx.drawImage(sprite, x - 8, y - 8);
-                } catch (e) {
-                    // Fallback to circle on error
-                    ctx.strokeStyle = '#444';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(x, y, 6.5, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            } else {
-                // Fallback if no sprite available
-                ctx.strokeStyle = '#444';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(x, y, 6.5, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+            // Unknown planet - always show as dark gray circle (unscouted)
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+            ctx.stroke();
             
+            // Draw question mark in center to indicate unknown
             ctx.fillStyle = '#444';
-            ctx.font = '9px monospace';
+            ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('?', x, y);
+            
+            // Draw planet name below
+            ctx.font = '9px monospace';
             ctx.textBaseline = 'top';
             ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + 10);
         }
@@ -354,35 +345,23 @@ class PlanetRenderer {
             ctx.textBaseline = 'top';
             ctx.fillText(planet.name, x, y + 20 * scale);
         } else {
-            // Unknown planet - show sprite with '?' (use neutral sprite)
-            const sprite = this.sprites['indmplanet'] || this.sprites['mplanet'];
-            if (sprite) {
-                ctx.save();
-                ctx.translate(x, y);
-                // Scale up for tactical - original was 16x16, scale to 32x32
-                ctx.scale(scale * 2, scale * 2);
-                ctx.drawImage(sprite, -8, -8); // Center the 16x16 sprite
-                ctx.restore();
-            } else {
-                // Fallback if no sprite available
-                const radius = 20 * scale;
-                ctx.strokeStyle = '#444';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.stroke();
-                
-                // Fill with dark gray
-                ctx.fillStyle = '#222';
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            // Unknown planet - always show as dark gray circle (unscouted)
+            const radius = 20 * scale;
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw question mark in center to indicate unknown
+            ctx.fillStyle = '#444';
+            ctx.font = `bold ${14 * scale}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('?', x, y);
             
             // Draw planet name (grayed out for unknown)
-            ctx.fillStyle = '#666';
             ctx.font = `${12 * scale}px monospace`;
-            ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(planet.name, x, y + 20 * scale);
         }
