@@ -240,11 +240,18 @@
         }
 
         .message-panel {
-            flex: 1;
             display: flex;
             flex-direction: column;
             border-bottom: 1px solid #404040;
             min-height: 0; /* Important for flex children with overflow */
+        }
+        
+        #player-messages-panel {
+            flex: 1; /* 1/3 of the height */
+        }
+        
+        #server-messages-panel {
+            flex: 2; /* 2/3 of the height */
         }
 
         .message-panel:last-child {
@@ -600,17 +607,13 @@
         </div>
         <div id="game-wrapper">
             <div id="messages-container">
-                <div class="message-panel">
-                    <div class="message-label">ALL</div>
-                    <div id="messages-all" class="messages"></div>
-                </div>
-                <div class="message-panel">
-                    <div class="message-label">TEAM</div>
-                    <div id="messages-team" class="messages"></div>
-                </div>
-                <div class="message-panel">
-                    <div class="message-label">PLAYER</div>
+                <div class="message-panel" id="player-messages-panel">
+                    <div class="message-label">PLAYER MESSAGES</div>
                     <div id="messages-player" class="messages"></div>
+                </div>
+                <div class="message-panel" id="server-messages-panel">
+                    <div class="message-label">SERVER MESSAGES</div>
+                    <div id="messages-server" class="messages"></div>
                 </div>
             </div>
             <div id="main-display">

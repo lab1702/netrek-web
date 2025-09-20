@@ -880,12 +880,12 @@ function connect() {
     
     ws.onerror = (error) => {
         // WebSocket error
-        addMessage('Connection error!', 'warning', null, null, 'messages-all');
+        addMessage('Connection error!', 'warning', null, null, 'messages-server');
     };
     
     ws.onclose = () => {
         // Disconnected from server
-        addMessage('Disconnected from server', 'warning', null, null, 'messages-all');
+        addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
     };
 }
 
@@ -899,7 +899,7 @@ function handleServerMessage(msg) {
     switch(msg.type) {
         case 'login_success':
             gameState.myPlayerID = msg.data.player_id;
-            addMessage(`Joined as player ${msg.data.player_id}`, 'info', null, null, 'messages-all');
+            addMessage(`Joined as player ${msg.data.player_id}`, 'info', null, null, 'messages-server');
             break;
             
         case 'update':
@@ -990,17 +990,12 @@ function handleServerMessage(msg) {
             const teamId = msg.data.team !== undefined ? msg.data.team : null;
 
             // Add message to appropriate panel(s)
-            if (msgType === 'team') {
-                // Team messages go to both TEAM and ALL panels
-                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-team');
-                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-all');
-            } else if (msgType === 'private') {
-                // Private messages go to both PLAYER and ALL panels
+            if (msgType === 'team' || msgType === 'private') {
+                // Team and private messages go to PLAYER MESSAGES panel
                 addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-player');
-                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-all');
             } else {
-                // All other messages go to ALL panel
-                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-all');
+                // All other messages (server events, kills, info, etc.) go to SERVER MESSAGES panel
+                addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-server');
             }
 
             // Play message sound for certain types
@@ -1028,7 +1023,7 @@ function handleServerMessage(msg) {
             break;
             
         case 'error':
-            addMessage(msg.data, 'warning', null, null, 'messages-all');
+            addMessage(msg.data, 'warning', null, null, 'messages-server');
             break;
     }
 }
@@ -2261,22 +2256,16 @@ function sendChatMessage() {
 
 function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPanel = null) {
     // Determine which panel to use
-    let panelId = 'messages-all'; // Default to ALL panel
-
-    // Get my player's team
-    const myPlayer = gameState.myPlayerID >= 0 ? gameState.players[gameState.myPlayerID] : null;
-    const myTeam = myPlayer ? myPlayer.team : null;
+    let panelId = 'messages-server'; // Default to SERVER MESSAGES panel
 
     if (targetPanel) {
         // Explicit panel specified
         panelId = targetPanel;
-    } else if (type === 'team' || (teamId !== null && teamId === myTeam)) {
-        // Team messages go to TEAM panel
-        panelId = 'messages-team';
-    } else if (type === 'private' || type === 'privmsg') {
-        // Private messages go to PLAYER panel
+    } else if (type === 'team' || type === 'private' || type === 'privmsg') {
+        // Team and private messages go to PLAYER MESSAGES panel
         panelId = 'messages-player';
     }
+    // All other messages (server events, kills, warnings, info, etc.) go to SERVER MESSAGES panel
 
     const messages = document.getElementById(panelId);
     if (!messages) {
