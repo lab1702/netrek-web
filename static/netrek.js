@@ -990,11 +990,12 @@ function handleServerMessage(msg) {
             const teamId = msg.data.team !== undefined ? msg.data.team : null;
 
             // Add message to appropriate panel(s)
-            if (msgType === 'team' || msgType === 'private') {
-                // Team and private messages go to PLAYER MESSAGES panel
+            // Route based on whether it's from a player or the server
+            if (fromPlayer !== null || msgType === 'team' || msgType === 'private') {
+                // Messages from players (including "all" public messages) go to PLAYER MESSAGES panel
                 addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-player');
             } else {
-                // All other messages (server events, kills, info, etc.) go to SERVER MESSAGES panel
+                // Server-generated messages (kills, deaths, warnings, info, etc.) go to SERVER MESSAGES panel
                 addMessage(msg.data.text, msgType, fromPlayer, teamId, 'messages-server');
             }
 
@@ -2261,11 +2262,11 @@ function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPan
     if (targetPanel) {
         // Explicit panel specified
         panelId = targetPanel;
-    } else if (type === 'team' || type === 'private' || type === 'privmsg') {
-        // Team and private messages go to PLAYER MESSAGES panel
+    } else if (fromPlayer !== null || type === 'team' || type === 'private' || type === 'privmsg') {
+        // Messages from players (including "all" public messages) go to PLAYER MESSAGES panel
         panelId = 'messages-player';
     }
-    // All other messages (server events, kills, warnings, info, etc.) go to SERVER MESSAGES panel
+    // Server-generated messages (kills, deaths, warnings, info, etc.) go to SERVER MESSAGES panel
 
     const messages = document.getElementById(panelId);
     if (!messages) {
