@@ -126,6 +126,7 @@ The project is organized into clear modules for maintainability and scalability:
 - `ship-renderer.js`, `planet-renderer.js` - Rendering systems
 - `info-window.js` - HUD and information displays
 - `ship-bitmaps-all-teams.js` - Ship sprite data
+- `convert_bitmaps.js` - Utility to convert X11 bitmap data for planet sprites
 
 #### Game Data (`game/`)
 - `types.go` - Core game data structures
@@ -148,13 +149,15 @@ The project includes comprehensive test coverage for all critical systems:
 - **Server Core**: 
   - `server/handlers_test.go` - HTTP and WebSocket handlers
   - `server/harness_test.go` - Test harness utilities
-  - `server/test_helpers.go` - Testing support functions
+  - `server/test_helpers.go` - Testing support functions (helper file)
 - **Bot AI System**: 
   - `server/bots_test.go` - Bot behaviors and decision-making
+  - `server/bot_combat_test.go` - Bot combat improvements and targeting
   - `server/bot_jitter_test.go` - Position jittering system
 - **Combat Systems**:
   - `server/starbase_fire_test.go` - Starbase weapon systems
   - `server/weapon_direction_test.go` - Weapon targeting calculations
+  - `server/orbit_weapons_test.go` - Orbital velocity and weapon accuracy
 - **Game Features**:
   - `server/tournament_test.go` - Tournament mode logic
   - `server/victory_test.go` - Victory condition testing
