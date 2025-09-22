@@ -175,6 +175,10 @@ let gameState = {
     quitRequested: false // Track if player has requested to quit
 };
 
+// Victory countdown state
+let victoryCountdown = 0;      // current seconds remaining
+let victoryTimerId = null;     // interval handle
+
 // Store previous positions for interpolation
 let prevState = {
     players: [],
@@ -252,6 +256,32 @@ function formatTeamNames(names) {
         }
     }
     return result;
+}
+
+// Victory countdown functions
+function startVictoryCountdown() {
+    victoryCountdown = 10;
+    victoryTimerId = setInterval(() => {
+        victoryCountdown--;
+        if (victoryCountdown <= 0) {
+            stopVictoryCountdown();
+        }
+    }, 1000);
+}
+
+function stopVictoryCountdown() {
+    if (victoryTimerId !== null) {
+        clearInterval(victoryTimerId);
+        victoryTimerId = null;
+    }
+    victoryCountdown = 0;
+}
+
+function getVictoryCountdownMessage() {
+    if (victoryCountdown > 0) {
+        return `New game starting in ${victoryCountdown} second${victoryCountdown !== 1 ? 's' : ''}...`;
+    }
+    return 'New game starting...';
 }
 
 // Initialize the game
@@ -754,6 +784,7 @@ function showLoginScreenAfterReset() {
     
     // Clear victory overlay state
     gameState.gameOver = false;
+    stopVictoryCountdown();
     
     // Get current player to pre-select their team
     const myPlayer = gameState.players[gameState.myPlayerID];
@@ -1055,6 +1086,13 @@ function render() {
         lastFpsUpdate = now;
     }
     
+    // Handle victory countdown state transitions
+    if (gameState.gameOver && victoryTimerId === null) {
+        startVictoryCountdown();
+    } else if (!gameState.gameOver && victoryTimerId !== null) {
+        stopVictoryCountdown();
+    }
+    
     renderTactical();
     renderGalactic();
     // No longer calling requestAnimationFrame - using setInterval instead
@@ -1146,7 +1184,7 @@ function renderTactical() {
         
         ctx.font = '20px monospace';
         ctx.fillStyle = '#fff';
-        ctx.fillText('New game starting in 10 seconds...', centerX, centerY + 60);
+        ctx.fillText(getVictoryCountdownMessage(), centerX, centerY + 60);
         
         ctx.restore();
         return; // Don't render game elements during victory screen
