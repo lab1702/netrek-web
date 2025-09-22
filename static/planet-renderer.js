@@ -31,7 +31,7 @@ class PlanetRenderer {
         const textColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
         
         ctx.fillStyle = textColor;
-        ctx.font = 'bold 6px monospace';
+        ctx.font = 'bold 8px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
@@ -104,7 +104,7 @@ class PlanetRenderer {
         const textColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
         
         ctx.fillStyle = textColor;
-        ctx.font = `bold ${10 * scale}px monospace`;
+        ctx.font = `bold ${14 * scale}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
