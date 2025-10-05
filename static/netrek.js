@@ -1671,16 +1671,37 @@ function renderTactical() {
             ctx.stroke();
         }
         
-        // Shield circle if shields up
+        // Reset context before drawing shields to ensure consistent alpha
+        ctx.restore();
+        
+        // Shield circle if shields up - use completely fresh context
         if (player.shields_up) {
+            // Store current state before creating fresh context
             ctx.save();
-            ctx.translate(screenX, screenY);
+            
+            // Reset all transformation and styling to defaults
+            ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset transform matrix
+            ctx.globalAlpha = 0.3;               // Set shield alpha
             ctx.strokeStyle = teamColors[player.team] || '#fff';
-            ctx.globalAlpha = 0.3;
+            ctx.lineWidth = 1;
+            ctx.lineCap = 'butt';
+            ctx.lineJoin = 'miter';
+            ctx.setLineDash([]);
+            
+            // Draw shield at screen coordinates
             ctx.beginPath();
-            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, 15, 0, Math.PI * 2);
             ctx.stroke();
+            
             ctx.restore();
+        }
+        
+        // Re-save context for repair indicator
+        ctx.save();
+        
+        // Reapply cloaking alpha if needed for repair indicator
+        if (player.cloaked && player.team === myPlayer.team) {
+            ctx.globalAlpha = GALACTIC_DIM_ALPHA;
         }
         
         // Repair mode indicator - wrench icon or pulsing effect
