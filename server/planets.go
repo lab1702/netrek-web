@@ -69,15 +69,7 @@ func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 			damage := planet.Armies/10 + 2
 
 			// Apply damage to shields first, then hull
-			if p.Shields_up && p.Shields > 0 {
-				p.Shields -= damage
-				if p.Shields < 0 {
-					p.Damage -= p.Shields // Overflow damage goes to hull
-					p.Shields = 0
-				}
-			} else {
-				p.Damage += damage
-			}
+			game.ApplyDamageWithShields(p, damage)
 
 			// Check if ship destroyed by planet
 			if p.Damage >= game.ShipData[p.Ship].MaxDamage {
@@ -222,15 +214,7 @@ func (s *Server) updatePlanetCombat(p *game.Player, playerIndex int) {
 			damage := planet.Armies/10 + 2
 
 			// Apply damage to shields first, then hull
-			if p.Shields_up && p.Shields > 0 {
-				p.Shields -= damage
-				if p.Shields < 0 {
-					p.Damage -= p.Shields // Overflow damage goes to hull
-					p.Shields = 0
-				}
-			} else {
-				p.Damage += damage
-			}
+			game.ApplyDamageWithShields(p, damage)
 
 			// Check if ship destroyed by planet
 			if p.Damage >= game.ShipData[p.Ship].MaxDamage {

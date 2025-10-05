@@ -257,55 +257,48 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		damage := float64(shipStats.PhaserDamage) * (1.0 - targetDist/myPhaserRange)
 		log.Printf("Phaser hit: player %d hit player %d for %.1f damage at range %.0f", c.PlayerID, target.ID, damage, targetDist)
 
-		if target.Shields_up && target.Shields > 0 {
-			// Damage shields first
-			shieldDamage := int(math.Min(float64(target.Shields), damage))
-			target.Shields -= shieldDamage
-			damage -= float64(shieldDamage)
+		// Apply damage to shields first, then hull
+		game.ApplyDamageWithShields(target, int(damage))
+
+		if target.Damage >= game.ShipData[target.Ship].MaxDamage {
+			// Ship destroyed by phaser!
+			target.Status = game.StatusExplode
+			target.ExplodeTimer = 10
+			target.KilledBy = c.PlayerID
+			target.WhyDead = game.KillPhaser
+			target.Bombing = false // Stop bombing when destroyed
+			target.Orbiting = -1   // Break orbit when destroyed
+			// Clear lock-on when destroyed
+			target.LockType = "none"
+			target.LockTarget = -1
+			target.Deaths++ // Increment death count
+			p.Kills += 1
+			p.KillsStreak += 1
+
+			// Update tournament stats
+			if c.server.gameState.T_mode {
+				if stats, ok := c.server.gameState.TournamentStats[c.PlayerID]; ok {
+					stats.Kills++
+					stats.DamageDealt += int(damage)
+				}
+				if stats, ok := c.server.gameState.TournamentStats[target.ID]; ok {
+					stats.Deaths++
+					stats.DamageTaken += int(damage)
+				}
+			}
+
+			// Send death message
+			c.server.broadcastDeathMessage(target, p)
 		}
 
-		if damage > 0 {
-			target.Damage += int(damage)
-			if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-				// Ship destroyed by phaser!
-				target.Status = game.StatusExplode
-				target.ExplodeTimer = 10
-				target.KilledBy = c.PlayerID
-				target.WhyDead = game.KillPhaser
-				target.Bombing = false // Stop bombing when destroyed
-				target.Orbiting = -1   // Break orbit when destroyed
-				// Clear lock-on when destroyed
-				target.LockType = "none"
-				target.LockTarget = -1
-				target.Deaths++ // Increment death count
-				p.Kills += 1
-				p.KillsStreak += 1
-
-				// Update tournament stats
-				if c.server.gameState.T_mode {
-					if stats, ok := c.server.gameState.TournamentStats[c.PlayerID]; ok {
-						stats.Kills++
-						stats.DamageDealt += int(damage)
-					}
-					if stats, ok := c.server.gameState.TournamentStats[target.ID]; ok {
-						stats.Deaths++
-						stats.DamageTaken += int(damage)
-					}
-				}
-
-				// Send death message
-				c.server.broadcastDeathMessage(target, p)
-			}
-
-			// Send phaser visual
-			c.server.broadcast <- ServerMessage{
-				Type: "phaser",
-				Data: map[string]interface{}{
-					"from":  c.PlayerID,
-					"to":    target.ID,
-					"range": myPhaserRange,
-				},
-			}
+		// Send phaser visual
+		c.server.broadcast <- ServerMessage{
+			Type: "phaser",
+			Data: map[string]interface{}{
+				"from":  c.PlayerID,
+				"to":    target.ID,
+				"range": myPhaserRange,
+			},
 		}
 	} else {
 		// No target - phaser fires but misses
