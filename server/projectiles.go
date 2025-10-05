@@ -154,7 +154,8 @@ func (s *Server) updatePlasmas() {
 
 // handleTorpedoHit processes a torpedo hit on a player
 func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targetIndex int) {
-	target.Damage += torp.Damage
+	// Apply damage to shields first, then hull
+	game.ApplyDamageWithShields(target, torp.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 		// Ship destroyed!
 		target.Status = game.StatusExplode
@@ -190,7 +191,8 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 
 // handlePlasmaHit processes a plasma hit on a player
 func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targetIndex int) {
-	target.Damage += plasma.Damage
+	// Apply damage to shields first, then hull
+	game.ApplyDamageWithShields(target, plasma.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 		// Ship destroyed by plasma!
 		target.Status = game.StatusExplode

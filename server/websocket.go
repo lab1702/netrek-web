@@ -313,7 +313,8 @@ func (s *Server) updateGame() {
 					}
 
 					if damage > 0 {
-						target.Damage += damage
+						// Apply damage to shields first, then hull
+						game.ApplyDamageWithShields(target, damage)
 						if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 							// Ship destroyed by explosion!
 							target.Status = game.StatusExplode

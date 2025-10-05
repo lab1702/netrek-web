@@ -87,8 +87,8 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	// Calculate damage based on distance using original formula
 	damage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
 
-	// Apply damage to target
-	target.Damage += int(damage)
+	// Apply damage to shields first, then hull
+	game.ApplyDamageWithShields(target, int(damage))
 
 	// Check if target destroyed
 	targetStats := game.ShipData[target.Ship]
