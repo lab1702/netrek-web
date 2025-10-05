@@ -551,19 +551,14 @@ func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torp
 
 // assessAndActivateShields provides comprehensive shield assessment for all bot scenarios
 func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Player) {
-	shipStats := game.ShipData[p.Ship]
-
-	// Don't shield if very low on fuel (emergency threshold)
-	if p.Fuel < 600 {
+	// Don't shield if critically low on fuel (emergency threshold)
+	if p.Fuel < FuelCritical {
 		p.Shields_up = false
 		return
 	}
 
-	// Don't shield if we're trying to repair at a starbase with high damage
-	if p.Orbiting >= 0 && p.Damage > shipStats.MaxDamage/2 {
-		p.Shields_up = false
-		return
-	}
+	// Remove the orbit repair shield drop - bots were dying during base repair
+	// Let threat assessment handle shield decisions even while repairing
 
 	// Initialize threat assessment
 	threatLevel := 0
@@ -580,16 +575,16 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 			}
 
 			// Torpedo threat levels based on distance and trajectory
-			if dist < 3000 {
+			if dist < TorpedoClose {
 				threatLevel += 2
 				if s.isTorpedoThreatening(p, torp) {
-					threatLevel += 4
+					threatLevel += TorpedoThreatBonus
 					immediateThreat = true
 				}
 			}
 
-			// Very close torpedoes are always dangerous
-			if dist < 1500 {
+			// Very close torpedoes are always dangerous (increased range)
+			if dist < TorpedoVeryClose {
 				threatLevel += 5
 				immediateThreat = true
 			}
@@ -610,18 +605,24 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 			// Within phaser range - high priority for shields
 			// Phasers can be fired in any direction regardless of ship facing
 			if dist < phaserRange {
-				threatLevel += 3
+				threatLevel += ThreatLevelMedium
 				// Any enemy within phaser range is an immediate threat
-				if dist < phaserRange*0.8 { // Within 80% of phaser range
-					threatLevel += 4
+				if dist < phaserRange*PhaserRangeFactor {
+					threatLevel += ThreatLevelHigh
 					immediateThreat = true
 				}
 			}
 
 			// Very close enemies are dangerous regardless of facing
-			if dist < 1800 {
-				threatLevel += 3
+			if dist < EnemyVeryClose {
+				threatLevel += CloseEnemyBonus
 				immediateThreat = true
+			}
+
+			// Always treat any enemy within EnemyClose range as immediate threat
+			if dist < EnemyClose {
+				immediateThreat = true
+				threatLevel += 2
 			}
 		}
 	}
@@ -630,10 +631,10 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 	for _, plasma := range s.gameState.Plasmas {
 		if plasma.Owner != p.ID && plasma.Status == 1 {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
-			if dist < 4000 {
-				threatLevel += 3
-				if dist < 2000 {
-					threatLevel += 4
+			if dist < PlasmaFar {
+				threatLevel += ThreatLevelMedium
+				if dist < PlasmaClose {
+					threatLevel += ThreatLevelHigh
 					immediateThreat = true
 				}
 			}
@@ -643,30 +644,30 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 	// Shield decision logic based on threat assessment and fuel availability
 	shouldShield := false
 
-	// Immediate threats - shield if we have minimal fuel
-	if immediateThreat && p.Fuel > 800 {
+	// Immediate threats - shield if we have minimal fuel (much lower threshold)
+	if immediateThreat && p.Fuel > FuelLow {
 		shouldShield = true
-	} else if threatLevel >= 6 && p.Fuel > 1200 {
+	} else if threatLevel >= ThreatLevelImmediate && p.Fuel > FuelModerate {
 		// High threat level - shield up
 		shouldShield = true
-	} else if threatLevel >= 3 && p.Fuel > 1800 {
+	} else if threatLevel >= ThreatLevelMedium && p.Fuel > FuelGood {
 		// Medium threat with good fuel reserves
 		shouldShield = true
-	} else if closestTorpDist < 2000 && p.Fuel > 1000 {
-		// Torpedo nearby - be defensive
+	} else if closestTorpDist < TorpedoVeryClose && p.Fuel > FuelLow {
+		// Torpedo very close - be defensive with lower fuel requirement
 		shouldShield = true
-	} else if closestEnemyDist < 2500 && p.Fuel > 1500 {
-		// Enemy nearby - be prepared
-		shouldShield = true
-	}
-
-	// Special case: always shield when carrying armies and threatened
-	if p.Armies > 0 && (closestEnemyDist < 3500 || closestTorpDist < 3000) && p.Fuel > 1000 {
+	} else if closestEnemyDist < EnemyClose && p.Fuel > FuelModerate {
+		// Enemy nearby - be prepared with moderate fuel requirement
 		shouldShield = true
 	}
 
-	// Special case: shield during planet defense when enemies are close
-	if p.BotDefenseTarget >= 0 && (closestEnemyDist < 3000 || closestTorpDist < 2500) && p.Fuel > 1200 {
+	// Special case: always shield when carrying armies and threatened (lower fuel requirement)
+	if p.Armies > 0 && (closestEnemyDist < ArmyCarryingRange || closestTorpDist < TorpedoClose) && p.Fuel > FuelLow {
+		shouldShield = true
+	}
+
+	// Special case: shield during planet defense when enemies are close (lower fuel requirement)
+	if p.BotDefenseTarget >= 0 && (closestEnemyDist < DefenseShieldRange || closestTorpDist < TorpedoVeryClose) && p.Fuel > FuelLow {
 		shouldShield = true
 	}
 

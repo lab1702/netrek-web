@@ -71,6 +71,10 @@ func (s *Server) UpdateBots() {
 			continue
 		}
 
+		// Assess shields every tick before any other logic
+		// This ensures bots respond quickly to threats
+		s.assessAndActivateShields(p, nil)
+
 		// Reduce cooldown
 		if p.BotCooldown > 0 {
 			p.BotCooldown--
@@ -571,8 +575,11 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 		// Intelligent patrol patterns
 		s.executePatrol(p)
-		return
 	}
+
+	// Final fallback shield assessment to ensure all code paths are covered
+	// This catches any scenarios where shields weren't assessed in specific logic branches
+	s.assessAndActivateShields(p, nil)
 }
 
 // updateStarbaseBot implements specialized AI for starbase bots
