@@ -1671,6 +1671,9 @@ function renderTactical() {
             ctx.stroke();
         }
         
+        // Reset context before drawing shields to ensure consistent alpha
+        ctx.restore();
+        
         // Shield circle if shields up
         if (player.shields_up) {
             ctx.save();
@@ -1681,6 +1684,14 @@ function renderTactical() {
             ctx.arc(0, 0, 15, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
+        }
+        
+        // Re-save context for repair indicator
+        ctx.save();
+        
+        // Reapply cloaking alpha if needed for repair indicator
+        if (player.cloaked && player.team === myPlayer.team) {
+            ctx.globalAlpha = GALACTIC_DIM_ALPHA;
         }
         
         // Repair mode indicator - wrench icon or pulsing effect
