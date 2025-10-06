@@ -25,12 +25,12 @@ func TestBotShieldAssessment(t *testing.T) {
 				bot := gs.Players[botID]
 				torp := &game.Torpedo{
 					ID:     0,
-					Owner:  1, // Different from bot
+					Owner:  1,            // Different from bot
 					X:      bot.X + 1900, // Within TorpedoVeryClose range
 					Y:      bot.Y,
-					Dir:    math.Pi,    // Heading west (toward bot)
-					Speed:  600,       // Fast torpedo
-					Status: 1,         // Moving
+					Dir:    math.Pi,      // Heading west (toward bot)
+					Speed:  600,          // Fast torpedo
+					Status: 1,            // Moving
 					Team:   game.TeamKli, // Enemy team
 				}
 				gs.Torps = append(gs.Torps, torp)
@@ -200,8 +200,8 @@ func TestBotShieldAssessment(t *testing.T) {
 			bot.X = 50000
 			bot.Y = 50000
 			bot.Fuel = tt.fuel
-			bot.Shields_up = false // Start with shields down
-			bot.Armies = 0         // Default no armies
+			bot.Shields_up = false    // Start with shields down
+			bot.Armies = 0            // Default no armies
 			bot.BotDefenseTarget = -1 // Default not defending
 			// Set movement data for threat assessment
 			bot.Speed = 0
@@ -283,10 +283,10 @@ func TestTorpedoThreatDetection(t *testing.T) {
 	bot := gs.Players[0]
 	bot.X = 50000
 	bot.Y = 50000
-	bot.DesDir = 0      // Heading east
-	bot.DesSpeed = 5    // Moving
+	bot.DesDir = 0   // Heading east
+	bot.DesSpeed = 5 // Moving
 	bot.Speed = 5
-	bot.Dir = 0         // Current direction also east
+	bot.Dir = 0 // Current direction also east
 
 	tests := []struct {
 		name      string
@@ -298,17 +298,17 @@ func TestTorpedoThreatDetection(t *testing.T) {
 	}{
 		{
 			name:      "Torpedo heading directly at bot",
-			torpX:     47000,     // 3000 units west of bot
-			torpY:     50000,     // Same Y
-			torpDir:   0,         // Heading east (toward bot)
+			torpX:     47000, // 3000 units west of bot
+			torpY:     50000, // Same Y
+			torpDir:   0,     // Heading east (toward bot)
 			torpSpeed: 600,
 			expected:  true,
 		},
 		{
-			name:      "Torpedo heading away from bot", 
-			torpX:     47000,     // 3000 units west of bot
-			torpY:     50000,     // Same Y
-			torpDir:   math.Pi,   // Heading west (away from bot)
+			name:      "Torpedo heading away from bot",
+			torpX:     47000,   // 3000 units west of bot
+			torpY:     50000,   // Same Y
+			torpDir:   math.Pi, // Heading west (away from bot)
 			torpSpeed: 600,
 			expected:  false,
 		},

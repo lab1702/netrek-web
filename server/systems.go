@@ -184,8 +184,23 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 				}
 			}
 
-			// Add small fuel consumption for repairs
-			p.Fuel = game.Max(p.Fuel-1, 0)
+			// Auto-exit repair mode when fully repaired
+			if p.Shields >= shipStats.MaxShields && p.Damage == 0 {
+				p.Repairing = false
+				p.RepairCounter = 0
+				// Send completion notice to the pilot
+				s.broadcast <- ServerMessage{
+					Type: MsgTypeMessage,
+					Data: map[string]interface{}{
+						"text": fmt.Sprintf("%s has completed repairs", formatPlayerName(p)),
+						"type": "info",
+						"to":   playerIndex, // Private message to the specific player
+					},
+				}
+			} else {
+				// Add small fuel consumption for repairs
+				p.Fuel = game.Max(p.Fuel-1, 0)
+			}
 		} else {
 			// Cancel repair mode and repair request if moving while not orbiting
 			p.Repairing = false

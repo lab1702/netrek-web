@@ -8,8 +8,8 @@ package server
 const (
 	// Shield Fuel Thresholds
 	// These control when bots will activate shields based on available fuel
-	FuelCritical  = 400  // Emergency threshold - only shield for immediate threats
-	FuelLow       = 600  // Low fuel - shield for close threats
+	FuelCritical = 400  // Emergency threshold - only shield for immediate threats
+	FuelLow      = 600  // Low fuel - shield for close threats
 	FuelModerate = 1400 // Moderate fuel - shield for medium-range threats
 	FuelGood     = 2000 // Good fuel reserves - shield more liberally
 

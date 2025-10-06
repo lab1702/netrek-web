@@ -248,15 +248,15 @@ func TestCounterConsistencyAfterOwnerDeath(t *testing.T) {
 	// Player dies and transitions through explosion to dead
 	playerA.Status = game.StatusExplode
 	playerA.ExplodeTimer = 10
-	
+
 	// Simulate explosion phase
 	for playerA.Status == game.StatusExplode {
-		t.Logf("Explosion tick: Status=%d, Timer=%d, NumTorps=%d, GameTorps=%d", 
+		t.Logf("Explosion tick: Status=%d, Timer=%d, NumTorps=%d, GameTorps=%d",
 			playerA.Status, playerA.ExplodeTimer, playerA.NumTorps, len(server.gameState.Torps))
 		server.updateGame()
 	}
 
-	t.Logf("After explosion: Status=%d, NumTorps=%d, GameTorps=%d", 
+	t.Logf("After explosion: Status=%d, NumTorps=%d, GameTorps=%d",
 		playerA.Status, playerA.NumTorps, len(server.gameState.Torps))
 
 	// Now player is dead and counters are reset
@@ -267,7 +267,7 @@ func TestCounterConsistencyAfterOwnerDeath(t *testing.T) {
 	// Check if torpedo still exists
 	t.Logf("Torpedo still exists? %d torpedoes in game", len(server.gameState.Torps))
 	if len(server.gameState.Torps) > 0 {
-		t.Logf("Remaining torpedo: Fuse=%d, Owner=%d, Status=%d", 
+		t.Logf("Remaining torpedo: Fuse=%d, Owner=%d, Status=%d",
 			server.gameState.Torps[0].Fuse, server.gameState.Torps[0].Owner, server.gameState.Torps[0].Status)
 	}
 
