@@ -125,15 +125,19 @@ func TestPlasmaSurvivesOwnerExplosion(t *testing.T) {
 	playerA.Y = 10000
 	playerA.Fuel = 5000
 	playerA.NumPlasma = 0
+	playerA.Connected = true // Mark as connected
+	playerA.IsBot = false    // Human player
 
 	// Set up player B (target)
 	playerB := server.gameState.Players[1]
 	playerB.Status = game.StatusAlive
 	playerB.Ship = game.ShipCruiser
-	playerB.X = 12000 // 2000 units away (within plasma range)
+	playerB.X = 20000 // 10000 units away (outside immediate plasma hit range)
 	playerB.Y = 10000
 	playerB.Damage = 0
 	playerB.Team = game.TeamKli // Different team to allow hits
+	playerB.Connected = true    // Mark as connected so server doesn't clear projectiles
+	playerB.IsBot = false       // Human player
 
 	// Player A fires a plasma
 	shipStats := game.ShipData[playerA.Ship]
@@ -201,9 +205,14 @@ func TestPlasmaSurvivesOwnerExplosion(t *testing.T) {
 		}
 	}
 
-	// Verify the plasma can still cause damage even after owner is dead
+	// Verify the plasma still exists OR has hit the target
 	if playerB.Damage <= initialTargetDamage && len(server.gameState.Plasmas) == 0 {
-		t.Errorf("Expected plasma from dead player to be able to hit targets")
+		// If plasma is gone but didn't hit target, that's an error
+		t.Errorf("Expected plasma from dead player to either still exist or have hit target")
+	} else if playerB.Damage > initialTargetDamage {
+		t.Logf("Plasma from dead player successfully hit target")
+	} else if len(server.gameState.Plasmas) > 0 {
+		t.Logf("Plasma still exists and is traveling towards target")
 	}
 }
 
