@@ -135,6 +135,15 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 		return
 	}
 
+	// Pre-fire sanity check: don't fire beyond plasma maximum range
+	dist := game.Distance(p.X, p.Y, target.X, target.Y)
+	maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
+	if dist > maxPlasmaRange {
+		// Don't fire - plasma would expire before reaching target
+		logPlasmaFiring("SKIPPED", int(p.Ship), dist, maxPlasmaRange, "target beyond max range")
+		return
+	}
+
 	// Use unified intercept solver for plasma
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
@@ -159,6 +168,9 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	s.gameState.Plasmas = append(s.gameState.Plasmas, plasma)
 	p.NumPlasma++
 	p.Fuel -= shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+
+	// Log successful plasma firing
+	logPlasmaFiring("FIRED", int(p.Ship), dist, maxPlasmaRange, "within range")
 }
 
 // fireBotTorpedoWithLead fires torpedo with advanced leading
@@ -313,9 +325,10 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 		return
 	}
 
-	// Enhanced plasma usage for ships that have it - scale with velocity-adjusted torpedo range
-	plasmaDefenseRange := effectiveTorpRange * 0.90 // ~90% of velocity-adjusted torp range
-	plasmaMinRange := effectiveTorpRange * 0.25     // ~25% of velocity-adjusted torp range
+	// Enhanced plasma usage for ships that have it - use actual plasma range
+	maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
+	plasmaDefenseRange := game.EffectivePlasmaRange(p.Ship, 0.90) // 90% of max plasma range
+	plasmaMinRange := maxPlasmaRange * 0.25                       // 25% of max plasma range
 	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel > 3000 {
 		s.fireBotPlasma(p, enemy)
 		p.BotCooldown = 15

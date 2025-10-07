@@ -183,16 +183,19 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Predictive shield management
 	s.managePredictiveShields(p, target, dist, closestTorpDist)
 
-	// Enhanced plasma usage for area control
+	// Enhanced plasma usage for area control - use actual plasma range, not torpedo range
 	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 { // Lower fuel threshold
-		// Use plasma for area denial or finishing damaged enemies
-		// Scale plasma ranges with effective torpedo range
-		plasmaLongRange := effectiveTorpRange * 0.85  // ~85% of torp range
-		plasmaShortRange := effectiveTorpRange * 0.30 // ~30% of torp range
-		plasmaKillRange := effectiveTorpRange * 0.65  // ~65% of torp range
-		if (dist < plasmaLongRange && dist > plasmaShortRange && target.Speed < 4) ||
-			(targetDamageRatio > 0.6 && dist < plasmaKillRange) || // Lower damage threshold
-			(target.Orbiting >= 0 && dist < effectiveTorpRange) {
+		// Use actual plasma maximum range to prevent fuse expiry
+		maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
+		plasmaLongRange := game.EffectivePlasmaRange(p.Ship, 0.85) // 85% of max for long range
+		plasmaShortRange := maxPlasmaRange * 0.30                  // 30% of max for minimum range
+		plasmaKillRange := game.EffectivePlasmaRange(p.Ship, 0.75) // 75% of max for kill shots
+
+		// Only fire if target is within actual plasma range
+		if dist < maxPlasmaRange &&
+			((dist < plasmaLongRange && dist > plasmaShortRange && target.Speed < 4) ||
+				(targetDamageRatio > 0.6 && dist < plasmaKillRange) || // Lower damage threshold
+				(target.Orbiting >= 0 && dist < plasmaKillRange)) {
 			s.fireBotPlasma(p, target)
 			p.BotCooldown = 12 // Reduced from 20 to 12
 		}
