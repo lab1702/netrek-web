@@ -1475,10 +1475,24 @@ function renderTactical() {
         
         if (screenX < -20 || screenX > width + 20 || screenY < -20 || screenY > height + 20) continue;
         
-        // Draw plasma as 8x8 square (looks like torpedo but bigger)
-        const size = 8; // twice regular torpedo size
-        ctx.fillStyle = teamColors[plasma.team] || '#888';
-        ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
+        // Show explosion effect when plasma hits something (status = 3)
+        if (plasma.status === 3) {
+            ctx.fillStyle = '#ff0';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 0.4;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        } else {
+            // Draw plasma as 8x8 square (looks like torpedo but bigger)
+            const size = 8; // twice regular torpedo size
+            ctx.fillStyle = teamColors[plasma.team] || '#888';
+            ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
+        }
     }
     
     // Draw tractor/pressor beams

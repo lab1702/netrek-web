@@ -89,6 +89,16 @@ func (s *Server) updateTorpedoes() {
 func (s *Server) updatePlasmas() {
 	newPlasmas := make([]*game.Plasma, 0)
 	for _, plasma := range s.gameState.Plasmas {
+		// If plasma is already exploding, remove it this frame
+		if plasma.Status == 3 {
+			// Decrement owner's plasma count
+			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
+				if owner := s.gameState.Players[plasma.Owner]; owner != nil {
+					owner.NumPlasma--
+				}
+			}
+			continue
+		}
 		// Decrement fuse every tick (now running at 10 ticks/sec)
 		plasma.Fuse--
 		if plasma.Fuse <= 0 {
@@ -141,13 +151,12 @@ func (s *Server) updatePlasmas() {
 		}
 
 		if hit {
-			// Decrement owner's plasma count
-			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				s.gameState.Players[plasma.Owner].NumPlasma--
-			}
-		} else {
-			newPlasmas = append(newPlasmas, plasma)
+			// Mark plasma as exploding - it will be removed next frame
+			plasma.Status = 3
 		}
+
+		// Keep plasma in list (even if exploding, so it shows for one frame)
+		newPlasmas = append(newPlasmas, plasma)
 	}
 	s.gameState.Plasmas = newPlasmas
 }
