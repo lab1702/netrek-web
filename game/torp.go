@@ -8,8 +8,8 @@ const (
 
 	// DefaultTorpSafety is the default safety margin for effective torpedo range
 	// This ensures torpedoes reach targets before fuse expires, accounting for
-	// target movement and aiming errors. Reduced from 0.85 to prevent fuse expiry.
-	DefaultTorpSafety = 0.70
+	// target movement and aiming errors.
+	DefaultTorpSafety = 0.85
 )
 
 // ShipSafetyFactor defines per-ship safety margins for torpedo firing range
