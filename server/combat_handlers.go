@@ -579,18 +579,22 @@ func (c *Client) handlePressor(data json.RawMessage) {
 
 // handleCloak handles cloaking/uncloaking
 func (c *Client) handleCloak(data json.RawMessage) {
-	c.server.mu.Lock()
-	defer c.server.mu.Unlock()
+	if c.PlayerID < 0 || c.PlayerID >= game.MaxPlayers {
+		return
+	}
+
+	c.server.gameState.Mu.Lock()
 
 	p := c.server.gameState.Players[c.PlayerID]
 	if p.Status != game.StatusAlive {
+		c.server.gameState.Mu.Unlock()
 		return
 	}
 
 	// Toggle cloak
 	p.Cloaked = !p.Cloaked
 
-	// Send cloak status message to all clients
+	// Build message while holding lock
 	var message string
 	if p.Cloaked {
 		message = fmt.Sprintf("%s engaged cloaking device", formatPlayerName(p))
@@ -598,6 +602,9 @@ func (c *Client) handleCloak(data json.RawMessage) {
 		message = fmt.Sprintf("%s disengaged cloaking device", formatPlayerName(p))
 	}
 
+	c.server.gameState.Mu.Unlock()
+
+	// Send cloak status message to all clients (after releasing lock to avoid deadlock)
 	c.server.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
