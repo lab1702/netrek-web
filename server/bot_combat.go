@@ -46,6 +46,14 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	threats := s.assessUniversalThreats(p)
 	closestTorpDist := threats.closestTorpDist
 
+	// Try to phaser any plasma in range before evading
+	if threats.closestPlasma < 999999.0 {
+		if s.tryPhaserNearbyPlasma(p) {
+			p.BotCooldown = 5 // Short cooldown after phasering plasma
+			// Continue with other combat logic, don't return
+		}
+	}
+
 	// Advanced dodge with threat prioritization
 	if threats.requiresEvasion {
 		dodgeDir := s.getAdvancedDodgeDirection(p, interceptDir, threats)

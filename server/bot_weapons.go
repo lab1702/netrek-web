@@ -122,6 +122,135 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	p.Fuel -= shipStats.PhaserDamage * shipStats.PhaserFuelMult
 }
 
+// fireBotPhaserAtPlasma fires a phaser at an incoming plasma torpedo to destroy it
+func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool {
+	// Can't fire while cloaked or repairing (same rules as human players)
+	if p.Cloaked || p.Repairing {
+		return false
+	}
+
+	shipStats := game.ShipData[p.Ship]
+	dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
+
+	// Calculate phaser range using original formula
+	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+
+	if dist > myPhaserRange {
+		return false
+	}
+
+	// Check fuel cost
+	phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
+	if p.Fuel < phaserCost {
+		return false
+	}
+
+	// Check weapon temperature
+	if p.WTemp > 90 {
+		return false
+	}
+
+	// Calculate phaser direction to plasma
+	phaserDir := math.Atan2(plasma.Y-p.Y, plasma.X-p.X)
+
+	// Check if phaser would hit the plasma using ZAPPLASMADIST
+	// This mirrors the logic in combat_handlers.go
+	C := 10.0 * float64(game.PhaserDist) * math.Cos(phaserDir)
+	D := 10.0 * float64(game.PhaserDist) * math.Sin(phaserDir)
+
+	A := plasma.X - p.X
+	B := plasma.Y - p.Y
+
+	s_param := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
+	if s_param < 0 {
+		return false
+	}
+
+	E := C * s_param
+	F := D * s_param
+	dx := E - A
+	dy := F - B
+
+	// Use ZAPPLASMADIST for plasma hit detection
+	if dx*dx+dy*dy > float64(game.ZAPPLASMADIST*game.ZAPPLASMADIST) {
+		return false
+	}
+
+	// Destroy the plasma
+	plasma.Status = 3 // Detonate
+
+	// Update plasma count for owner
+	if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
+		if owner := s.gameState.Players[plasma.Owner]; owner != nil {
+			owner.NumPlasma--
+		}
+	}
+
+	// Send phaser visual to plasma location
+	s.broadcast <- ServerMessage{
+		Type: "phaser",
+		Data: map[string]interface{}{
+			"from":  p.ID,
+			"to":    -2, // Special code for plasma hit
+			"x":     plasma.X,
+			"y":     plasma.Y,
+			"range": myPhaserRange,
+		},
+	}
+
+	p.Fuel -= phaserCost
+
+	return true
+}
+
+// tryPhaserNearbyPlasma checks for enemy plasma in range and attempts to phaser it
+// Returns true if a plasma was phasered
+func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
+	// Can't fire while cloaked or repairing
+	if p.Cloaked || p.Repairing {
+		return false
+	}
+
+	shipStats := game.ShipData[p.Ship]
+	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+
+	// Check fuel and temperature
+	phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
+	if p.Fuel < phaserCost || p.WTemp > 90 {
+		return false
+	}
+
+	// Find the closest threatening plasma within phaser range
+	var closestPlasma *game.Plasma
+	closestDist := myPhaserRange
+
+	for _, plasma := range s.gameState.Plasmas {
+		// Skip our own plasma or non-active plasma
+		if plasma.Owner == p.ID || plasma.Status != 1 {
+			continue
+		}
+
+		// Skip friendly plasma
+		if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
+			if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.Team == p.Team {
+				continue
+			}
+		}
+
+		dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
+		if dist < closestDist {
+			closestPlasma = plasma
+			closestDist = dist
+		}
+	}
+
+	if closestPlasma != nil {
+		return s.fireBotPhaserAtPlasma(p, closestPlasma)
+	}
+
+	return false
+}
+
 // fireBotPlasma fires a plasma torpedo from a bot
 func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	// Can't fire while cloaked or repairing (same rules as human players)
