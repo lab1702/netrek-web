@@ -124,7 +124,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	targetStats := game.ShipData[target.Ship]
 	if target.Damage >= targetStats.MaxDamage {
 		target.Status = game.StatusExplode
-		target.ExplodeTimer = 10
+		target.ExplodeTimer = game.ExplodeTimerFrames
 		target.KilledBy = p.ID
 		target.WhyDead = game.KillPhaser
 		target.Bombing = false // Stop bombing when destroyed

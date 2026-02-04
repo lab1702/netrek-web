@@ -84,3 +84,67 @@ func containsString(str, substr string) bool {
 	}
 	return false
 }
+
+// TestSanitizeName tests player name sanitization
+func TestSanitizeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Normal name passes through",
+			input:    "TestPlayer",
+			expected: "TestPlayer",
+		},
+		{
+			name:     "Name starting with number strips leading digits",
+			input:    "123Player",
+			expected: "Player",
+		},
+		{
+			name:     "All digits returns empty string",
+			input:    "12345",
+			expected: "",
+		},
+		{
+			name:     "Leading zeros stripped",
+			input:    "007Bond",
+			expected: "Bond",
+		},
+		{
+			name:     "Numbers in middle preserved",
+			input:    "Player123",
+			expected: "Player123",
+		},
+		{
+			name:     "Special characters removed",
+			input:    "Test!@#Player",
+			expected: "TestPlayer",
+		},
+		{
+			name:     "Name truncated at 20 chars",
+			input:    "ThisIsAVeryLongPlayerNameThatExceedsTwentyCharacters",
+			expected: "ThisIsAVeryLongPlaye",
+		},
+		{
+			name:     "Empty string stays empty",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "Mixed leading special chars and digits",
+			input:    "!@#123ABC",
+			expected: "ABC",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeName(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}

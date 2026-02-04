@@ -73,7 +73,7 @@ func sanitizeText(text string) string {
 	return html.EscapeString(text)
 }
 
-// sanitizeName removes non-alphanumeric characters and escapes HTML
+// sanitizeName removes non-alphanumeric characters and ensures name starts with a letter
 func sanitizeName(name string) string {
 	// Remove non-alphanumeric characters first, then truncate
 	cleaned := strings.Map(func(r rune) rune {
@@ -82,6 +82,16 @@ func sanitizeName(name string) string {
 		}
 		return -1
 	}, name)
+
+	// Ensure name starts with a letter (not a number)
+	// Strip leading digits until we find a letter or string is empty
+	for len(cleaned) > 0 {
+		first := rune(cleaned[0])
+		if (first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') {
+			break
+		}
+		cleaned = cleaned[1:]
+	}
 
 	// Limit name length after cleaning
 	const maxNameLength = 20

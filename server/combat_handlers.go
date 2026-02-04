@@ -262,7 +262,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 			// Ship destroyed by phaser!
 			target.Status = game.StatusExplode
-			target.ExplodeTimer = 10
+			target.ExplodeTimer = game.ExplodeTimerFrames
 			target.KilledBy = c.GetPlayerID()
 			target.WhyDead = game.KillPhaser
 			target.Bombing = false   // Stop bombing when destroyed

@@ -201,7 +201,7 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 		// Ship destroyed!
 		target.Status = game.StatusExplode
-		target.ExplodeTimer = 10 // 10 frames of explosion animation
+		target.ExplodeTimer = game.ExplodeTimerFrames
 		target.KilledBy = torp.Owner
 		target.WhyDead = game.KillTorp
 		target.Bombing = false // Stop bombing when destroyed
@@ -240,7 +240,7 @@ func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targe
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 		// Ship destroyed by plasma!
 		target.Status = game.StatusExplode
-		target.ExplodeTimer = 10
+		target.ExplodeTimer = game.ExplodeTimerFrames
 		target.KilledBy = plasma.Owner
 		target.WhyDead = game.KillTorp // Using torp constant for now
 		target.Bombing = false         // Stop bombing when destroyed

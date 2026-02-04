@@ -229,9 +229,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Self-destruct the ship
 	p.Status = game.StatusExplode
-	p.ExplodeTimer = 10       // Explosion animation frames
-	p.KilledBy = playerID     // Killed by self
-	p.WhyDead = game.KillQuit // Quit reason
+	p.ExplodeTimer = game.ExplodeTimerFrames // Explosion animation frames
+	p.KilledBy = playerID                    // Killed by self
+	p.WhyDead = game.KillQuit                // Quit reason
 
 	// Stop all movement
 	p.Speed = 0

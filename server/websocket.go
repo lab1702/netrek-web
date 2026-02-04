@@ -330,6 +330,10 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 			s.gameState.Torps = make([]*game.Torpedo, 0)
 			s.gameState.Plasmas = make([]*game.Plasma, 0)
 
+			// Reset projectile IDs to prevent eventual overflow after billions of shots
+			s.nextTorpID = 0
+			s.nextPlasmaID = 0
+
 			s.galaxyReset = true
 			log.Printf("Galaxy reset to initial state (no players connected)")
 		}
@@ -344,8 +348,8 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 
 		// Handle explosion state
 		if p.Status == game.StatusExplode {
-			// On the first frame of explosion (timer = 10), deal damage to nearby ships
-			if p.ExplodeTimer == 10 && p.WhyDead != game.KillQuit {
+			// On the first frame of explosion, deal damage to nearby ships
+			if p.ExplodeTimer == game.ExplodeTimerFrames && p.WhyDead != game.KillQuit {
 				// Calculate explosion damage to nearby ships
 				explosionDamage := game.GetShipExplosionDamage(p.Ship)
 
@@ -379,7 +383,7 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 						if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 							// Ship destroyed by explosion!
 							target.Status = game.StatusExplode
-							target.ExplodeTimer = 10
+							target.ExplodeTimer = game.ExplodeTimerFrames
 							target.KilledBy = i
 							target.WhyDead = game.KillExplosion
 							// Clear lock-on when destroyed

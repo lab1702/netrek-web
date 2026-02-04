@@ -58,7 +58,7 @@ func TestTorpedoSurvivesOwnerExplosion(t *testing.T) {
 
 	// Player A explodes (killed by something else)
 	playerA.Status = game.StatusExplode
-	playerA.ExplodeTimer = 10
+	playerA.ExplodeTimer = game.ExplodeTimerFrames
 	playerA.WhyDead = game.KillTorp // Killed by enemy torpedo
 
 	// Simulate one game update tick to handle explosion
@@ -166,7 +166,7 @@ func TestPlasmaSurvivesOwnerExplosion(t *testing.T) {
 
 	// Player A explodes
 	playerA.Status = game.StatusExplode
-	playerA.ExplodeTimer = 10
+	playerA.ExplodeTimer = game.ExplodeTimerFrames
 	playerA.WhyDead = game.KillTorp
 
 	// Simulate one game update tick to handle explosion
@@ -256,7 +256,7 @@ func TestCounterConsistencyAfterOwnerDeath(t *testing.T) {
 
 	// Player dies and transitions through explosion to dead
 	playerA.Status = game.StatusExplode
-	playerA.ExplodeTimer = 10
+	playerA.ExplodeTimer = game.ExplodeTimerFrames
 
 	// Simulate explosion phase
 	for playerA.Status == game.StatusExplode {
@@ -328,7 +328,7 @@ func TestProjectileUpdateAfterOwnerDeath(t *testing.T) {
 
 	// Player dies (set status directly)
 	playerA.Status = game.StatusExplode
-	playerA.ExplodeTimer = 10
+	playerA.ExplodeTimer = game.ExplodeTimerFrames
 
 	// Clear the player's torpedo counter (like the websocket.go code does)
 	playerA.NumTorps = 0

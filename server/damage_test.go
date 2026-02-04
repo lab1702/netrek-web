@@ -174,7 +174,7 @@ func TestShipExplosionShieldHandling(t *testing.T) {
 	// Setup exploding ship
 	explodingShip := server.gameState.Players[0]
 	explodingShip.Status = game.StatusExplode
-	explodingShip.ExplodeTimer = 10
+	explodingShip.ExplodeTimer = game.ExplodeTimerFrames
 	explodingShip.Ship = game.ShipCruiser
 	explodingShip.X = 50000
 	explodingShip.Y = 50000

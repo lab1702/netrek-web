@@ -79,7 +79,7 @@ func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 			// Check if ship destroyed by planet
 			if p.Damage >= game.ShipData[p.Ship].MaxDamage {
 				p.Status = game.StatusExplode
-				p.ExplodeTimer = 10
+				p.ExplodeTimer = game.ExplodeTimerFrames
 				p.KilledBy = -1 // No player killer
 				p.WhyDead = game.KillPlanet
 				p.Bombing = false
@@ -230,7 +230,7 @@ func (s *Server) updatePlanetCombat(p *game.Player, playerIndex int) {
 			// Check if ship destroyed by planet
 			if p.Damage >= game.ShipData[p.Ship].MaxDamage {
 				p.Status = game.StatusExplode
-				p.ExplodeTimer = 10
+				p.ExplodeTimer = game.ExplodeTimerFrames
 				p.KilledBy = -1 // No player killer
 				p.WhyDead = game.KillPlanet
 				p.Deaths++ // Increment death count
