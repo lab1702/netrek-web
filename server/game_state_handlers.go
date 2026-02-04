@@ -266,7 +266,11 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Close the connection after a short delay to allow the explosion to be seen
 	go func() {
-		time.Sleep(1 * time.Second)
-		c.conn.Close()
+		select {
+		case <-time.After(1 * time.Second):
+			c.conn.Close()
+		case <-c.server.done:
+			c.conn.Close()
+		}
 	}()
 }

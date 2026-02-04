@@ -354,8 +354,6 @@ var ShipData = map[ShipType]ShipStats{
 
 // Player represents a player in the game
 type Player struct {
-	mu sync.RWMutex
-
 	ID     int      `json:"id"`
 	Name   string   `json:"name"`
 	Team   int      `json:"team"`
@@ -467,8 +465,6 @@ type Plasma struct {
 
 // Planet represents a planet
 type Planet struct {
-	mu sync.RWMutex
-
 	ID     int     `json:"id"`
 	Name   string  `json:"name"`
 	Label  string  `json:"label"` // 3-letter label for display

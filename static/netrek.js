@@ -96,8 +96,8 @@ function updateTeamDisplay(data) {
                 // Remove any existing star
                 teamLabels[i].textContent = teamLabels[i].textContent.replace(' ⭐', '');
                 
-                if (count === maxCount && maxCount > minCount) {
-                    // This team has the most players - disable it
+                if (count === maxCount && maxCount > minCount + 1) {
+                    // This team has significantly more players - disable it
                     teamLabels[i].style.color = '#f88';
                     teamRadios[i].disabled = true;
                     teamLabels[i].style.opacity = '0.5';
@@ -1030,7 +1030,7 @@ function handleServerMessage(msg) {
                 // Player status becomes 0 (StatusFree) after explosion completes
                 if (!myPlayer || myPlayer.status === 0) {
                     // Redirect to login screen
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                     return;
                 }
             }

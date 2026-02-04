@@ -63,10 +63,11 @@ type MessageData struct {
 
 // sanitizeText escapes HTML special characters to prevent XSS
 func sanitizeText(text string) string {
-	// Limit message length
+	// Limit message length using runes to avoid splitting multi-byte characters
 	const maxMessageLength = 500
-	if len(text) > maxMessageLength {
-		text = text[:maxMessageLength]
+	runes := []rune(text)
+	if len(runes) > maxMessageLength {
+		text = string(runes[:maxMessageLength])
 	}
 	// html.EscapeString escapes <, >, &, ' and "
 	return html.EscapeString(text)
@@ -74,19 +75,19 @@ func sanitizeText(text string) string {
 
 // sanitizeName removes non-alphanumeric characters and escapes HTML
 func sanitizeName(name string) string {
-	// Limit name length
-	const maxNameLength = 20
-	if len(name) > maxNameLength {
-		name = name[:maxNameLength]
-	}
-
-	// Remove non-alphanumeric characters
+	// Remove non-alphanumeric characters first, then truncate
 	cleaned := strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
 			return r
 		}
 		return -1
 	}, name)
+
+	// Limit name length after cleaning
+	const maxNameLength = 20
+	if len(cleaned) > maxNameLength {
+		cleaned = cleaned[:maxNameLength]
+	}
 
 	return cleaned
 }

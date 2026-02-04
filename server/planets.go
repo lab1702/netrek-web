@@ -17,9 +17,11 @@ func (s *Server) updatePlanetInteractions() {
 			continue
 		}
 
-		// Check orbit status
-		if p.Orbiting >= 0 {
+		// Check orbit status (with upper bound check)
+		if p.Orbiting >= 0 && p.Orbiting < len(s.gameState.Planets) {
 			s.updateOrbitingPlayer(p, i)
+		} else if p.Orbiting >= len(s.gameState.Planets) {
+			p.Orbiting = -1 // Reset invalid orbit index
 		}
 
 		// Handle planet damage for non-orbiting ships near hostile planets

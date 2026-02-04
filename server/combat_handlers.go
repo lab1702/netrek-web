@@ -271,8 +271,10 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			target.ExplodeTimer = 10
 			target.KilledBy = c.PlayerID
 			target.WhyDead = game.KillPhaser
-			target.Bombing = false // Stop bombing when destroyed
-			target.Orbiting = -1   // Break orbit when destroyed
+			target.Bombing = false   // Stop bombing when destroyed
+			target.Beaming = false   // Stop beaming when destroyed
+			target.BeamingUp = false // Clear beam direction
+			target.Orbiting = -1     // Break orbit when destroyed
 			// Clear lock-on when destroyed
 			target.LockType = "none"
 			target.LockTarget = -1
@@ -617,33 +619,37 @@ func (c *Client) handleCloak(data json.RawMessage) {
 		return
 	}
 
-	c.server.gameState.Mu.Lock()
-
-	p := c.server.gameState.Players[c.PlayerID]
-	if p.Status != game.StatusAlive {
-		c.server.gameState.Mu.Unlock()
-		return
-	}
-
-	// Toggle cloak
-	p.Cloaked = !p.Cloaked
-
-	// Build message while holding lock
 	var message string
-	if p.Cloaked {
-		message = fmt.Sprintf("%s engaged cloaking device", formatPlayerName(p))
-	} else {
-		message = fmt.Sprintf("%s disengaged cloaking device", formatPlayerName(p))
-	}
 
-	c.server.gameState.Mu.Unlock()
+	// Lock scope: toggle cloak and build message
+	func() {
+		c.server.gameState.Mu.Lock()
+		defer c.server.gameState.Mu.Unlock()
+
+		p := c.server.gameState.Players[c.PlayerID]
+		if p.Status != game.StatusAlive {
+			return
+		}
+
+		// Toggle cloak
+		p.Cloaked = !p.Cloaked
+
+		// Build message while holding lock
+		if p.Cloaked {
+			message = fmt.Sprintf("%s engaged cloaking device", formatPlayerName(p))
+		} else {
+			message = fmt.Sprintf("%s disengaged cloaking device", formatPlayerName(p))
+		}
+	}()
 
 	// Send cloak status message to all clients (after releasing lock to avoid deadlock)
-	c.server.broadcast <- ServerMessage{
-		Type: MsgTypeMessage,
-		Data: map[string]interface{}{
-			"text": message,
-			"type": "info",
-		},
+	if message != "" {
+		c.server.broadcast <- ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": message,
+				"type": "info",
+			},
+		}
 	}
 }

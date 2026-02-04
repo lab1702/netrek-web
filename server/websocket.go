@@ -564,7 +564,8 @@ func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
 
 	totalPlayers := 0
 	for _, p := range s.gameState.Players {
-		if p.Status == game.StatusAlive && p.Connected {
+		// Count all connected players including dead/exploding (they're still on the team)
+		if p.Connected && p.Status != game.StatusFree {
 			totalPlayers++
 			switch p.Team {
 			case game.TeamFed:
