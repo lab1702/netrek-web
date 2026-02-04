@@ -406,9 +406,10 @@ type Player struct {
 	Orbiting int `json:"orbiting"` // Planet ID, -1 if not orbiting
 
 	// Death tracking
-	ExplodeTimer int `json:"explodeTimer"` // Frames left in explosion animation
-	KilledBy     int `json:"killedBy"`     // Player ID who killed us
-	WhyDead      int `json:"whyDead"`      // Reason for death (KillTorp, KillPhaser, etc)
+	ExplodeTimer   int  `json:"explodeTimer"`   // Frames left in explosion animation
+	KilledBy       int  `json:"killedBy"`       // Player ID who killed us
+	WhyDead        int  `json:"whyDead"`        // Reason for death (KillTorp, KillPhaser, etc)
+	RespawnMsgSent bool `json:"-"`              // True if "cannot respawn" message was sent (not sent to client)
 
 	// Engine overheat tracking
 	OverheatTimer int `json:"-"` // Frames left in overheat state (not sent to client)

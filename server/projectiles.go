@@ -8,6 +8,12 @@ import (
 
 // updateProjectiles handles all torpedo and plasma movement and collision detection
 func (s *Server) updateProjectiles() {
+	// Index all alive players into the spatial grid for efficient collision detection
+	// (if grid is nil, collision detection falls back to O(n*m) iteration)
+	if s.playerGrid != nil {
+		s.playerGrid.IndexPlayers(s.gameState.Players[:])
+	}
+
 	s.updateTorpedoes()
 	s.updatePlasmas()
 }
@@ -55,8 +61,19 @@ func (s *Server) updateTorpedoes() {
 			continue
 		}
 
-		// Check for hits
-		for i := 0; i < game.MaxPlayers; i++ {
+		// Check for hits using spatial grid for O(1) average lookup (falls back to O(n) if grid unavailable)
+		var nearbyPlayers []int
+		if s.playerGrid != nil {
+			nearbyPlayers = s.playerGrid.GetNearby(torp.X, torp.Y)
+		} else {
+			// Fallback: check all players (O(n) per projectile)
+			for i := 0; i < game.MaxPlayers; i++ {
+				if s.gameState.Players[i].Status == game.StatusAlive {
+					nearbyPlayers = append(nearbyPlayers, i)
+				}
+			}
+		}
+		for _, i := range nearbyPlayers {
 			p := s.gameState.Players[i]
 			// Skip if not alive, self-damage, or friendly fire
 			if p.Status != game.StatusAlive || p.ID == torp.Owner {
@@ -127,10 +144,21 @@ func (s *Server) updatePlasmas() {
 			continue
 		}
 
-		// Check for hits
+		// Check for hits using spatial grid for O(1) average lookup (falls back to O(n) if grid unavailable)
 		hit := false
 		explosionRadius := 1500.0 // Plasma has larger explosion radius
-		for i := 0; i < game.MaxPlayers; i++ {
+		var nearbyPlayers []int
+		if s.playerGrid != nil {
+			nearbyPlayers = s.playerGrid.GetNearby(plasma.X, plasma.Y)
+		} else {
+			// Fallback: check all players (O(n) per projectile)
+			for i := 0; i < game.MaxPlayers; i++ {
+				if s.gameState.Players[i].Status == game.StatusAlive {
+					nearbyPlayers = append(nearbyPlayers, i)
+				}
+			}
+		}
+		for _, i := range nearbyPlayers {
 			p := s.gameState.Players[i]
 			// Skip if not alive, self-damage, or friendly fire
 			if p.Status != game.StatusAlive || p.ID == plasma.Owner {

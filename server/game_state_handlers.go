@@ -199,22 +199,27 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	shipData := game.ShipData[p.Ship]
 	log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
 
+	// Capture team counts before releasing lock to ensure consistency
+	teamCounts := c.server.computeTeamCounts()
+
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
 
-	// Broadcast updated team counts to all clients
-	c.server.broadcastTeamCounts()
+	// Broadcast pre-captured team counts to all clients
+	c.server.broadcastTeamCountsData(teamCounts)
 }
 
 // handleQuit handles player quit/self-destruct request
 func (c *Client) handleQuit(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	// Capture playerID once to avoid race between multiple GetPlayerID() calls
+	playerID := c.GetPlayerID()
+	if playerID < 0 || playerID >= game.MaxPlayers {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
+	p := c.server.gameState.Players[playerID]
 	if p.Status != game.StatusAlive {
 		// If already dead, just disconnect
 		c.server.gameState.Mu.Unlock()
@@ -224,9 +229,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Self-destruct the ship
 	p.Status = game.StatusExplode
-	p.ExplodeTimer = 10          // Explosion animation frames
-	p.KilledBy = c.GetPlayerID() // Killed by self
-	p.WhyDead = game.KillQuit    // Quit reason
+	p.ExplodeTimer = 10       // Explosion animation frames
+	p.KilledBy = playerID     // Killed by self
+	p.WhyDead = game.KillQuit // Quit reason
 
 	// Stop all movement
 	p.Speed = 0
@@ -247,6 +252,7 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	p.Pressoring = -1
 	p.Orbiting = -1
 
+	// Capture message and team counts before releasing lock
 	selfDestructMsg := ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
@@ -254,6 +260,7 @@ func (c *Client) handleQuit(data json.RawMessage) {
 			"type": "warning",
 		},
 	}
+	teamCounts := c.server.computeTeamCounts()
 
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
@@ -261,8 +268,8 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	// Broadcast self-destruct message after releasing lock
 	c.server.broadcast <- selfDestructMsg
 
-	// Broadcast updated team counts to all clients
-	c.server.broadcastTeamCounts()
+	// Broadcast pre-captured team counts to all clients
+	c.server.broadcastTeamCountsData(teamCounts)
 
 	// Clear playerID so the unregister handler won't try to free a
 	// slot that the game loop will handle (avoids race if slot is reused).

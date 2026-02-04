@@ -128,6 +128,7 @@ type Server struct {
 	nextPlasmaID int  // Monotonically increasing plasma ID
 	galaxyReset  bool // Track if galaxy has been reset (true = already reset/empty)
 	done         chan struct{}
+	playerGrid   *SpatialGrid // Spatial index for efficient collision detection
 }
 
 // NewServer creates a new game server
@@ -140,6 +141,7 @@ func NewServer() *Server {
 		gameState:   game.NewGameState(),
 		galaxyReset: true, // Start with galaxy already in reset state
 		done:        make(chan struct{}),
+		playerGrid:  NewSpatialGrid(),
 	}
 }
 
@@ -166,15 +168,17 @@ func (s *Server) Run() {
 
 		case client := <-s.unregister:
 			needBroadcast := false
+			// Capture playerID once to avoid race between multiple GetPlayerID() calls
+			playerID := client.GetPlayerID()
 			s.mu.Lock()
 			if _, ok := s.clients[client.ID]; ok {
 				delete(s.clients, client.ID)
 				close(client.send)
 
 				// Immediately free the player slot on disconnect
-				if client.GetPlayerID() >= 0 && client.GetPlayerID() < game.MaxPlayers {
+				if playerID >= 0 && playerID < game.MaxPlayers {
 					s.gameState.Mu.Lock()
-					p := s.gameState.Players[client.GetPlayerID()]
+					p := s.gameState.Players[playerID]
 					isBot := p.IsBot
 					// Only free if it's a human player (not a bot)
 					if !isBot {
@@ -437,8 +441,8 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 				// Cannot respawn if team owns no planets in t-mode
 				if teamPlanetCount == 0 {
 					// Send message to player once (check if not already sent)
-					if p.ExplodeTimer == 0 {
-						p.ExplodeTimer = -1 // Use -1 as flag that message was sent
+					if !p.RespawnMsgSent {
+						p.RespawnMsgSent = true
 						pendingMsgs = append(pendingMsgs, pendingPlayerMsg{
 							playerID: p.ID,
 							msg: ServerMessage{
@@ -451,9 +455,9 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 						})
 					}
 					continue
-				} else if p.ExplodeTimer == -1 {
+				} else if p.RespawnMsgSent {
 					// Team has regained planets - reset flag and notify player
-					p.ExplodeTimer = 0
+					p.RespawnMsgSent = false
 					pendingMsgs = append(pendingMsgs, pendingPlayerMsg{
 						playerID: p.ID,
 						msg: ServerMessage{

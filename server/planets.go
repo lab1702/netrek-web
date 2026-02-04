@@ -17,11 +17,13 @@ func (s *Server) updatePlanetInteractions() {
 			continue
 		}
 
-		// Check orbit status (with upper bound check)
-		if p.Orbiting >= 0 && p.Orbiting < len(s.gameState.Planets) {
+		// Check orbit status - validate orbit index is within bounds
+		// -1 means not orbiting, any other negative or out-of-bounds value is invalid
+		if p.Orbiting >= 0 && p.Orbiting < game.MaxPlanets {
 			s.updateOrbitingPlayer(p, i)
-		} else if p.Orbiting >= len(s.gameState.Planets) {
-			p.Orbiting = -1 // Reset invalid orbit index
+		} else if p.Orbiting != -1 {
+			// Reset any invalid orbit index (negative values other than -1, or >= MaxPlanets)
+			p.Orbiting = -1
 		}
 
 		// Handle planet damage for non-orbiting ships near hostile planets
@@ -38,7 +40,8 @@ func (s *Server) updatePlanetInteractions() {
 // updateOrbitingPlayer handles all interactions for a player currently orbiting a planet
 func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 	// Orbit mechanics matching original Netrek
-	if p.Orbiting >= len(s.gameState.Planets) {
+	// Validate orbit index (should be 0 to MaxPlanets-1)
+	if p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
 		log.Printf("ERROR: Player %s orbiting invalid planet %d", p.Name, p.Orbiting)
 		p.Orbiting = -1
 		return

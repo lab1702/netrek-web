@@ -41,7 +41,8 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.ExplodeTimer = 0
 	p.WhyDead = 0
 	p.KilledBy = -1
-	p.KillsStreak = 0 // Reset kill streak on death
+	p.KillsStreak = 0      // Reset kill streak on death
+	p.RespawnMsgSent = false // Reset respawn message flag
 
 	// Check for pending refit before resetting ship stats
 	if p.NextShipType >= 0 && p.NextShipType < len(game.ShipData) {
@@ -235,43 +236,60 @@ func (s *Server) countStarbasesByTeam() map[int]int {
 	return starbaseCounts
 }
 
-// broadcastTeamCounts sends current team counts to all connected clients
-func (s *Server) broadcastTeamCounts() {
-	s.gameState.Mu.RLock()
+// TeamCountData holds pre-computed team counts for broadcasting
+type TeamCountData struct {
+	Total int
+	Fed   int
+	Rom   int
+	Kli   int
+	Ori   int
+}
 
-	// Count players per team (only count connected, alive players)
-	teamCounts := map[string]int{
-		"fed": 0,
-		"rom": 0,
-		"kli": 0,
-		"ori": 0,
-	}
-
-	totalPlayers := 0
+// computeTeamCounts calculates team counts from current game state.
+// Caller must hold gameState.Mu lock (read or write).
+func (s *Server) computeTeamCounts() TeamCountData {
+	counts := TeamCountData{}
 	for _, p := range s.gameState.Players {
 		if p.Status == game.StatusAlive && p.Connected {
-			totalPlayers++
+			counts.Total++
 			switch p.Team {
 			case game.TeamFed:
-				teamCounts["fed"]++
+				counts.Fed++
 			case game.TeamRom:
-				teamCounts["rom"]++
+				counts.Rom++
 			case game.TeamKli:
-				teamCounts["kli"]++
+				counts.Kli++
 			case game.TeamOri:
-				teamCounts["ori"]++
+				counts.Ori++
 			}
 		}
 	}
+	return counts
+}
 
-	s.gameState.Mu.RUnlock()
-
-	// Broadcast the update to all clients
+// broadcastTeamCountsData broadcasts pre-computed team counts to all clients.
+// Use this when you need to capture counts under a lock and broadcast after releasing.
+func (s *Server) broadcastTeamCountsData(counts TeamCountData) {
 	s.broadcast <- ServerMessage{
 		Type: MsgTypeTeamUpdate,
 		Data: map[string]interface{}{
-			"total": totalPlayers,
-			"teams": teamCounts,
+			"total": counts.Total,
+			"teams": map[string]int{
+				"fed": counts.Fed,
+				"rom": counts.Rom,
+				"kli": counts.Kli,
+				"ori": counts.Ori,
+			},
 		},
 	}
+}
+
+// broadcastTeamCounts sends current team counts to all connected clients.
+// This acquires the lock, computes counts, releases lock, then broadcasts.
+func (s *Server) broadcastTeamCounts() {
+	s.gameState.Mu.RLock()
+	counts := s.computeTeamCounts()
+	s.gameState.Mu.RUnlock()
+
+	s.broadcastTeamCountsData(counts)
 }
