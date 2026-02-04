@@ -76,7 +76,7 @@ docker run -d -p 8080:8080 netrek-web
 ## Game Features
 
 - 4 teams with 40 planets
-- 7 ship types (Scout to Galaxy class)
+- 6 ship types (Scout, Destroyer, Cruiser, Battleship, Assault, Starbase)
 - Real-time space combat
 - Tournament mode (4v4+)
 - Practice mode with bots
