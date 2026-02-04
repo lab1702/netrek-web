@@ -232,10 +232,10 @@ func TestPhaserShieldHandling(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Calculate expected damage: 85 * (1.0 - 1000/5100) ≈ 68.3 → 68
 	shipStats := game.ShipData[shooter.Ship]

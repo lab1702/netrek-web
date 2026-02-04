@@ -14,11 +14,11 @@ func TestRefitCommand(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize a test player
 	server.gameState.Mu.Lock()
@@ -77,11 +77,11 @@ func TestAddbotCommandWithAliases(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize a test player
 	server.gameState.Mu.Lock()
@@ -117,11 +117,11 @@ func TestAddbotCommandInvalidShip(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize a test player
 	server.gameState.Mu.Lock()
@@ -176,11 +176,11 @@ func TestAddbotStarbaseLimitation(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize test players
 	server.gameState.Mu.Lock()
@@ -242,11 +242,11 @@ func TestFillbotsCommandWithDiverseShips(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize a test player
 	server.gameState.Mu.Lock()
@@ -320,11 +320,11 @@ func TestRefitCommandInvalid(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize a test player
 	server.gameState.Mu.Lock()
@@ -369,11 +369,11 @@ func TestRefitCommandNoArgs(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Test refit with no arguments
 	client.handleBotCommand("/refit")
@@ -404,11 +404,11 @@ func TestRefitCommandCaseInsensitive(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize a test player
 	server.gameState.Mu.Lock()
@@ -453,11 +453,11 @@ func TestRefitStarbaseLimitation(t *testing.T) {
 
 	// Create a mock client for player 2
 	client2 := &Client{
-		ID:       2,
-		PlayerID: 1,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     2,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client2.SetPlayerID(1)
 
 	// Initialize test players on the same team
 	server.gameState.Mu.Lock()
@@ -513,11 +513,11 @@ func TestRefitStarbaseCurrentPlayerIsStarbase(t *testing.T) {
 
 	// Create a mock client
 	client := &Client{
-		ID:       1,
-		PlayerID: 0,
-		server:   server,
-		send:     make(chan ServerMessage, 10),
+		ID:     1,
+		server: server,
+		send:   make(chan ServerMessage, 10),
 	}
+	client.SetPlayerID(0)
 
 	// Initialize test player as a starbase
 	server.gameState.Mu.Lock()

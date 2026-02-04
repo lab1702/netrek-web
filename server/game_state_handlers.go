@@ -184,7 +184,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	p.Shields_up = false // Shields DOWN by default
 	p.NextShipType = -1  // No pending refit on join
 
-	c.PlayerID = playerID
+	c.SetPlayerID(playerID)
 
 	// Send success response
 	c.send <- ServerMessage{
@@ -208,13 +208,13 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 // handleQuit handles player quit/self-destruct request
 func (c *Client) handleQuit(data json.RawMessage) {
-	if c.PlayerID < 0 || c.PlayerID >= game.MaxPlayers {
+	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 
-	p := c.server.gameState.Players[c.PlayerID]
+	p := c.server.gameState.Players[c.GetPlayerID()]
 	if p.Status != game.StatusAlive {
 		// If already dead, just disconnect
 		c.server.gameState.Mu.Unlock()
@@ -224,9 +224,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Self-destruct the ship
 	p.Status = game.StatusExplode
-	p.ExplodeTimer = 10       // Explosion animation frames
-	p.KilledBy = c.PlayerID   // Killed by self
-	p.WhyDead = game.KillQuit // Quit reason
+	p.ExplodeTimer = 10          // Explosion animation frames
+	p.KilledBy = c.GetPlayerID() // Killed by self
+	p.WhyDead = game.KillQuit    // Quit reason
 
 	// Stop all movement
 	p.Speed = 0
@@ -263,6 +263,10 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Broadcast updated team counts to all clients
 	c.server.broadcastTeamCounts()
+
+	// Clear playerID so the unregister handler won't try to free a
+	// slot that the game loop will handle (avoids race if slot is reused).
+	c.SetPlayerID(-1)
 
 	// Close the connection after a short delay to allow the explosion to be seen
 	go func() {

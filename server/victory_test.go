@@ -239,8 +239,10 @@ func TestResetGame(t *testing.T) {
 
 	// Create mock clients to test client PlayerID reset
 	server.clients = make(map[int]*Client)
-	client1 := &Client{ID: 1, PlayerID: 0}
-	client2 := &Client{ID: 2, PlayerID: 1}
+	client1 := &Client{ID: 1}
+	client1.SetPlayerID(0)
+	client2 := &Client{ID: 2}
+	client2.SetPlayerID(1)
 	server.clients[1] = client1
 	server.clients[2] = client2
 
@@ -282,11 +284,11 @@ func TestResetGame(t *testing.T) {
 	}
 
 	// Check that all clients are reset back to lobby (PlayerID = -1)
-	if client1.PlayerID != -1 {
-		t.Errorf("Expected client1 PlayerID to be -1 (lobby), got %d", client1.PlayerID)
+	if client1.GetPlayerID() != -1 {
+		t.Errorf("Expected client1 PlayerID to be -1 (lobby), got %d", client1.GetPlayerID())
 	}
-	if client2.PlayerID != -1 {
-		t.Errorf("Expected client2 PlayerID to be -1 (lobby), got %d", client2.PlayerID)
+	if client2.GetPlayerID() != -1 {
+		t.Errorf("Expected client2 PlayerID to be -1 (lobby), got %d", client2.GetPlayerID())
 	}
 
 	// Check that a reset message was broadcast

@@ -272,7 +272,7 @@ func (s *Server) resetGame() {
 	s.mu.Lock()
 	// Reset all connected clients back to lobby (no player slot assigned)
 	for _, client := range s.clients {
-		client.PlayerID = -1 // Back to lobby - no slot assigned
+		client.SetPlayerID(-1) // Back to lobby - no slot assigned
 	}
 	s.mu.Unlock()
 

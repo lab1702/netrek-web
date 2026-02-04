@@ -291,7 +291,7 @@ func (c *Client) handleBotCommand(cmd string) {
 
 		// Check starbase limit before allowing refit (each team can have at most 1 starbase)
 		c.server.gameState.Mu.Lock()
-		p := c.server.gameState.Players[c.PlayerID]
+		p := c.server.gameState.Players[c.GetPlayerID()]
 		if shipTypeInt == int(game.ShipStarbase) {
 			// Count existing starbases, but exclude this player in case they're already a starbase
 			starbaseCounts := c.server.countStarbasesByTeam()

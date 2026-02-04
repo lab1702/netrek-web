@@ -14,7 +14,7 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 		return
 	}
 
-	if c.PlayerID < 0 || c.PlayerID >= game.MaxPlayers {
+	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
 		return
 	}
 
@@ -28,7 +28,7 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 	msgData.Text = sanitizeText(msgData.Text)
 
 	c.server.gameState.Mu.RLock()
-	p := c.server.gameState.Players[c.PlayerID]
+	p := c.server.gameState.Players[c.GetPlayerID()]
 	senderName := formatPlayerName(p)
 	c.server.gameState.Mu.RUnlock()
 
@@ -38,7 +38,7 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 		Data: map[string]interface{}{
 			"text": fmt.Sprintf("[ALL] %s: %s", senderName, msgData.Text),
 			"type": "all",
-			"from": c.PlayerID,
+			"from": c.GetPlayerID(),
 		},
 	}
 }
@@ -50,7 +50,7 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 		return
 	}
 
-	if c.PlayerID < 0 || c.PlayerID >= game.MaxPlayers {
+	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
 		return
 	}
 
@@ -59,7 +59,7 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 
 	// Read sender info under game state lock
 	c.server.gameState.Mu.RLock()
-	p := c.server.gameState.Players[c.PlayerID]
+	p := c.server.gameState.Players[c.GetPlayerID()]
 	senderName := formatPlayerName(p)
 	team := p.Team
 	c.server.gameState.Mu.RUnlock()
@@ -70,20 +70,28 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 		Data: map[string]interface{}{
 			"text": fmt.Sprintf("[TEAM] %s: %s", senderName, msgData.Text),
 			"type": "team",
-			"from": c.PlayerID,
+			"from": c.GetPlayerID(),
 			"team": team,
 		},
 	}
 
-	// Lock ordering: s.mu first, then s.gameState.Mu
+	// Cache player teams under gameState lock to avoid nested locks
+	playerTeams := make(map[int]int)
+	c.server.gameState.Mu.RLock()
+	for i, p := range c.server.gameState.Players {
+		if p.Status != game.StatusFree {
+			playerTeams[i] = p.Team
+		}
+	}
+	c.server.gameState.Mu.RUnlock()
+
+	// Iterate clients under s.mu only (no nested gameState lock)
 	c.server.mu.RLock()
 	defer c.server.mu.RUnlock()
-	c.server.gameState.Mu.RLock()
-	defer c.server.gameState.Mu.RUnlock()
 	for _, client := range c.server.clients {
-		if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
-			clientPlayer := c.server.gameState.Players[client.PlayerID]
-			if clientPlayer.Team == team {
+		pid := client.GetPlayerID()
+		if pid >= 0 && pid < game.MaxPlayers {
+			if playerTeams[pid] == team {
 				select {
 				case client.send <- teamMsg:
 				default:
@@ -101,7 +109,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 		return
 	}
 
-	if c.PlayerID < 0 || c.PlayerID >= game.MaxPlayers {
+	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
 		return
 	}
 
@@ -114,7 +122,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 
 	// Read player info under game state lock
 	c.server.gameState.Mu.RLock()
-	p := c.server.gameState.Players[c.PlayerID]
+	p := c.server.gameState.Players[c.GetPlayerID()]
 	targetPlayer := c.server.gameState.Players[msgData.Target]
 	senderName := formatPlayerName(p)
 	targetName := formatPlayerName(targetPlayer)
@@ -126,7 +134,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 		Data: map[string]interface{}{
 			"text": fmt.Sprintf("[PRIV->%s] %s: %s", targetName, senderName, msgData.Text),
 			"type": "private",
-			"from": c.PlayerID,
+			"from": c.GetPlayerID(),
 			"to":   msgData.Target,
 		},
 	}
@@ -134,7 +142,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 	c.server.mu.RLock()
 	defer c.server.mu.RUnlock()
 	for _, client := range c.server.clients {
-		if client.PlayerID == msgData.Target || client.PlayerID == c.PlayerID {
+		if client.GetPlayerID() == msgData.Target || client.GetPlayerID() == c.GetPlayerID() {
 			select {
 			case client.send <- privMsg:
 			default:

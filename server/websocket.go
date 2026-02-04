@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -98,23 +99,35 @@ type ServerMessage struct {
 // Client represents a connected player
 type Client struct {
 	ID       int
-	PlayerID int
+	playerID atomic.Int32 // Use atomic to avoid data race between gameLoop and handlers
 	conn     *websocket.Conn
 	send     chan ServerMessage
 	server   *Server
 }
 
+// GetPlayerID returns the player ID atomically
+func (c *Client) GetPlayerID() int {
+	return int(c.playerID.Load())
+}
+
+// SetPlayerID sets the player ID atomically
+func (c *Client) SetPlayerID(id int) {
+	c.playerID.Store(int32(id))
+}
+
 // Server manages the game and client connections
 type Server struct {
-	mu          sync.RWMutex
-	clients     map[int]*Client
-	register    chan *Client
-	unregister  chan *Client
-	broadcast   chan ServerMessage
-	gameState   *game.GameState
-	nextID      int
-	galaxyReset bool // Track if galaxy has been reset (true = already reset/empty)
-	done        chan struct{}
+	mu           sync.RWMutex
+	clients      map[int]*Client
+	register     chan *Client
+	unregister   chan *Client
+	broadcast    chan ServerMessage
+	gameState    *game.GameState
+	nextID       int
+	nextTorpID   int  // Monotonically increasing torpedo ID
+	nextPlasmaID int  // Monotonically increasing plasma ID
+	galaxyReset  bool // Track if galaxy has been reset (true = already reset/empty)
+	done         chan struct{}
 }
 
 // NewServer creates a new game server
@@ -159,9 +172,9 @@ func (s *Server) Run() {
 				close(client.send)
 
 				// Immediately free the player slot on disconnect
-				if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
+				if client.GetPlayerID() >= 0 && client.GetPlayerID() < game.MaxPlayers {
 					s.gameState.Mu.Lock()
-					p := s.gameState.Players[client.PlayerID]
+					p := s.gameState.Players[client.GetPlayerID()]
 					isBot := p.IsBot
 					// Only free if it's a human player (not a bot)
 					if !isBot {
@@ -220,7 +233,7 @@ func (s *Server) gameLoop() {
 				s.mu.RLock()
 				for _, pm := range pending {
 					for _, client := range s.clients {
-						if client.PlayerID == pm.playerID {
+						if client.GetPlayerID() == pm.playerID {
 							select {
 							case client.send <- pm.msg:
 							default:
@@ -602,12 +615,12 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 
 	client := &Client{
-		ID:       clientID,
-		PlayerID: -1,
-		conn:     conn,
-		send:     make(chan ServerMessage, 256),
-		server:   s,
+		ID:     clientID,
+		conn:   conn,
+		send:   make(chan ServerMessage, 256),
+		server: s,
 	}
+	client.SetPlayerID(-1)
 
 	s.register <- client
 

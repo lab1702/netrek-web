@@ -135,7 +135,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Check for burst fire opportunity on vulnerable targets
 	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
-	burstFireMode := targetDamageRatio > 0.7 && dist < effectiveTorpRange*0.6                       // Burst when target is heavily damaged and in close range
+	burstFireMode := targetDamageRatio > 0.7 && dist < effectiveTorpRange*0.6 // Burst when target is heavily damaged and in close range
 	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		if burstFireMode && p.NumTorps < game.MaxTorps-6 && p.Fuel > 2500 {
 			// Burst fire mode - rapid successive torpedoes for kill securing

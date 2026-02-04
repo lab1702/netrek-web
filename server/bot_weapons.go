@@ -66,7 +66,7 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 
 	// Create torpedo
 	torp := &game.Torpedo{
-		ID:     len(s.gameState.Torps),
+		ID:     s.nextTorpID,
 		Owner:  p.ID,
 		X:      p.X,
 		Y:      p.Y,
@@ -79,6 +79,7 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 	}
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
+	s.nextTorpID++
 	p.NumTorps++
 	p.Fuel -= torpCost
 	p.WTemp += 50
@@ -209,15 +210,8 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 		return false
 	}
 
-	// Destroy the plasma
+	// Destroy the plasma - mark as exploding; updatePlasmas() will decrement NumPlasma
 	plasma.Status = 3 // Detonate
-
-	// Update plasma count for owner
-	if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-		if owner := s.gameState.Players[plasma.Owner]; owner != nil {
-			owner.NumPlasma--
-		}
-	}
 
 	// Send phaser visual to plasma location
 	select {
@@ -329,7 +323,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 
 	// Create plasma
 	plasma := &game.Plasma{
-		ID:     len(s.gameState.Plasmas),
+		ID:     s.nextPlasmaID,
 		Owner:  p.ID,
 		X:      p.X,
 		Y:      p.Y,
@@ -342,6 +336,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	}
 
 	s.gameState.Plasmas = append(s.gameState.Plasmas, plasma)
+	s.nextPlasmaID++
 	p.NumPlasma++
 	p.Fuel -= plasmaCost
 	p.WTemp += 100 // Plasma heats weapons (matching human handler)
@@ -389,7 +384,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 
 	// Create torpedo
 	torp := &game.Torpedo{
-		ID:     len(s.gameState.Torps),
+		ID:     s.nextTorpID,
 		Owner:  p.ID,
 		X:      p.X,
 		Y:      p.Y,
@@ -402,6 +397,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 	}
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
+	s.nextTorpID++
 	p.NumTorps++
 	p.Fuel -= torpCost
 	p.WTemp += 50
@@ -447,7 +443,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 
 		// Create torpedo
 		torp := &game.Torpedo{
-			ID:     len(s.gameState.Torps),
+			ID:     s.nextTorpID,
 			Owner:  p.ID,
 			X:      p.X,
 			Y:      p.Y,
@@ -460,6 +456,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 		}
 
 		s.gameState.Torps = append(s.gameState.Torps, torp)
+		s.nextTorpID++
 		p.NumTorps++
 		p.Fuel -= torpCost
 		p.WTemp += 50
@@ -502,7 +499,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	fireDir += randomJitterRad()
 
 	torp := &game.Torpedo{
-		ID:     len(s.gameState.Torps),
+		ID:     s.nextTorpID,
 		Owner:  p.ID,
 		X:      p.X,
 		Y:      p.Y,
@@ -515,6 +512,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	}
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
+	s.nextTorpID++
 	p.NumTorps++
 	p.Fuel -= torpCost
 	p.WTemp += 50

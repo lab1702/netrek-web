@@ -129,14 +129,16 @@ func InitINLPlanetFlags(gs *GameState) {
 			repairIdx := 2 + rand.Intn(3)
 			gs.Planets[frontPlanets[team][repairIdx]].Flags |= PlanetRepair
 
-			// Place 2 more FUEL on the other front
-			fuelCount := 0
-			for fuelCount < 2 {
-				idx := 2 + rand.Intn(3)
+			// Place 2 FUEL on remaining eligible slots (planets 2-4 without FUEL)
+			eligible := []int{}
+			for _, idx := range []int{2, 3, 4} {
 				if (gs.Planets[frontPlanets[team][idx]].Flags & PlanetFuel) == 0 {
-					gs.Planets[frontPlanets[team][idx]].Flags |= PlanetFuel
-					fuelCount++
+					eligible = append(eligible, idx)
 				}
+			}
+			rand.Shuffle(len(eligible), func(i, j int) { eligible[i], eligible[j] = eligible[j], eligible[i] })
+			for i := 0; i < 2 && i < len(eligible); i++ {
+				gs.Planets[frontPlanets[team][eligible[i]]].Flags |= PlanetFuel
 			}
 		} else {
 			// Place AGRI in last two front planets
@@ -154,14 +156,16 @@ func InitINLPlanetFlags(gs *GameState) {
 			repairIdx := rand.Intn(3)
 			gs.Planets[frontPlanets[team][repairIdx]].Flags |= PlanetRepair
 
-			// Place 2 more FUEL on the other front
-			fuelCount := 0
-			for fuelCount < 2 {
-				idx := rand.Intn(3)
+			// Place 2 FUEL on remaining eligible slots (planets 0-2 without FUEL)
+			eligible := []int{}
+			for _, idx := range []int{0, 1, 2} {
 				if (gs.Planets[frontPlanets[team][idx]].Flags & PlanetFuel) == 0 {
-					gs.Planets[frontPlanets[team][idx]].Flags |= PlanetFuel
-					fuelCount++
+					eligible = append(eligible, idx)
 				}
+			}
+			rand.Shuffle(len(eligible), func(i, j int) { eligible[i], eligible[j] = eligible[j], eligible[i] })
+			for i := 0; i < 2 && i < len(eligible); i++ {
+				gs.Planets[frontPlanets[team][eligible[i]]].Flags |= PlanetFuel
 			}
 		}
 
@@ -170,15 +174,16 @@ func InitINLPlanetFlags(gs *GameState) {
 		coreRepair := rand.Intn(4)
 		gs.Planets[corePlanets[team][coreRepair]].Flags |= PlanetRepair
 
-		// Place 2 more FUEL in the core
-		// (home + 3 front + 2 core = 6 Fuel total, but home already has 1, so 5 more needed)
-		coreFuelCount := 0
-		for coreFuelCount < 2 {
-			idx := rand.Intn(4)
+		// Place 2 FUEL in core on eligible slots (without FUEL already)
+		coreEligible := []int{}
+		for _, idx := range []int{0, 1, 2, 3} {
 			if (gs.Planets[corePlanets[team][idx]].Flags & PlanetFuel) == 0 {
-				gs.Planets[corePlanets[team][idx]].Flags |= PlanetFuel
-				coreFuelCount++
+				coreEligible = append(coreEligible, idx)
 			}
+		}
+		rand.Shuffle(len(coreEligible), func(i, j int) { coreEligible[i], coreEligible[j] = coreEligible[j], coreEligible[i] })
+		for i := 0; i < 2 && i < len(coreEligible); i++ {
+			gs.Planets[corePlanets[team][coreEligible[i]]].Flags |= PlanetFuel
 		}
 	}
 }
