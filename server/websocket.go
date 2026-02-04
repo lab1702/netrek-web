@@ -143,6 +143,8 @@ func (s *Server) Run() {
 	// Handle client events
 	for {
 		select {
+		case <-s.done:
+			return
 		case client := <-s.register:
 			s.mu.Lock()
 			s.clients[client.ID] = client
@@ -150,6 +152,7 @@ func (s *Server) Run() {
 			log.Printf("Client %d connected", client.ID)
 
 		case client := <-s.unregister:
+			needBroadcast := false
 			s.mu.Lock()
 			if _, ok := s.clients[client.ID]; ok {
 				delete(s.clients, client.ID)
@@ -157,7 +160,6 @@ func (s *Server) Run() {
 
 				// Immediately free the player slot on disconnect
 				if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
-					// Lock ordering: s.mu is already held, acquire s.gameState.Mu second
 					s.gameState.Mu.Lock()
 					p := s.gameState.Players[client.PlayerID]
 					isBot := p.IsBot
@@ -168,16 +170,16 @@ func (s *Server) Run() {
 						p.Name = ""
 						p.Connected = false
 						p.LastUpdate = time.Time{}
+						needBroadcast = true
 					}
 					s.gameState.Mu.Unlock()
-
-					// Broadcast updated team counts (acquires its own locks)
-					if !isBot {
-						s.broadcastTeamCounts()
-					}
 				}
 			}
 			s.mu.Unlock()
+			// Broadcast updated team counts after releasing s.mu to avoid deadlock
+			if needBroadcast {
+				s.broadcastTeamCounts()
+			}
 			log.Printf("Client %d disconnected", client.ID)
 
 		case message := <-s.broadcast:
@@ -207,25 +209,30 @@ func (s *Server) gameLoop() {
 	ticker := time.NewTicker(game.UpdateInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		pending := s.updateGame()
-		// Send buffered per-player messages after game state lock is released
-		if len(pending) > 0 {
-			s.mu.RLock()
-			for _, pm := range pending {
-				for _, client := range s.clients {
-					if client.PlayerID == pm.playerID {
-						select {
-						case client.send <- pm.msg:
-						default:
+	for {
+		select {
+		case <-s.done:
+			return
+		case <-ticker.C:
+			pending := s.updateGame()
+			// Send buffered per-player messages after game state lock is released
+			if len(pending) > 0 {
+				s.mu.RLock()
+				for _, pm := range pending {
+					for _, client := range s.clients {
+						if client.PlayerID == pm.playerID {
+							select {
+							case client.send <- pm.msg:
+							default:
+							}
+							break
 						}
-						break
 					}
 				}
+				s.mu.RUnlock()
 			}
-			s.mu.RUnlock()
+			s.sendGameState()
 		}
-		s.sendGameState()
 	}
 }
 

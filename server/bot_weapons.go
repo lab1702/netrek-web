@@ -140,12 +140,15 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	}
 
 	// Create phaser visual
-	s.broadcast <- ServerMessage{
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: "phaser",
 		Data: map[string]interface{}{
 			"from": p.ID,
 			"to":   target.ID,
 		},
+	}:
+	default:
 	}
 
 	p.Fuel -= phaserCost
@@ -217,7 +220,8 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	}
 
 	// Send phaser visual to plasma location
-	s.broadcast <- ServerMessage{
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: "phaser",
 		Data: map[string]interface{}{
 			"from":  p.ID,
@@ -226,6 +230,8 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 			"y":     plasma.Y,
 			"range": myPhaserRange,
 		},
+	}:
+	default:
 	}
 
 	p.Fuel -= phaserCost

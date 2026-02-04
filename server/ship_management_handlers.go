@@ -27,13 +27,16 @@ func (c *Client) handleRepair(data json.RawMessage) {
 		if p.Speed > 0 && p.Orbiting < 0 {
 			p.RepairRequest = true
 			p.DesSpeed = 0 // Start slowing down
-			// Send message about slowing to repair
-			c.server.broadcast <- ServerMessage{
+			// Send message about slowing to repair (non-blocking)
+			select {
+			case c.server.broadcast <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": fmt.Sprintf("%s is slowing to repair", formatPlayerName(p)),
 					"type": "info",
 				},
+			}:
+			default:
 			}
 			return
 		}
@@ -48,13 +51,16 @@ func (c *Client) handleRepair(data json.RawMessage) {
 	} else if p.RepairRequest {
 		// Cancel repair request
 		p.RepairRequest = false
-		// Send message about canceling repair
-		c.server.broadcast <- ServerMessage{
+		// Send message about canceling repair (non-blocking)
+		select {
+		case c.server.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("%s canceled repair request", p.Name),
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	} else {
 		// Exit repair mode
@@ -153,22 +159,28 @@ func (c *Client) handleBomb(data json.RawMessage) {
 		// Toggle bombing state
 		p.Bombing = !p.Bombing
 		if p.Bombing && planet.Armies > 0 {
-			// Send message about starting bombing
-			c.server.broadcast <- ServerMessage{
+			// Send message about starting bombing (non-blocking)
+			select {
+			case c.server.broadcast <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": fmt.Sprintf("%s is bombing %s", formatPlayerName(p), planet.Name),
 					"type": "info",
 				},
+			}:
+			default:
 			}
 		} else if !p.Bombing {
-			// Send message about stopping bombing
-			c.server.broadcast <- ServerMessage{
+			// Send message about stopping bombing (non-blocking)
+			select {
+			case c.server.broadcast <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": fmt.Sprintf("%s stopped bombing %s", formatPlayerName(p), planet.Name),
 					"type": "info",
 				},
+			}:
+			default:
 			}
 		}
 	}

@@ -247,8 +247,7 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	p.Pressoring = -1
 	p.Orbiting = -1
 
-	// Broadcast self-destruct message
-	c.server.broadcast <- ServerMessage{
+	selfDestructMsg := ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
 			"text": fmt.Sprintf("%s self-destructed", p.Name),
@@ -258,6 +257,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
+
+	// Broadcast self-destruct message after releasing lock
+	c.server.broadcast <- selfDestructMsg
 
 	// Broadcast updated team counts to all clients
 	c.server.broadcastTeamCounts()

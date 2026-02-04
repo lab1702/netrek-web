@@ -186,9 +186,13 @@ func (s *Server) broadcastDeathMessage(victim *game.Player, killer *game.Player)
 		messageData["from"] = killer.ID
 	}
 
-	s.broadcast <- ServerMessage{
+	// Non-blocking send to avoid deadlock when called while holding gameState.Mu
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: "message",
 		Data: messageData,
+	}:
+	default:
 	}
 }
 

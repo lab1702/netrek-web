@@ -133,24 +133,30 @@ func (s *Server) checkTournamentMode() {
 		}
 
 		// Announce T-mode
-		s.broadcast <- ServerMessage{
+		select {
+		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "⚔️ TOURNAMENT MODE ACTIVATED! 4v4 minimum reached. 30 minute time limit. Galaxy and all ships reset for fair start!",
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	} else if wasInTMode && !shouldBeInTMode {
 		// Leaving tournament mode
 		s.gameState.T_mode = false
 
 		// Announce T-mode end
-		s.broadcast <- ServerMessage{
+		select {
+		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "Tournament mode deactivated - not enough players",
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	}
 
@@ -191,28 +197,37 @@ func (s *Server) checkTournamentMode() {
 
 		// Announce time warnings
 		if s.gameState.T_remain == 600 && s.gameState.Frame%10 == 0 { // 10 minutes
-			s.broadcast <- ServerMessage{
+			select {
+			case s.broadcast <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "⏰ 10 minutes remaining in tournament!",
 					"type": "warning",
 				},
+			}:
+			default:
 			}
 		} else if s.gameState.T_remain == 300 && s.gameState.Frame%10 == 0 { // 5 minutes
-			s.broadcast <- ServerMessage{
+			select {
+			case s.broadcast <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "⏰ 5 minutes remaining in tournament!",
 					"type": "warning",
 				},
+			}:
+			default:
 			}
 		} else if s.gameState.T_remain == 60 && s.gameState.Frame%10 == 0 { // 1 minute
-			s.broadcast <- ServerMessage{
+			select {
+			case s.broadcast <- ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "⏰ 1 minute remaining in tournament!",
 					"type": "warning",
 				},
+			}:
+			default:
 			}
 		}
 	}

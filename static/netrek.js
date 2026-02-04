@@ -261,6 +261,11 @@ function formatTeamNames(names) {
     return result;
 }
 
+// Track render loop and initialization state to prevent accumulation on reconnect
+let renderIntervalId = null;
+let gameInitialized = false;
+let savedCredentials = null; // { name, team, ship } saved on first connect for reconnect
+
 // Victory countdown functions
 function startVictoryCountdown() {
     stopVictoryCountdown();
@@ -288,20 +293,24 @@ function getVictoryCountdownMessage() {
     return 'New game starting...';
 }
 
-// Initialize the game
+// Initialize the game (safe to call multiple times - only initializes once)
 async function init() {
+    if (gameInitialized) return;
+    gameInitialized = true;
+
     // Set up canvases
     canvases.tactical = document.getElementById('tactical');
     canvases.galactic = document.getElementById('galactic-map');
     if (!canvases.tactical || !canvases.galactic) {
         console.error('Required canvas elements not found');
+        gameInitialized = false;
         return;
     }
     canvases.tacticalCtx = canvases.tactical.getContext('2d');
     canvases.galacticCtx = canvases.galactic.getContext('2d');
-    
+
     // Planet renderer is now simple circles - no initialization needed
-    
+
     // Initialize ship renderer
     if (window.shipRenderer) {
         try {
@@ -312,11 +321,11 @@ async function init() {
             // Continue without ship bitmaps
         }
     }
-    
+
     // Resize canvases
     resizeCanvases();
     window.addEventListener('resize', resizeCanvases);
-    
+
     // Set up input handlers
     setupInputHandlers();
     
@@ -335,7 +344,11 @@ async function init() {
     }
     
     // Start render loop at 10 FPS to match server tick rate
-    setInterval(render, 100); // 100ms = 10 FPS
+    // Clear any existing interval to prevent accumulation
+    if (renderIntervalId !== null) {
+        clearInterval(renderIntervalId);
+    }
+    renderIntervalId = setInterval(render, 100); // 100ms = 10 FPS
 }
 
 function resizeCanvases() {
@@ -847,16 +860,19 @@ function connect() {
         reOutfit();
         return;
     }
-    
+
     let name = document.getElementById('playerName').value || 'Player';
-    
+
     // Validate and sanitize player name
     // Remove any non-alphanumeric characters and limit to 16 characters
     name = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
     if (!name) name = 'Player'; // Default if name becomes empty after sanitization
-    
+
     const team = parseInt(document.querySelector('input[name="team"]:checked').value, 10);
     const ship = parseInt(document.querySelector('input[name="ship"]:checked').value, 10);
+
+    // Save credentials for reconnect so we don't re-read hidden form elements
+    savedCredentials = { name, team, ship };
 
     // Hide login, show game
     document.getElementById('login').style.display = 'none';
@@ -864,14 +880,32 @@ function connect() {
 
     // Update compression indicator immediately
     updateCompressionIndicator();
-    
-    // Initialize game (with async handling)
+
+    // Initialize game (with async handling) - init() is safe to call multiple times
     init().then(() => {
         // Game initialized successfully
     }).catch(err => {
         // Failed to initialize game
     });
-    
+
+    openWebSocket(name, team, ship);
+}
+
+// Reconnect using saved credentials (does not re-read form or re-init)
+function reconnect() {
+    if (!savedCredentials) return;
+    openWebSocket(savedCredentials.name, savedCredentials.team, savedCredentials.ship);
+}
+
+function openWebSocket(name, team, ship) {
+    // Close existing connection if any
+    if (ws) {
+        ws.onclose = null; // Prevent triggering reconnect from this close
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close();
+        }
+    }
+
     // Connect to WebSocket
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // Get the base directory path (excluding the HTML file)
@@ -884,7 +918,7 @@ function connect() {
     basePath = basePath.replace(/\/+$/, '');
     const wsPath = basePath ? `${basePath}/ws` : '/ws';
     ws = new WebSocket(`${protocol}//${window.location.host}${wsPath}`);
-    
+
     ws.onopen = () => {
         // Connected to server
         // Check if compression is enabled by examining the WebSocket extensions
@@ -896,13 +930,13 @@ function connect() {
             console.log('WebSocket compression is NOT active');
         }
         updateCompressionIndicator();
-        
+
         sendMessage({
             type: 'login',
             data: { name: name, team: team, ship: ship }
         });
     };
-    
+
     ws.onmessage = (event) => {
         try {
             const msg = JSON.parse(event.data);
@@ -911,20 +945,22 @@ function connect() {
             console.error('Failed to parse server message:', e);
         }
     };
-    
+
     ws.onerror = (error) => {
         // WebSocket error
         addMessage('Connection error!', 'warning', null, null, 'messages-server');
     };
 
+    // Capture the WebSocket instance for the closure to avoid stale reference
+    const thisWs = ws;
     ws.onclose = () => {
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
-        // Attempt to reconnect after a delay
+        // Only reconnect if this is still the current WebSocket
         setTimeout(() => {
-            if (!ws || ws.readyState === WebSocket.CLOSED) {
+            if (ws === thisWs && savedCredentials) {
                 addMessage('Attempting to reconnect...', 'info', null, null, 'messages-server');
-                connect();
+                reconnect();
             }
         }, 3000);
     };

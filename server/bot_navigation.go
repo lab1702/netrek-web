@@ -664,11 +664,15 @@ func (s *Server) executePatrol(p *game.Player) {
 				p.BotGoalX = frontlinePlanet.X + float64(rand.Intn(10000)-5000)
 				p.BotGoalY = frontlinePlanet.Y + float64(rand.Intn(10000)-5000)
 			} else {
-				// Random enemy territory
-				enemyTeam := (p.Team % 4) + 1
-				if enemyTeam > 4 {
-					enemyTeam = 1
+				// Random enemy territory - pick a valid enemy team using bit flag constants
+				allTeams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
+				var enemyTeams []int
+				for _, t := range allTeams {
+					if t != p.Team {
+						enemyTeams = append(enemyTeams, t)
+					}
 				}
+				enemyTeam := enemyTeams[rand.Intn(len(enemyTeams))]
 				p.BotGoalX = float64(game.TeamHomeX[enemyTeam]) + float64(rand.Intn(20000)-10000)
 				p.BotGoalY = float64(game.TeamHomeY[enemyTeam]) + float64(rand.Intn(20000)-10000)
 			}

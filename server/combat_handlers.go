@@ -238,8 +238,9 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 
 			log.Printf("Phaser destroyed plasma: player %d destroyed plasma from player %d", c.PlayerID, plasma.Owner)
 
-			// Send phaser visual to plasma location
-			c.server.broadcast <- ServerMessage{
+			// Send phaser visual to plasma location (non-blocking)
+			select {
+			case c.server.broadcast <- ServerMessage{
 				Type: "phaser",
 				Data: map[string]interface{}{
 					"from":  c.PlayerID,
@@ -248,6 +249,8 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 					"y":     plasma.Y,
 					"range": myPhaserRange,
 				},
+			}:
+			default:
 			}
 			return // Plasma takes priority if hit
 		}
@@ -293,19 +296,23 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			c.server.broadcastDeathMessage(target, p)
 		}
 
-		// Send phaser visual
-		c.server.broadcast <- ServerMessage{
+		// Send phaser visual (non-blocking)
+		select {
+		case c.server.broadcast <- ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
 				"from":  c.PlayerID,
 				"to":    target.ID,
 				"range": myPhaserRange,
 			},
+		}:
+		default:
 		}
 	} else {
 		// No target - phaser fires but misses
-		// Send phaser visual with direction but no target
-		c.server.broadcast <- ServerMessage{
+		// Send phaser visual with direction but no target (non-blocking)
+		select {
+		case c.server.broadcast <- ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
 				"from":  c.PlayerID,
@@ -313,6 +320,8 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 				"dir":   course, // Direction the phaser was fired
 				"range": myPhaserRange,
 			},
+		}:
+		default:
 		}
 	}
 }
@@ -431,14 +440,17 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 		{
 			// Check if we have enough fuel
 			if p.Fuel < shipStats.DetCost {
-				// Not enough fuel to detonate
-				c.server.broadcast <- ServerMessage{
+				// Not enough fuel to detonate (non-blocking)
+				select {
+				case c.server.broadcast <- ServerMessage{
 					Type: "message",
 					Data: map[string]interface{}{
 						"text": "Not enough fuel to detonate",
 						"type": "error",
 						"to":   c.PlayerID, // Send only to this player
 					},
+				}:
+				default:
 				}
 				break
 			}
@@ -450,14 +462,17 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 		}
 	}
 
-	// Send feedback message
+	// Send feedback message (non-blocking)
 	if detonatedCount > 0 {
-		c.server.broadcast <- ServerMessage{
+		select {
+		case c.server.broadcast <- ServerMessage{
 			Type: "message",
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("%s detonated %d torpedo(es)", formatPlayerName(p), detonatedCount),
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	}
 }

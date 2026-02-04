@@ -951,12 +951,15 @@ func (s *Server) AutoBalanceBots() {
 
 	// If no one is on the server, don't add bots
 	if maxCount == 0 {
-		s.broadcast <- ServerMessage{
+		select {
+		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "Auto-balance: no players on server, no bots added",
 				"type": "info",
 			},
+		}:
+		default:
 		}
 		return
 	}
@@ -981,12 +984,15 @@ func (s *Server) AutoBalanceBots() {
 
 	// Send feedback message
 	if totalBotsAdded == 0 {
-		s.broadcast <- ServerMessage{
+		select {
+		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "Auto-balance: teams already balanced, no bots added",
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	} else {
 		// Build a descriptive message about what was added
@@ -1009,12 +1015,15 @@ func (s *Server) AutoBalanceBots() {
 		}
 
 		messageText := fmt.Sprintf("Auto-balance: added %s", strings.Join(messages, ", "))
-		s.broadcast <- ServerMessage{
+		select {
+		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": messageText,
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	}
 }

@@ -28,12 +28,15 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		p.RepairRequest = false
 		p.Repairing = true
 		// Send message about starting repairs
-		s.broadcast <- ServerMessage{
+		select {
+		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("%s is repairing damage", formatPlayerName(p)),
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	}
 
@@ -189,13 +192,16 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 				p.Repairing = false
 				p.RepairCounter = 0
 				// Send completion notice to the pilot
-				s.broadcast <- ServerMessage{
+				select {
+				case s.broadcast <- ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": fmt.Sprintf("%s has completed repairs", formatPlayerName(p)),
 						"type": "info",
 						"to":   playerIndex, // Private message to the specific player
 					},
+				}:
+				default:
 				}
 			} else {
 				// Add small fuel consumption for repairs

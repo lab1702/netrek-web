@@ -242,7 +242,8 @@ func (s *Server) announceVictory() {
 	}
 
 	// Broadcast victory message
-	s.broadcast <- ServerMessage{
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
 			"text":     message,
@@ -250,6 +251,8 @@ func (s *Server) announceVictory() {
 			"winner":   s.gameState.Winner,
 			"win_type": s.gameState.WinType,
 		},
+	}:
+	default:
 	}
 
 	// Schedule game reset after 10 seconds, respecting server shutdown
@@ -318,11 +321,14 @@ func (s *Server) resetGame() {
 	s.gameState.Mu.Unlock()
 
 	// Announce game reset
-	s.broadcast <- ServerMessage{
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
 			"text": "🔄 Game reset! All players returned to lobby. Choose team & ship again.",
 			"type": "info",
 		},
+	}:
+	default:
 	}
 }

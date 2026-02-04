@@ -48,10 +48,13 @@ func main() {
 
 	// Start HTTP server
 	srv := &http.Server{
-		Addr:         ":" + *port,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        ":" + *port,
+		ReadTimeout: 10 * time.Second,
+		// WriteTimeout is intentionally omitted: it applies to the entire
+		// connection lifetime including upgraded WebSocket connections,
+		// which are long-lived. The WebSocket writePump manages its own
+		// per-write deadlines via SetWriteDeadline.
+		IdleTimeout: 60 * time.Second,
 	}
 
 	log.Printf("Server running at http://localhost:%s", *port)
