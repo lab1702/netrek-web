@@ -3,6 +3,9 @@ package game
 // MaxPlasmaRange calculates the maximum distance a plasma torpedo can travel
 // before its fuse expires, given the fuse time (in ticks) and speed (units per tick)
 func MaxPlasmaRange(fuseTicks int, speedUnitsPerTick float64) float64 {
+	if fuseTicks < 0 || speedUnitsPerTick < 0 {
+		return 0.0
+	}
 	return float64(fuseTicks) * speedUnitsPerTick
 }
 
@@ -34,6 +37,13 @@ func EffectivePlasmaRange(ship ShipType, safetyFactor float64) float64 {
 	maxRange := MaxPlasmaRangeForShip(ship)
 	if maxRange == 0.0 {
 		return 0.0
+	}
+
+	// Clamp safety factor to valid range
+	if safetyFactor < 0 {
+		safetyFactor = 0
+	} else if safetyFactor > 1.0 {
+		safetyFactor = 1.0
 	}
 
 	// Apply safety factor (typically 0.9 or 0.95 to ensure hit before fuse expiry)

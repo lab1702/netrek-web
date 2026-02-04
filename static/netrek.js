@@ -13,6 +13,9 @@ const teamColors = {
 const GALACTIC_DIM_ALPHA = 0.5;        // Alpha level for dimmed ships
 const GALACTIC_NEUTRAL_GRAY = '#888';  // Neutral gray for cloaked enemies
 
+// Tactical view scale: galaxy units to screen pixels (40 units per pixel, 20000 units visible)
+const TACTICAL_SCALE = 0.025;
+
 // Update planet counter display
 function updatePlanetCounter() {
     if (!gameState.planets) return;
@@ -1219,7 +1222,7 @@ function renderTactical() {
     
     const centerX = width / 2;
     const centerY = height / 2;
-    const scale = 0.025; // Original Netrek scale: 40 units per pixel, 20000 units visible
+    const scale = TACTICAL_SCALE;
     
     // Draw galaxy edges if visible
     ctx.save();
@@ -2204,7 +2207,7 @@ function showInfoWindow() {
         const canvas = canvases.tactical;
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
-        const scale = 0.025; // Must match renderTactical scale
+        const scale = TACTICAL_SCALE;
         
         // Check players
         for (let i = 0; i < gameState.players.length; i++) {
@@ -2328,8 +2331,10 @@ function sendChatMessage() {
     } else if (messageMode === 'all') {
         sendMessage({ type: 'message', data: { text } });
     } else if (messageMode.startsWith('private:')) {
-        const targetId = parseInt(messageMode.split(':')[1]);
-        sendMessage({ type: 'privmsg', data: { text, target: targetId } });
+        const targetId = parseInt(messageMode.split(':')[1], 10);
+        if (!isNaN(targetId)) {
+            sendMessage({ type: 'privmsg', data: { text, target: targetId } });
+        }
     }
     
     hideMessageInput();

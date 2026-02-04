@@ -4,7 +4,7 @@ package game
 // Returns the total amount of damage actually applied.
 // This ensures consistent damage handling across all weapon types.
 func ApplyDamageWithShields(p *Player, damage int) int {
-	if damage <= 0 {
+	if p == nil || damage <= 0 {
 		return 0
 	}
 

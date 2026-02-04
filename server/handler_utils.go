@@ -88,8 +88,7 @@ func sanitizeName(name string) string {
 		return -1
 	}, name)
 
-	// Also escape HTML just in case
-	return html.EscapeString(cleaned)
+	return cleaned
 }
 
 // validateDirection ensures direction is within valid range [0, 2*pi]

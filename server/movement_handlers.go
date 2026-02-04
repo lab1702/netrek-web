@@ -75,7 +75,7 @@ func (c *Client) handleMove(data json.RawMessage) {
 	// Calculate max speed based on damage
 	shipStats := game.ShipData[p.Ship]
 	maxSpeed := float64(shipStats.MaxSpeed)
-	if p.Damage > 0 {
+	if p.Damage > 0 && shipStats.MaxDamage > 0 {
 		// Formula from original Netrek: maxspeed = (max + 2) - (max + 1) * (damage / maxdamage)
 		damageRatio := float64(p.Damage) / float64(shipStats.MaxDamage)
 		maxSpeed = float64(shipStats.MaxSpeed+2) - float64(shipStats.MaxSpeed+1)*damageRatio
