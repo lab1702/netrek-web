@@ -55,11 +55,13 @@ class InfoWindow {
             box-shadow: 0 0 10px rgba(200, 200, 200, 0.3);
         `;
         
-        // Adjust position if too close to edge
+        // Adjust position if too close to any edge
         const maxX = window.innerWidth - 300;
-        const maxY = window.innerHeight - 100;
-        if (x > maxX) this.element.style.left = maxX + 'px';
-        if (y > maxY) this.element.style.top = maxY + 'px';
+        const maxY = window.innerHeight - 200;
+        if (x > maxX) this.element.style.left = Math.max(0, maxX) + 'px';
+        if (y > maxY) this.element.style.top = Math.max(0, maxY) + 'px';
+        if (x < 0) this.element.style.left = '0px';
+        if (y < 0) this.element.style.top = '0px';
         
         document.body.appendChild(this.element);
         this.visible = true;

@@ -17,6 +17,7 @@ func (c *Client) handleMove(data json.RawMessage) {
 
 	var moveData MoveData
 	if err := json.Unmarshal(data, &moveData); err != nil {
+		log.Printf("Error unmarshaling move data: %v", err)
 		return
 	}
 
@@ -96,6 +97,7 @@ func (c *Client) handleLock(data json.RawMessage) {
 		Target int    `json:"target"` // Target ID
 	}
 	if err := json.Unmarshal(data, &lockData); err != nil {
+		log.Printf("Error unmarshaling lock data: %v", err)
 		return
 	}
 

@@ -16,6 +16,7 @@ func (c *Client) handleFire(data json.RawMessage) {
 
 	var fireData FireData
 	if err := json.Unmarshal(data, &fireData); err != nil {
+		log.Printf("Error unmarshaling fire data: %v", err)
 		return
 	}
 
@@ -81,6 +82,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 
 	var phaserData PhaserData
 	if err := json.Unmarshal(data, &phaserData); err != nil {
+		log.Printf("Error unmarshaling phaser data: %v", err)
 		return
 	}
 
@@ -323,6 +325,7 @@ func (c *Client) handlePlasma(data json.RawMessage) {
 
 	var plasmaData PlasmaData
 	if err := json.Unmarshal(data, &plasmaData); err != nil {
+		log.Printf("Error unmarshaling plasma data: %v", err)
 		return
 	}
 

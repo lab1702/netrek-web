@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+
 	"github.com/lab1702/netrek-web/game"
 )
 
@@ -68,6 +70,7 @@ func (c *Client) handleBeam(data json.RawMessage) {
 
 	var beamData BeamData
 	if err := json.Unmarshal(data, &beamData); err != nil {
+		log.Printf("Error unmarshaling beam data: %v", err)
 		return
 	}
 

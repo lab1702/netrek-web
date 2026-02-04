@@ -171,7 +171,7 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 			}
 
 			// Prefer directions that maintain some angle to target
-			angleDiff := math.Abs(testDir - wantedDir)
+			angleDiff := math.Abs(game.NormalizeAngle(testDir) - game.NormalizeAngle(wantedDir))
 			if angleDiff > math.Pi {
 				angleDiff = 2*math.Pi - angleDiff
 			}

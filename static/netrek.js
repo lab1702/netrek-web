@@ -290,6 +290,10 @@ async function init() {
     // Set up canvases
     canvases.tactical = document.getElementById('tactical');
     canvases.galactic = document.getElementById('galactic-map');
+    if (!canvases.tactical || !canvases.galactic) {
+        console.error('Required canvas elements not found');
+        return;
+    }
     canvases.tacticalCtx = canvases.tactical.getContext('2d');
     canvases.galacticCtx = canvases.galactic.getContext('2d');
     
@@ -817,9 +821,9 @@ function reOutfit() {
     name = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
     if (!name) name = 'Player';
     
-    const team = parseInt(document.querySelector('input[name="team"]:checked').value);
-    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value);
-    
+    const team = parseInt(document.querySelector('input[name="team"]:checked').value, 10);
+    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value, 10);
+
     console.log('Rejoining game with team:', team, 'ship:', ship);
     
     // Hide login, show game
@@ -848,13 +852,13 @@ function connect() {
     name = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
     if (!name) name = 'Player'; // Default if name becomes empty after sanitization
     
-    const team = parseInt(document.querySelector('input[name="team"]:checked').value);
-    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value);
-    
+    const team = parseInt(document.querySelector('input[name="team"]:checked').value, 10);
+    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value, 10);
+
     // Hide login, show game
     document.getElementById('login').style.display = 'none';
     document.getElementById('game').style.display = 'block';
-    
+
     // Update compression indicator immediately
     updateCompressionIndicator();
     
@@ -909,10 +913,17 @@ function connect() {
         // WebSocket error
         addMessage('Connection error!', 'warning', null, null, 'messages-server');
     };
-    
+
     ws.onclose = () => {
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
+        // Attempt to reconnect after a delay
+        setTimeout(() => {
+            if (!ws || ws.readyState === WebSocket.CLOSED) {
+                addMessage('Attempting to reconnect...', 'info', null, null, 'messages-server');
+                connect();
+            }
+        }, 3000);
     };
 }
 
@@ -1383,8 +1394,8 @@ function renderTactical() {
         const gradient = ctx.createLinearGradient(fromX, fromY, toX, toY);
         let color = teamColors[fromPlayer.team] || '#fff';
         
-        // Expand 3-char color to 6-char format if needed
-        if (color.length === 4) {
+        // Expand 3-char hex color to 6-char format if needed (e.g. #fff -> #ffffff)
+        if (color.length === 4 && color[0] === '#') {
             color = '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3];
         }
         
@@ -2148,7 +2159,7 @@ function showMessageInput(mode, initialText = '') {
     } else if (mode === 'all') {
         prompt.textContent = 'All message:';
     } else if (mode.startsWith('private:')) {
-        const targetId = parseInt(mode.split(':')[1]);
+        const targetId = parseInt(mode.split(':')[1], 10);
         const target = gameState.players[targetId];
         prompt.textContent = `Private to ${target ? target.name : 'player'}:`;
     }

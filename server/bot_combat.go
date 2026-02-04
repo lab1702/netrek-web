@@ -13,7 +13,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Consider breaking orbit when entering combat
 	if p.Orbiting >= 0 {
 		// Only break orbit if the planet doesn't need bombing or threat is extreme
-		if p.Orbiting < len(s.gameState.Planets) {
+		if p.Orbiting < game.MaxPlanets {
 			planet := s.gameState.Planets[p.Orbiting]
 			// Only leave if planet is friendly, has no armies, or we're in extreme danger
 			if planet.Owner == p.Team || planet.Armies == 0 ||
@@ -195,9 +195,9 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 { // Lower fuel threshold
 		// Use actual plasma maximum range to prevent fuse expiry
 		maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
-		plasmaLongRange := game.EffectivePlasmaRange(p.Ship, 0.85) // 85% of max for long range
-		plasmaShortRange := maxPlasmaRange * 0.30                  // 30% of max for minimum range
-		plasmaKillRange := game.EffectivePlasmaRange(p.Ship, 0.75) // 75% of max for kill shots
+		plasmaLongRange := game.EffectivePlasmaRange(p.Ship, 0.85)  // 85% of max for long range
+		plasmaShortRange := game.EffectivePlasmaRange(p.Ship, 0.30) // 30% of max for minimum range
+		plasmaKillRange := game.EffectivePlasmaRange(p.Ship, 0.75)  // 75% of max for kill shots
 
 		// Only fire if target is within actual plasma range
 		if dist < maxPlasmaRange &&
@@ -379,16 +379,12 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 	torpVelX := torpSpeed * math.Cos(torpDir)
 	torpVelY := torpSpeed * math.Sin(torpDir)
 
-	// Player position and velocity - use INTENDED movement, not current
-	// This fixes the critical bug where bots use stale direction data
-	playerDir := p.DesDir          // Use desired direction instead of current
-	playerSpeed := p.DesSpeed * 20 // Use desired speed, convert to units per tick
-	// Fallback to current values if desired values aren't set
-	if p.DesSpeed == 0 {
-		playerSpeed = p.Speed * 20
-	}
-	playerVelX := playerSpeed * math.Cos(playerDir)
-	playerVelY := playerSpeed * math.Sin(playerDir)
+	// Player position and velocity - use ACTUAL current movement for collision prediction
+	// DesDir/DesSpeed represent where the ship wants to go, but Dir/Speed are
+	// where it's actually going right now (turning is gradual)
+	playerSpeed := p.Speed * 20 // Convert to units per tick
+	playerVelX := playerSpeed * math.Cos(p.Dir)
+	playerVelY := playerSpeed * math.Sin(p.Dir)
 
 	// Simulate future positions to check for collision
 	for t := 0.0; t < 5.0; t += 0.2 { // Check next 5 ticks in finer increments for better accuracy
