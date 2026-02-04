@@ -105,7 +105,9 @@ func (s *Server) updatePlasmas() {
 			// Plasma dissipated
 			// Decrement owner's plasma count
 			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				s.gameState.Players[plasma.Owner].NumPlasma--
+				if owner := s.gameState.Players[plasma.Owner]; owner != nil {
+					owner.NumPlasma--
+				}
 			}
 			continue
 		}
@@ -192,7 +194,7 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 				stats.Kills++
 				stats.DamageDealt += torp.Damage
 			}
-			if stats, ok := s.gameState.TournamentStats[targetIndex]; ok {
+			if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
 				stats.Deaths++
 				stats.DamageTaken += torp.Damage
 			}
@@ -231,7 +233,7 @@ func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targe
 				stats.Kills++
 				stats.DamageDealt += plasma.Damage
 			}
-			if stats, ok := s.gameState.TournamentStats[targetIndex]; ok {
+			if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
 				stats.Deaths++
 				stats.DamageTaken += plasma.Damage
 			}

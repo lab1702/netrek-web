@@ -554,18 +554,17 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 	// Calculate final separation vector with stronger magnitude
 	if nearbyAllies > 0 {
 		// Scale up the magnitude for more aggressive separation
-		magnitudeScale := 1.0 + float64(nearbyAllies)*0.3 // More allies = stronger separation
+		// Cap at 3.0 to prevent erratic scattering with many nearby allies
+		magnitudeScale := math.Min(1.0+float64(nearbyAllies)*0.3, 3.0)
 		separationVec.x = totalRepelX * magnitudeScale
 		separationVec.y = totalRepelY * magnitudeScale
 		separationVec.magnitude = math.Sqrt(separationVec.x*separationVec.x + separationVec.y*separationVec.y)
 
-		// Normalize but keep the magnitude for weighting
+		// Normalize x/y to unit vector for directional blending,
+		// but preserve magnitude separately for weight calculations
 		if separationVec.magnitude > 0 {
-			normalizedX := separationVec.x / separationVec.magnitude
-			normalizedY := separationVec.y / separationVec.magnitude
-			separationVec.x = normalizedX
-			separationVec.y = normalizedY
-			// Keep magnitude for weight calculations
+			separationVec.x /= separationVec.magnitude
+			separationVec.y /= separationVec.magnitude
 		}
 	}
 

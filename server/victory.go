@@ -252,10 +252,14 @@ func (s *Server) announceVictory() {
 		},
 	}
 
-	// Schedule game reset after 10 seconds
+	// Schedule game reset after 10 seconds, respecting server shutdown
 	go func() {
-		time.Sleep(10 * time.Second)
-		s.resetGame()
+		select {
+		case <-time.After(10 * time.Second):
+			s.resetGame()
+		case <-s.done:
+			// Server shutting down, skip reset
+		}
 	}()
 }
 

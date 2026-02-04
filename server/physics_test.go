@@ -216,7 +216,7 @@ func TestSpeedWithDamage(t *testing.T) {
 	p := gs.Players[0]
 	p.Status = game.StatusAlive
 	p.Ship = game.ShipDestroyer
-	p.Speed = 0 // Start from 0 to trigger acceleration
+	p.Speed = 0     // Start from 0 to trigger acceleration
 	p.DesSpeed = 10 // Try to reach max speed
 	p.Damage = 0
 	p.X = 50000
@@ -383,7 +383,7 @@ func TestGalaxyEdgeBounce(t *testing.T) {
 			name:        "Bounce off left edge",
 			initialX:    100,
 			initialY:    50000,
-			direction:   math.Pi,     // Moving west
+			direction:   math.Pi, // Moving west
 			speed:       10,
 			expectX:     func(x float64) bool { return x >= 0 },
 			expectY:     func(y float64) bool { return true },

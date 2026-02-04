@@ -517,6 +517,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 // planetDefenseWeaponLogic implements aggressive weapon usage for planet defense
 func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, enemyDist float64) {
 	shipStats := game.ShipData[p.Ship]
+	firedWeapon := false
 
 	// Weapon usage for planet defense - no facing restrictions needed
 
@@ -527,27 +528,26 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
-		return
+		firedWeapon = true
 	}
 
 	// Opportunistic phaser usage - prioritize planet protection over fuel conservation
 	// Phasers can be fired in any direction regardless of ship facing
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
-	if enemyDist < myPhaserRange && p.Fuel > 1000 && p.WTemp < 75 {
+	if !firedWeapon && enemyDist < myPhaserRange && p.Fuel > 1000 && p.WTemp < 75 {
 		// Fire phasers more liberally when defending planets
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 8
-		return
+		firedWeapon = true
 	}
 
 	// Enhanced plasma usage for ships that have it - use actual plasma range
 	maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
 	plasmaDefenseRange := game.EffectivePlasmaRange(p.Ship, 0.90) // 90% of max plasma range
 	plasmaMinRange := maxPlasmaRange * 0.25                       // 25% of max plasma range
-	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel > 3000 {
+	if !firedWeapon && shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel > 3000 {
 		s.fireBotPlasma(p, enemy)
 		p.BotCooldown = 15
-		return
 	}
 }
 

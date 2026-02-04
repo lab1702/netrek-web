@@ -61,7 +61,7 @@ func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
 
 	for i := range s.gameState.Players {
 		other := s.gameState.Players[i]
-		if other.Status == game.StatusAlive && other.Team != p.Team && i != p.ID {
+		if other.Status == game.StatusAlive && other.Team != p.Team && i != p.ID && !other.Cloaked {
 			dist := game.Distance(p.X, p.Y, other.X, other.Y)
 			if dist < minDist {
 				minDist = dist

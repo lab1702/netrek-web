@@ -114,6 +114,7 @@ type Server struct {
 	gameState   *game.GameState
 	nextID      int
 	galaxyReset bool // Track if galaxy has been reset (true = already reset/empty)
+	done        chan struct{}
 }
 
 // NewServer creates a new game server
@@ -125,7 +126,13 @@ func NewServer() *Server {
 		broadcast:   make(chan ServerMessage, 256),
 		gameState:   game.NewGameState(),
 		galaxyReset: true, // Start with galaxy already in reset state
+		done:        make(chan struct{}),
 	}
+}
+
+// Shutdown signals the server to stop background goroutines
+func (s *Server) Shutdown() {
+	close(s.done)
 }
 
 // Run starts the server main loop

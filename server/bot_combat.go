@@ -508,6 +508,16 @@ func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
 
 // selectCombatManeuver chooses the best combat maneuver based on situation
 func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) CombatManeuver {
+	// Validate target is still alive before computing maneuvers
+	if target.Status != game.StatusAlive {
+		// Target is dead — just maintain current heading
+		return CombatManeuver{
+			direction: p.DesDir,
+			speed:     s.getOptimalCombatSpeed(p, dist),
+			maneuver:  "idle",
+		}
+	}
+
 	shipStats := game.ShipData[p.Ship]
 	targetStats := game.ShipData[target.Ship]
 
