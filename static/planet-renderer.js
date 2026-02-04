@@ -63,7 +63,7 @@ class PlanetRenderer {
             ctx.font = '9px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + radius + 2);
+            ctx.fillText((planet.name || '???').substring(0, 3).toUpperCase(), x, y + radius + 2);
         } else {
             // Unknown planet - always show as dark gray circle (unscouted)
             ctx.strokeStyle = '#444';
@@ -82,7 +82,7 @@ class PlanetRenderer {
             // Draw planet name below
             ctx.font = '9px monospace';
             ctx.textBaseline = 'top';
-            ctx.fillText(planet.name.substring(0, 3).toUpperCase(), x, y + radius + 2);
+            ctx.fillText((planet.name || '???').substring(0, 3).toUpperCase(), x, y + radius + 2);
         }
     }
     
@@ -136,7 +136,7 @@ class PlanetRenderer {
             ctx.font = `${12 * scale}px monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText(planet.name, x, y + radius + 4 * scale);
+            ctx.fillText(planet.name || '???', x, y + radius + 4 * scale);
         } else {
             // Unknown planet - always show as dark gray circle (unscouted)
             ctx.strokeStyle = '#444';
@@ -155,7 +155,7 @@ class PlanetRenderer {
             // Draw planet name (grayed out for unknown)
             ctx.font = `${12 * scale}px monospace`;
             ctx.textBaseline = 'top';
-            ctx.fillText(planet.name, x, y + radius + 4 * scale);
+            ctx.fillText(planet.name || '???', x, y + radius + 4 * scale);
         }
     }
 }

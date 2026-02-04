@@ -87,8 +87,11 @@ function updateTeamDisplay(data) {
             for (let i = 0; i < teamLabels.length; i++) {
                 if (!teamLabels[i] || !teamRadios[i]) continue;
                 const count = counts[i];
-                // Remove any existing star
-                teamLabels[i].textContent = teamLabels[i].textContent.replace(' ⭐', '');
+                // Remove any existing star indicator
+                if (teamLabels[i].dataset.hasStar) {
+                    teamLabels[i].textContent = teamLabels[i].dataset.originalText || teamLabels[i].textContent;
+                    delete teamLabels[i].dataset.hasStar;
+                }
                 
                 if (count === maxCount && maxCount > minCount + 1) {
                     // This team has significantly more players - disable it
@@ -110,7 +113,9 @@ function updateTeamDisplay(data) {
                     if (count === minCount) {
                         // This team has fewer players - suggest it
                         teamLabels[i].style.color = '#0f0';
-                        teamLabels[i].textContent += ' ⭐';
+                        teamLabels[i].dataset.originalText = teamLabels[i].textContent;
+                        teamLabels[i].dataset.hasStar = '1';
+                        teamLabels[i].textContent += ' \u2B50';
                         if (firstAvailableIndex === -1) {
                             firstAvailableIndex = i;
                         }
@@ -351,7 +356,11 @@ async function init() {
 
     // Resize canvases
     resizeCanvases();
-    window.addEventListener('resize', resizeCanvases);
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(resizeCanvases, 100);
+    });
 
     // Set up input handlers
     setupInputHandlers();
@@ -1643,7 +1652,7 @@ function renderTactical() {
                 screenY < -50 || screenY > height + 50) continue;
             
             // Draw improved explosion with multiple effects
-            const progress = 1 - (player.explodeTimer || 0) / 10;
+            const progress = Math.max(0, Math.min(1, 1 - (player.explodeTimer || 0) / 10));
             const maxSize = 80;
             
             // Multiple expanding rings
@@ -1834,6 +1843,7 @@ function renderTactical() {
         
         ctx.fillStyle = teamColors[player.team] || '#fff';
         ctx.font = i === gameState.myPlayerID ? 'bold 9px monospace' : '9px monospace';
+        ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(playerLabel, screenX, screenY + 12);
     }
@@ -2454,7 +2464,16 @@ function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPan
             const div = document.createElement('div');
             div.className = `message ${type}`;
             div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
-            div.style.color = '#888';
+            // Apply same color logic as main path
+            let fallbackColor = '#888';
+            if (fromPlayer !== null && gameState.players && gameState.players[fromPlayer]) {
+                fallbackColor = teamColors[gameState.players[fromPlayer].team] || fallbackColor;
+            } else if (teamId !== null) {
+                fallbackColor = teamColors[teamId] || fallbackColor;
+            } else if (type === 'warning' || type === 'error') {
+                fallbackColor = '#f88';
+            }
+            div.style.color = fallbackColor;
             fallback.appendChild(div);
             fallback.scrollTop = fallback.scrollHeight;
         }

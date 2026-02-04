@@ -97,7 +97,7 @@ class InfoWindow {
             html += '</div>';
 
             // Army count
-            html += `<div style="margin-top: 4px;">Armies: ${planet.armies || 0}</div>`;
+            html += `<div style="margin-top: 4px;">Armies: ${escapeHtml(planet.armies || 0)}</div>`;
 
             // Resources and info
             let resources = [];
@@ -155,15 +155,15 @@ class InfoWindow {
         html += `${escapeHtml(player.name)} (${escapeHtml(player.rank) || 'Ensign'})`;
         html += '</div>';
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
-        html += `<div>${shipName} (${Math.floor(player.killsStreak || 0)} / ${Math.floor(player.kills)} / ${player.deaths || 0} / ${kd})</div>`;
+        html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(player.killsStreak || 0))} / ${escapeHtml(Math.floor(player.kills))} / ${escapeHtml(player.deaths || 0)} / ${escapeHtml(kd)})</div>`;
 
         // Show detailed stats for all players (teammates, enemies, and self)
         // Stats
         html += '<div style="margin-top: 4px;">';
-        html += `Speed: ${Math.round(player.speed)} `;
-        html += `Dam: ${player.damage}% `;
-        html += `Sh: ${player.shields}% `;
-        html += `Fuel: ${player.fuel}`;
+        html += `Speed: ${escapeHtml(Math.round(player.speed))} `;
+        html += `Dam: ${escapeHtml(player.damage)}% `;
+        html += `Sh: ${escapeHtml(player.shields)}% `;
+        html += `Fuel: ${escapeHtml(player.fuel)}`;
         html += '</div>';
 
         // Status flags
@@ -172,7 +172,7 @@ class InfoWindow {
         if (player.cloaked) status.push('Cloak');
         if (player.wtemp > 50) status.push('W-Temp');
         if (player.etemp > 50) status.push('E-Temp');
-        if (player.armies > 0) status.push(`${player.armies} armies`);
+        if (player.armies > 0) status.push(`${escapeHtml(player.armies)} armies`);
 
         if (status.length > 0) {
             html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
