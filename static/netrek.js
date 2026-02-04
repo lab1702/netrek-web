@@ -35,18 +35,12 @@ function updatePlanetCounter() {
         }
     });
     
-    // Update the display
-    const fedElement = document.getElementById('fed-planets');
-    const romElement = document.getElementById('rom-planets');
-    const kliElement = document.getElementById('kli-planets');
-    const oriElement = document.getElementById('ori-planets');
-    const indElement = document.getElementById('ind-planets');
-    
-    if (fedElement) fedElement.textContent = counts[1];
-    if (romElement) romElement.textContent = counts[2];
-    if (kliElement) kliElement.textContent = counts[4];
-    if (oriElement) oriElement.textContent = counts[8];
-    if (indElement) indElement.textContent = counts[0];
+    // Update the display using cached refs
+    if (dashboardEls.fedPlanets) dashboardEls.fedPlanets.textContent = counts[1];
+    if (dashboardEls.romPlanets) dashboardEls.romPlanets.textContent = counts[2];
+    if (dashboardEls.kliPlanets) dashboardEls.kliPlanets.textContent = counts[4];
+    if (dashboardEls.oriPlanets) dashboardEls.oriPlanets.textContent = counts[8];
+    if (dashboardEls.indPlanets) dashboardEls.indPlanets.textContent = counts[0];
 }
 
 // Update team display with the given data
@@ -202,8 +196,16 @@ let canvases = {
     galacticCtx: null
 };
 
+// Cached DOM element references for dashboard (populated during init)
+let dashboardEls = {};
+
 // Ship names
 const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
+
+// Performance tracking
+let fps = 0;
+let frameCount = 0;
+let lastFpsUpdate = 0;
 
 // Player status constants (matching server-side types.go)
 const StatusFree = 0;
@@ -265,6 +267,7 @@ function formatTeamNames(names) {
 let renderIntervalId = null;
 let gameInitialized = false;
 let savedCredentials = null; // { name, team, ship } saved on first connect for reconnect
+let reconnectDelay = 1000; // Exponential backoff delay for reconnection
 
 // Victory countdown functions
 function startVictoryCountdown() {
@@ -321,6 +324,30 @@ async function init() {
             // Continue without ship bitmaps
         }
     }
+
+    // Cache dashboard DOM references
+    dashboardEls = {
+        shields: document.getElementById('shields'),
+        damage: document.getElementById('damage'),
+        fuel: document.getElementById('fuel'),
+        wtemp: document.getElementById('wtemp'),
+        etemp: document.getElementById('etemp'),
+        speed: document.getElementById('speed'),
+        kdaStats: document.getElementById('kda-stats'),
+        kdRatio: document.getElementById('kd-ratio'),
+        networkDelay: document.getElementById('network-delay'),
+        compression: document.getElementById('compression-indicator'),
+        armies: document.getElementById('armies'),
+        status: document.getElementById('status'),
+        tournamentDisplay: document.getElementById('tournament-timer-display'),
+        tournamentTimer: document.getElementById('tournament-timer-value'),
+        alertStatus: document.getElementById('alert-status'),
+        fedPlanets: document.getElementById('fed-planets'),
+        romPlanets: document.getElementById('rom-planets'),
+        kliPlanets: document.getElementById('kli-planets'),
+        oriPlanets: document.getElementById('ori-planets'),
+        indPlanets: document.getElementById('ind-planets'),
+    };
 
     // Resize canvases
     resizeCanvases();
@@ -633,7 +660,7 @@ function handleKeyPress(key) {
         case 'y':
             // Find nearest enemy for pressor beam
             let nearestPressor = -1;
-            let nearestPressorDist = 5000;
+            let nearestPressorDist = 6000;
             for (let i = 0; i < gameState.players.length; i++) {
                 const other = gameState.players[i];
                 if (other && other.status === 2 && other.team !== player.team) {
@@ -666,7 +693,7 @@ function handleKeyPress(key) {
             } else {
                 // Find nearest enemy for tractor beam
                 let nearestEnemy = -1;
-                let nearestDist = 5000;
+                let nearestDist = 6000;
                 for (let i = 0; i < gameState.players.length; i++) {
                     const other = gameState.players[i];
                     if (other && other.status === 2 && other.team !== player.team) {
@@ -837,10 +864,10 @@ function reOutfit() {
     name = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
     if (!name) name = 'Player';
     
-    const team = parseInt(document.querySelector('input[name="team"]:checked').value, 10);
-    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value, 10);
-
-    console.log('Rejoining game with team:', team, 'ship:', ship);
+    const teamRadio = document.querySelector('input[name="team"]:checked');
+    const shipRadio = document.querySelector('input[name="ship"]:checked');
+    const team = teamRadio ? parseInt(teamRadio.value, 10) : 1;
+    const ship = shipRadio ? parseInt(shipRadio.value, 10) : 0;
     
     // Hide login, show game
     document.getElementById('login').style.display = 'none';
@@ -868,8 +895,10 @@ function connect() {
     name = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
     if (!name) name = 'Player'; // Default if name becomes empty after sanitization
 
-    const team = parseInt(document.querySelector('input[name="team"]:checked').value, 10);
-    const ship = parseInt(document.querySelector('input[name="ship"]:checked').value, 10);
+    const teamRadio = document.querySelector('input[name="team"]:checked');
+    const shipRadio = document.querySelector('input[name="ship"]:checked');
+    const team = teamRadio ? parseInt(teamRadio.value, 10) : 1;
+    const ship = shipRadio ? parseInt(shipRadio.value, 10) : 0;
 
     // Save credentials for reconnect so we don't re-read hidden form elements
     savedCredentials = { name, team, ship };
@@ -953,16 +982,19 @@ function openWebSocket(name, team, ship) {
 
     // Capture the WebSocket instance for the closure to avoid stale reference
     const thisWs = ws;
+    reconnectDelay = 1000; // Reset backoff on new connection
     ws.onclose = () => {
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
         // Only reconnect if this is still the current WebSocket
+        const delay = reconnectDelay;
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000); // Exponential backoff, max 30s
         setTimeout(() => {
             if (ws === thisWs && savedCredentials) {
                 addMessage('Attempting to reconnect...', 'info', null, null, 'messages-server');
                 reconnect();
             }
-        }, 3000);
+        }, delay);
     };
 }
 
@@ -973,6 +1005,7 @@ function sendMessage(msg) {
 }
 
 function handleServerMessage(msg) {
+    if (!msg || !msg.type) return;
     switch(msg.type) {
         case 'login_success':
             gameState.myPlayerID = msg.data.player_id;
@@ -980,10 +1013,10 @@ function handleServerMessage(msg) {
             break;
             
         case 'update':
-            // Store previous state for interpolation
-            prevState.players = gameState.players.map(p => p ? {...p} : null);
-            prevState.torps = gameState.torps.map(t => t ? {...t} : null);
-            prevState.plasmas = gameState.plasmas.map(p => p ? {...p} : null);
+            // Store previous positions for interpolation (only fields needed)
+            prevState.players = gameState.players.map(p => p ? {x: p.x, y: p.y, dir: p.dir} : null);
+            prevState.torps = gameState.torps.map(t => t ? {x: t.x, y: t.y} : null);
+            prevState.plasmas = gameState.plasmas.map(p => p ? {x: p.x, y: p.y} : null);
             
             // Calculate network delay before updating lastUpdate
             const now = Date.now();
@@ -1001,22 +1034,11 @@ function handleServerMessage(msg) {
             gameState.gameOver = msg.data.gameOver || false;
             gameState.winner = msg.data.winner;
             gameState.winType = msg.data.winType;
-            
-            // Debug: Log planet info for first few planets
-            if (gameState.tMode && gameState.frame % 50 === 0) {
-                console.log('T-mode planet info:', 
-                    gameState.planets.slice(0, 3).map(p => ({
-                        name: p.name, 
-                        info: p.info,
-                        owner: p.owner
-                    }))
-                );
-            }
-            
+            gameState.tMode = !!msg.data.tMode;
+            gameState.tRemain = msg.data.tRemain;
+
             // Update planet counter
             updatePlanetCounter();
-            gameState.tMode = msg.data.tMode || false;
-            gameState.tRemain = msg.data.tRemain;
             gameState.lastUpdate = now;
             
             // Update info window if it's visible
@@ -1934,13 +1956,8 @@ function renderGalactic() {
 
 let lastWarningTime = 0;
 
-// Performance tracking
-let fps = 0;
-let frameCount = 0;
-let lastFpsUpdate = 0;
-
 function updateCompressionIndicator() {
-    const indicator = document.getElementById('compression-indicator');
+    const indicator = dashboardEls.compression || document.getElementById('compression-indicator');
     if (indicator) {
         if (wsCompressionActive) {
             indicator.textContent = 'ON';
@@ -1960,73 +1977,62 @@ function updateDashboard() {
     const player = gameState.players[gameState.myPlayerID];
     if (!player) return;
     
-    updateCompressionIndicator();
-    
     // Update network delay
     const lag = gameState.networkDelay || 0;
-    const delayEl = document.getElementById('network-delay');
-    if (delayEl) {
-        delayEl.textContent = `${lag}ms`;
+    if (dashboardEls.networkDelay) {
+        dashboardEls.networkDelay.textContent = `${lag}ms`;
         if (lag < 150) {
-            delayEl.style.color = '#0f0';  // Green
+            dashboardEls.networkDelay.style.color = '#0f0';  // Green
         } else if (lag < 200) {
-            delayEl.style.color = '#ff0';  // Yellow
+            dashboardEls.networkDelay.style.color = '#ff0';  // Yellow
         } else {
-            delayEl.style.color = '#f00';  // Red
+            dashboardEls.networkDelay.style.color = '#f00';  // Red
         }
     }
-    
+
     // Update stats with current/max format where applicable
     const maxShields = getMaxShields(player.ship);
     const maxDamage = getMaxDamage(player.ship);
     const maxFuel = getMaxFuel(player.ship);
     const maxSpeed = getMaxSpeed(player.ship);
     const maxArmies = getMaxArmies(player.ship);
-    
-    const shieldsEl = document.getElementById('shields');
-    const damageEl = document.getElementById('damage');
-    const fuelEl = document.getElementById('fuel');
-    const wtempEl = document.getElementById('wtemp');
-    const etempEl = document.getElementById('etemp');
-    const speedEl = document.getElementById('speed');
-    if (shieldsEl) shieldsEl.textContent = `${player.shields || 0} / ${maxShields}`;
-    if (damageEl) damageEl.textContent = `${player.damage || 0} / ${maxDamage}`;
-    if (fuelEl) fuelEl.textContent = `${player.fuel || 0} / ${maxFuel}`;
-    if (wtempEl) wtempEl.textContent = player.wtemp || 0;
-    if (etempEl) etempEl.textContent = player.etemp || 0;
-    if (speedEl) speedEl.textContent = `${Math.round(player.speed || 0)} / ${maxSpeed}`;
-    
+
+    if (dashboardEls.shields) dashboardEls.shields.textContent = `${player.shields || 0} / ${maxShields}`;
+    if (dashboardEls.damage) dashboardEls.damage.textContent = `${player.damage || 0} / ${maxDamage}`;
+    if (dashboardEls.fuel) dashboardEls.fuel.textContent = `${player.fuel || 0} / ${maxFuel}`;
+    if (dashboardEls.wtemp) dashboardEls.wtemp.textContent = player.wtemp || 0;
+    if (dashboardEls.etemp) dashboardEls.etemp.textContent = player.etemp || 0;
+    if (dashboardEls.speed) dashboardEls.speed.textContent = `${Math.round(player.speed || 0)} / ${maxSpeed}`;
+
     // Update KS/K/D stats
     const killStreak = Math.floor(player.killsStreak || 0);
     const kills = Math.floor(player.kills || 0);
     const deaths = player.deaths || 0;
-    const kdaEl = document.getElementById('kda-stats');
-    if (kdaEl) {
-        kdaEl.textContent = `${killStreak} / ${kills} / ${deaths}`;
+    if (dashboardEls.kdaStats) {
+        dashboardEls.kdaStats.textContent = `${killStreak} / ${kills} / ${deaths}`;
         // Color based on kill streak
         if (killStreak >= 5) {
-            kdaEl.style.color = '#ff0'; // Yellow for high streak
+            dashboardEls.kdaStats.style.color = '#ff0'; // Yellow for high streak
         } else if (killStreak >= 3) {
-            kdaEl.style.color = '#0ff'; // Cyan for medium streak
+            dashboardEls.kdaStats.style.color = '#0ff'; // Cyan for medium streak
         } else {
-            kdaEl.style.color = '#8f8'; // Light green default
+            dashboardEls.kdaStats.style.color = '#8f8'; // Light green default
         }
     }
-    
+
     // Update K/D ratio
-    const kdRatioEl = document.getElementById('kd-ratio');
-    if (kdRatioEl) {
+    if (dashboardEls.kdRatio) {
         const kdRatio = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(2);
-        kdRatioEl.textContent = kdRatio;
+        dashboardEls.kdRatio.textContent = kdRatio;
         // Color based on K/D ratio
         if (parseFloat(kdRatio) >= 2.0) {
-            kdRatioEl.style.color = '#ff0'; // Yellow for excellent
+            dashboardEls.kdRatio.style.color = '#ff0'; // Yellow for excellent
         } else if (parseFloat(kdRatio) >= 1.0) {
-            kdRatioEl.style.color = '#0ff'; // Cyan for positive
+            dashboardEls.kdRatio.style.color = '#0ff'; // Cyan for positive
         } else if (parseFloat(kdRatio) >= 0.5) {
-            kdRatioEl.style.color = '#8f8'; // Light green for okay
+            dashboardEls.kdRatio.style.color = '#8f8'; // Light green for okay
         } else {
-            kdRatioEl.style.color = '#f88'; // Light red for poor
+            dashboardEls.kdRatio.style.color = '#f88'; // Light red for poor
         }
     }
     
@@ -2047,20 +2053,18 @@ function updateDashboard() {
     }
     
     // Update armies and orbit status
-    const armiesEl = document.getElementById('armies');
-    if (armiesEl) {
-        armiesEl.textContent = `${player.armies || 0} / ${maxArmies}`;
+    if (dashboardEls.armies) {
+        dashboardEls.armies.textContent = `${player.armies || 0} / ${maxArmies}`;
         // Gray out armies section if kill streak is less than 2
         if (killStreak < 2) {
-            armiesEl.style.color = '#888'; // Gray
+            dashboardEls.armies.style.color = '#888'; // Gray
         } else {
-            armiesEl.style.color = '#0f0'; // Green (normal)
+            dashboardEls.armies.style.color = '#0f0'; // Green (normal)
         }
     }
-    
-    const statusEl = document.getElementById('status');
-    if (statusEl) {
-        statusEl.style.color = ''; // Reset color to default
+
+    if (dashboardEls.status) {
+        dashboardEls.status.style.color = ''; // Reset color to default
         let statusText = '';
         if (player.orbiting >= 0 && gameState.planets[player.orbiting]) {
             const planet = gameState.planets[player.orbiting];
@@ -2076,26 +2080,24 @@ function updateDashboard() {
             }
         } else if (player.engineOverheat) {
             statusText = 'ENGINES OVERHEATED!';
-            statusEl.style.color = '#f00'; // Make it red
+            dashboardEls.status.style.color = '#f00'; // Make it red
         } else if (player.shields_up === false) {
             statusText = 'Shields Down';
         } else if (player.cloaked) {
             statusText = 'Cloaked';
         }
-        statusEl.textContent = statusText;
+        dashboardEls.status.textContent = statusText;
     }
-    
+
     // Update tournament mode display in planet counter
-    const tournamentDisplay = document.getElementById('tournament-timer-display');
-    const tournamentTimer = document.getElementById('tournament-timer-value');
-    if (tournamentDisplay && tournamentTimer) {
+    if (dashboardEls.tournamentDisplay && dashboardEls.tournamentTimer) {
         if (gameState.tMode && !gameState.gameOver) {
-            tournamentDisplay.style.display = 'inline-block';
+            dashboardEls.tournamentDisplay.style.display = 'inline-block';
             const minutes = Math.floor(gameState.tRemain / 60);
             const seconds = gameState.tRemain % 60;
-            tournamentTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            dashboardEls.tournamentTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         } else {
-            tournamentDisplay.style.display = 'none';
+            dashboardEls.tournamentDisplay.style.display = 'none';
         }
     }
     
@@ -2105,7 +2107,7 @@ function updateDashboard() {
 }
 
 function updateAlertStatus() {
-    const alertEl = document.getElementById('alert-status');
+    const alertEl = dashboardEls.alertStatus;
     if (!alertEl) return;
     
     if (gameState.myPlayerID < 0) {
@@ -2132,9 +2134,22 @@ function updateAlertStatus() {
     }
 }
 
+let lastPlayerListSignature = '';
+
 function updatePlayerList() {
     const list = document.getElementById('player-list');
     if (!list) return;
+
+    // Build a signature to skip DOM rebuild if nothing changed
+    let sig = '';
+    for (let i = 0; i < gameState.players.length; i++) {
+        const p = gameState.players[i];
+        if (p && p.status !== 0 && p.status !== 1) {
+            sig += `${i}:${p.team}:${p.status}:${p.ship}:${p.name}:${Math.floor(p.killsStreak||0)}:${Math.floor(p.kills||0)}:${p.deaths||0};`;
+        }
+    }
+    if (sig === lastPlayerListSignature) return;
+    lastPlayerListSignature = sig;
 
     // Build header using DOM APIs
     const header = document.createElement('div');
