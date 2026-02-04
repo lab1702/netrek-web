@@ -1030,7 +1030,7 @@ function handleServerMessage(msg) {
                 // Player status becomes 0 (StatusFree) after explosion completes
                 if (!myPlayer || myPlayer.status === 0) {
                     // Redirect to login screen
-                    window.location.href = '/';
+                    window.location.reload();
                     return;
                 }
             }
