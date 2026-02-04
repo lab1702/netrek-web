@@ -579,11 +579,12 @@ func Distance(x1, y1, x2, y2 float64) float64 {
 
 // NormalizeAngle keeps angle between 0 and 2*PI
 func NormalizeAngle(angle float64) float64 {
-	for angle < 0 {
-		angle += 2 * math.Pi
+	if math.IsNaN(angle) || math.IsInf(angle, 0) {
+		return 0
 	}
-	for angle >= 2*math.Pi {
-		angle -= 2 * math.Pi
+	angle = math.Mod(angle, 2*math.Pi)
+	if angle < 0 {
+		angle += 2 * math.Pi
 	}
 	return angle
 }

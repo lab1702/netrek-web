@@ -20,8 +20,11 @@ func (c *Client) handleMove(data json.RawMessage) {
 		return
 	}
 
-	// Validate direction
+	// Validate direction and speed
 	moveData.Dir = validateDirection(moveData.Dir)
+	if math.IsNaN(moveData.Speed) || math.IsInf(moveData.Speed, 0) {
+		moveData.Speed = 0
+	}
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()

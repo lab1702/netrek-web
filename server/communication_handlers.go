@@ -27,15 +27,16 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 	// Sanitize the message text to prevent XSS
 	msgData.Text = sanitizeText(msgData.Text)
 
-	c.server.mu.RLock()
+	c.server.gameState.Mu.RLock()
 	p := c.server.gameState.Players[c.PlayerID]
-	c.server.mu.RUnlock()
+	senderName := formatPlayerName(p)
+	c.server.gameState.Mu.RUnlock()
 
 	// Broadcast to all players
 	c.server.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
-			"text": fmt.Sprintf("[ALL] %s: %s", formatPlayerName(p), msgData.Text),
+			"text": fmt.Sprintf("[ALL] %s: %s", senderName, msgData.Text),
 			"type": "all",
 			"from": c.PlayerID,
 		},
@@ -56,23 +57,27 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 	// Sanitize the message text to prevent XSS
 	msgData.Text = sanitizeText(msgData.Text)
 
-	c.server.mu.RLock()
+	// Read sender info under game state lock
+	c.server.gameState.Mu.RLock()
 	p := c.server.gameState.Players[c.PlayerID]
+	senderName := formatPlayerName(p)
 	team := p.Team
-	c.server.mu.RUnlock()
+	c.server.gameState.Mu.RUnlock()
 
 	// Send to team members only
 	teamMsg := ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
-			"text": fmt.Sprintf("[TEAM] %s: %s", formatPlayerName(p), msgData.Text),
+			"text": fmt.Sprintf("[TEAM] %s: %s", senderName, msgData.Text),
 			"type": "team",
 			"from": c.PlayerID,
 			"team": team,
 		},
 	}
 
+	// Lock ordering: s.mu first, then s.gameState.Mu
 	c.server.mu.RLock()
+	c.server.gameState.Mu.RLock()
 	for _, client := range c.server.clients {
 		if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
 			clientPlayer := c.server.gameState.Players[client.PlayerID]
@@ -85,6 +90,7 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 			}
 		}
 	}
+	c.server.gameState.Mu.RUnlock()
 	c.server.mu.RUnlock()
 }
 
@@ -106,16 +112,19 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 	// Sanitize the message text to prevent XSS
 	msgData.Text = sanitizeText(msgData.Text)
 
-	c.server.mu.RLock()
+	// Read player info under game state lock
+	c.server.gameState.Mu.RLock()
 	p := c.server.gameState.Players[c.PlayerID]
 	targetPlayer := c.server.gameState.Players[msgData.Target]
-	c.server.mu.RUnlock()
+	senderName := formatPlayerName(p)
+	targetName := formatPlayerName(targetPlayer)
+	c.server.gameState.Mu.RUnlock()
 
 	// Send to target and sender only
 	privMsg := ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
-			"text": fmt.Sprintf("[PRIV->%s] %s: %s", formatPlayerName(targetPlayer), formatPlayerName(p), msgData.Text),
+			"text": fmt.Sprintf("[PRIV->%s] %s: %s", targetName, senderName, msgData.Text),
 			"type": "private",
 			"from": c.PlayerID,
 			"to":   msgData.Target,

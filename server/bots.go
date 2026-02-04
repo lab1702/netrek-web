@@ -11,8 +11,8 @@ import (
 
 // AddBot adds a new bot player to the game
 func (s *Server) AddBot(team, ship int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.gameState.Mu.Lock()
+	defer s.gameState.Mu.Unlock()
 
 	// Find a free player slot
 	var botID = -1
@@ -868,8 +868,8 @@ func (s *Server) findMostThreatenedFriendlyPlanet(p *game.Player) *game.Planet {
 
 // RemoveBot removes a bot player from the game
 func (s *Server) RemoveBot(botID int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.gameState.Mu.Lock()
+	defer s.gameState.Mu.Unlock()
 
 	p := s.gameState.Players[botID]
 	if !p.IsBot {
@@ -932,12 +932,14 @@ func (s *Server) AutoBalanceBots() {
 		teamCounts[team] = 0
 	}
 
+	s.gameState.Mu.RLock()
 	for _, p := range s.gameState.Players {
 		if p.Status == game.StatusAlive && p.Connected {
 			// Count both human players and bots equally
 			teamCounts[p.Team]++
 		}
 	}
+	s.gameState.Mu.RUnlock()
 
 	// Find team with most members (players + bots)
 	maxCount := 0
@@ -966,8 +968,10 @@ func (s *Server) AutoBalanceBots() {
 	for _, team := range teams {
 		deficit := maxCount - teamCounts[team]
 		for deficit > 0 {
-			// Choose ship type based on team needs
+			// Choose ship type based on team needs (read game state under lock)
+			s.gameState.Mu.RLock()
 			ship := s.selectBotShipType(team)
+			s.gameState.Mu.RUnlock()
 			s.AddBot(team, ship)
 			botsAdded[team]++
 			totalBotsAdded++

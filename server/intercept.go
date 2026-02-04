@@ -164,10 +164,13 @@ func InterceptDirectionSimple(shooterPos, targetPos Point2D, targetVel Vector2D,
 
 // NormalizeAngle normalizes an angle to the range [-π, π]
 func NormalizeAngle(angle float64) float64 {
-	for angle > math.Pi {
-		angle -= 2 * math.Pi
+	if math.IsNaN(angle) || math.IsInf(angle, 0) {
+		return 0
 	}
-	for angle <= -math.Pi {
+	angle = math.Mod(angle, 2*math.Pi)
+	if angle > math.Pi {
+		angle -= 2 * math.Pi
+	} else if angle <= -math.Pi {
 		angle += 2 * math.Pi
 	}
 	return angle

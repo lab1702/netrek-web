@@ -2120,8 +2120,9 @@ function updatePlayerList() {
         // Add opacity style for dead players
         const deadStyle = isDead ? 'opacity: 0.4;' : '';
         
+        const safeName = (player.name || 'Player').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         html += `<div class="player-entry ${teamClass}" style="display: flex; justify-content: space-between; ${deadStyle}">
-            <span><span style="font-family: monospace; margin-right: 4px;">${playerID}</span> ${player.name || 'Player'} (${shipType})</span>
+            <span><span style="font-family: monospace; margin-right: 4px;">${playerID}</span> ${safeName} (${shipType})</span>
             <span style="font-size: 9px;">${Math.floor(killsStreak)} / ${Math.floor(kills)} / ${deaths} / ${kd}</span>
         </div>`;
     }

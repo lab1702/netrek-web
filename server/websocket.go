@@ -150,16 +150,22 @@ func (s *Server) Run() {
 
 				// Immediately free the player slot on disconnect
 				if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
+					// Lock ordering: s.mu is already held, acquire s.gameState.Mu second
+					s.gameState.Mu.Lock()
 					p := s.gameState.Players[client.PlayerID]
+					isBot := p.IsBot
 					// Only free if it's a human player (not a bot)
-					if !p.IsBot {
+					if !isBot {
 						log.Printf("Freeing slot for disconnected player %s", p.Name)
 						p.Status = game.StatusFree
 						p.Name = ""
 						p.Connected = false
 						p.LastUpdate = time.Time{}
+					}
+					s.gameState.Mu.Unlock()
 
-						// Broadcast updated team counts to all clients
+					// Broadcast updated team counts (acquires its own locks)
+					if !isBot {
 						s.broadcastTeamCounts()
 					}
 				}
@@ -183,21 +189,45 @@ func (s *Server) Run() {
 	}
 }
 
+// pendingPlayerMsg is a message to send to a specific player after locks are released
+type pendingPlayerMsg struct {
+	playerID int
+	msg      ServerMessage
+}
+
 // gameLoop runs the main game simulation
 func (s *Server) gameLoop() {
 	ticker := time.NewTicker(game.UpdateInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		s.updateGame()
+		pending := s.updateGame()
+		// Send buffered per-player messages after game state lock is released
+		if len(pending) > 0 {
+			s.mu.RLock()
+			for _, pm := range pending {
+				for _, client := range s.clients {
+					if client.PlayerID == pm.playerID {
+						select {
+						case client.send <- pm.msg:
+						default:
+						}
+						break
+					}
+				}
+			}
+			s.mu.RUnlock()
+		}
 		s.sendGameState()
 	}
 }
 
-// updateGame updates the game physics
-func (s *Server) updateGame() {
+// updateGame updates the game physics and returns buffered per-player messages
+func (s *Server) updateGame() []pendingPlayerMsg {
 	s.gameState.Mu.Lock()
 	defer s.gameState.Mu.Unlock()
+
+	var pendingMsgs []pendingPlayerMsg
 
 	s.gameState.Frame++
 	s.gameState.TickCount++
@@ -382,37 +412,31 @@ func (s *Server) updateGame() {
 					// Send message to player once (check if not already sent)
 					if p.ExplodeTimer == 0 {
 						p.ExplodeTimer = -1 // Use -1 as flag that message was sent
-						// Find the client for this player
-						for _, client := range s.clients {
-							if client.PlayerID == p.ID {
-								client.send <- ServerMessage{
-									Type: MsgTypeMessage,
-									Data: map[string]interface{}{
-										"text": "Cannot respawn - your team owns no planets in tournament mode!",
-										"type": "error",
-									},
-								}
-								break
-							}
-						}
+						pendingMsgs = append(pendingMsgs, pendingPlayerMsg{
+							playerID: p.ID,
+							msg: ServerMessage{
+								Type: MsgTypeMessage,
+								Data: map[string]interface{}{
+									"text": "Cannot respawn - your team owns no planets in tournament mode!",
+									"type": "error",
+								},
+							},
+						})
 					}
 					continue
 				} else if p.ExplodeTimer == -1 {
 					// Team has regained planets - reset flag and notify player
 					p.ExplodeTimer = 0
-					// Find the client for this player
-					for _, client := range s.clients {
-						if client.PlayerID == p.ID {
-							client.send <- ServerMessage{
-								Type: MsgTypeMessage,
-								Data: map[string]interface{}{
-									"text": "Your team has regained planets - respawning enabled!",
-									"type": "info",
-								},
-							}
-							break
-						}
-					}
+					pendingMsgs = append(pendingMsgs, pendingPlayerMsg{
+						playerID: p.ID,
+						msg: ServerMessage{
+							Type: MsgTypeMessage,
+							Data: map[string]interface{}{
+								"text": "Your team has regained planets - respawning enabled!",
+								"type": "info",
+							},
+						},
+					})
 				}
 			}
 
@@ -459,13 +483,16 @@ func (s *Server) updateGame() {
 
 	// Check victory conditions
 	s.checkVictoryConditions()
+
+	return pendingMsgs
 }
 
 // sendGameState sends the current game state to all clients
 func (s *Server) sendGameState() {
 	s.gameState.Mu.RLock()
 
-	// Create update message with relevant game state
+	// Marshal game state to JSON while holding the lock to prevent races.
+	// Player and Planet contain sync.RWMutex so they cannot be copied by value.
 	update := struct {
 		Frame    int64           `json:"frame"`
 		Players  []*game.Player  `json:"players"`
@@ -490,11 +517,17 @@ func (s *Server) sendGameState() {
 		TRemain:  s.gameState.T_remain,
 	}
 
+	data, err := json.Marshal(update)
 	s.gameState.Mu.RUnlock()
+
+	if err != nil {
+		log.Printf("Error marshaling game state: %v", err)
+		return
+	}
 
 	s.broadcast <- ServerMessage{
 		Type: MsgTypeUpdate,
-		Data: update,
+		Data: json.RawMessage(data),
 	}
 }
 

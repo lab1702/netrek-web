@@ -261,17 +261,57 @@ func (s *Server) announceVictory() {
 
 // resetGame resets the game state for a new round
 func (s *Server) resetGame() {
+	// Lock ordering: s.mu first, then s.gameState.Mu
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Create completely new game state - wipes all slots
-	newState := game.NewGameState()
-	s.gameState = newState
-
 	// Reset all connected clients back to lobby (no player slot assigned)
 	for _, client := range s.clients {
 		client.PlayerID = -1 // Back to lobby - no slot assigned
 	}
+	s.mu.Unlock()
+
+	// Reset game state in-place (do not replace the pointer)
+	s.gameState.Mu.Lock()
+
+	// Reset all player slots
+	for i := 0; i < game.MaxPlayers; i++ {
+		p := s.gameState.Players[i]
+		*p = game.Player{
+			ID:                  i,
+			Status:              game.StatusFree,
+			Tractoring:          -1,
+			Pressoring:          -1,
+			Orbiting:            -1,
+			LockType:            "none",
+			LockTarget:          -1,
+			BotDefenseTarget:    -1,
+			BotPlanetApproachID: -1,
+			BotTarget:           -1,
+			NextShipType:        -1,
+		}
+	}
+
+	// Re-initialize planets
+	game.InitPlanets(s.gameState)
+	game.InitINLPlanetFlags(s.gameState)
+
+	// Reset game-level state
+	s.gameState.Frame = 0
+	s.gameState.TickCount = 0
+	s.gameState.T_mode = false
+	s.gameState.T_start = 0
+	s.gameState.T_remain = 0
+	s.gameState.GameOver = false
+	s.gameState.Winner = 0
+	s.gameState.WinType = ""
+	s.gameState.Torps = make([]*game.Torpedo, 0)
+	s.gameState.Plasmas = make([]*game.Plasma, 0)
+	s.gameState.TournamentStats = make(map[int]*game.TournamentPlayerStats)
+	for i := range s.gameState.TeamPlayers {
+		s.gameState.TeamPlayers[i] = 0
+		s.gameState.TeamPlanets[i] = 0
+	}
+
+	s.gameState.Mu.Unlock()
 
 	// Announce game reset
 	s.broadcast <- ServerMessage{

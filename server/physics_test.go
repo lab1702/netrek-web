@@ -585,7 +585,7 @@ func TestPlayerLockOnPlanet(t *testing.T) {
 // TestAutoOrbitOnLockOn tests that ships auto-orbit when close and slow
 func TestAutoOrbitOnLockOn(t *testing.T) {
 	gs := game.NewGameState()
-	server := &Server{gameState: gs}
+	server := &Server{gameState: gs, broadcast: make(chan ServerMessage, 256)}
 
 	// Setup planet
 	planet := gs.Planets[0]

@@ -94,12 +94,12 @@ func sanitizeName(name string) string {
 
 // validateDirection ensures direction is within valid range [0, 2*pi]
 func validateDirection(dir float64) float64 {
-	// Normalize to [0, 2*pi]
-	for dir < 0 {
-		dir += 2 * math.Pi
+	if math.IsNaN(dir) || math.IsInf(dir, 0) {
+		return 0
 	}
-	for dir >= 2*math.Pi {
-		dir -= 2 * math.Pi
+	dir = math.Mod(dir, 2*math.Pi)
+	if dir < 0 {
+		dir += 2 * math.Pi
 	}
 	return dir
 }

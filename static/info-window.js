@@ -1,5 +1,16 @@
 // Planet/Player Info Window - Based on original Netrek client inform.c
 
+// Escape HTML special characters to prevent XSS
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // Helper function to format team letter and slot number (F01 format)
 function formatTeamSlot(player, playerIndex) {
     const teamMap = {0: 'I', 1: 'F', 2: 'R', 4: 'K', 8: 'O'};
@@ -80,26 +91,26 @@ class InfoWindow {
             // Planet name and owner
             const ownerName = this.getTeamName(planet.owner);
             html += `<div style="color: ${this.getTeamColor(planet.owner)}; font-weight: bold;">`;
-            html += `${planet.name} (${ownerName})`;
+            html += `${escapeHtml(planet.name)} (${escapeHtml(ownerName)})`;
             html += '</div>';
-            
+
             // Army count
             html += `<div style="margin-top: 4px;">Armies: ${planet.armies || 0}</div>`;
-            
+
             // Resources and info
             let resources = [];
             if (planet.flags & 16) resources.push('REPAIR');
             if (planet.flags & 32) resources.push('FUEL');
             if (planet.flags & 64) resources.push('AGRI');
             if (planet.flags & 2048) resources.push('CORE');
-            
+
             // Who has info on this planet
             let info = [];
             if (planet.info & 1) info.push('F');
             if (planet.info & 2) info.push('R');
             if (planet.info & 4) info.push('K');
             if (planet.info & 8) info.push('O');
-            
+
             html += '<div style="margin-top: 4px;">';
             if (resources.length > 0) {
                 html += resources.join(' ') + ' ';
@@ -110,10 +121,10 @@ class InfoWindow {
             html += '</div>';
         } else {
             // No info on this planet - show name but indicate it's unscouted
-            html += `<div style="color: #888; font-weight: bold;">${planet.name} (Unscouted)</div>`;
+            html += `<div style="color: #888; font-weight: bold;">${escapeHtml(planet.name)} (Unscouted)</div>`;
             html += '<div style="margin-top: 4px; color: #666;">Orbit to reveal owner and armies</div>';
         }
-        
+
         this.element.innerHTML = html;
     }
     
@@ -139,11 +150,11 @@ class InfoWindow {
             const teamSlot = formatTeamSlot(player, playerIndex);
             html += `<span style="font-weight: bold; margin-right: 8px; color: ${this.getTeamColor(player.team)};">${teamSlot}</span>`;
         }
-        html += `${player.name} (${player.rank || 'Ensign'})`;
+        html += `${escapeHtml(player.name)} (${escapeHtml(player.rank) || 'Ensign'})`;
         html += '</div>';
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
         html += `<div>${shipName} (${Math.floor(player.killsStreak || 0)} / ${Math.floor(player.kills)} / ${player.deaths || 0} / ${kd})</div>`;
-        
+
         // Show detailed stats for all players (teammates, enemies, and self)
         // Stats
         html += '<div style="margin-top: 4px;">';
@@ -152,7 +163,7 @@ class InfoWindow {
         html += `Sh: ${player.shields}% `;
         html += `Fuel: ${player.fuel}`;
         html += '</div>';
-        
+
         // Status flags
         let status = [];
         if (player.shields_up) status.push('Shields');
@@ -160,11 +171,11 @@ class InfoWindow {
         if (player.wtemp > 50) status.push('W-Temp');
         if (player.etemp > 50) status.push('E-Temp');
         if (player.armies > 0) status.push(`${player.armies} armies`);
-        
+
         if (status.length > 0) {
             html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
         }
-        
+
         this.element.innerHTML = html;
     }
     
@@ -240,26 +251,26 @@ class InfoWindow {
                 // Planet name and owner
                 const ownerName = this.getTeamName(updatedTarget.owner);
                 html += `<div style="color: ${this.getTeamColor(updatedTarget.owner)}; font-weight: bold;">`;
-                html += `${updatedTarget.name} (${ownerName})`;
+                html += `${escapeHtml(updatedTarget.name)} (${escapeHtml(ownerName)})`;
                 html += '</div>';
-                
+
                 // Army count
                 html += `<div style="margin-top: 4px;">Armies: ${updatedTarget.armies || 0}</div>`;
-                
+
                 // Resources and info
                 let resources = [];
                 if (updatedTarget.flags & 16) resources.push('REPAIR');
                 if (updatedTarget.flags & 32) resources.push('FUEL');
                 if (updatedTarget.flags & 64) resources.push('AGRI');
                 if (updatedTarget.flags & 2048) resources.push('CORE');
-                
+
                 // Who has info on this planet
                 let info = [];
                 if (updatedTarget.info & 1) info.push('F');
                 if (updatedTarget.info & 2) info.push('R');
                 if (updatedTarget.info & 4) info.push('K');
                 if (updatedTarget.info & 8) info.push('O');
-                
+
                 html += '<div style="margin-top: 4px;">';
                 if (resources.length > 0) {
                     html += resources.join(' ') + ' ';
@@ -270,7 +281,7 @@ class InfoWindow {
                 html += '</div>';
             } else {
                 // No info on this planet - show name but indicate it's unscouted
-                html += `<div style="color: #888; font-weight: bold;">${updatedTarget.name} (Unscouted)</div>`;
+                html += `<div style="color: #888; font-weight: bold;">${escapeHtml(updatedTarget.name)} (Unscouted)</div>`;
                 html += '<div style="margin-top: 4px; color: #666;">Orbit to reveal owner and armies</div>';
             }
         } else if (this.targetType === 'player') {
@@ -283,7 +294,7 @@ class InfoWindow {
                 const teamSlot = formatTeamSlot(updatedTarget, this.playerIndex);
                 html += `<span style="font-weight: bold; margin-right: 8px; color: ${this.getTeamColor(updatedTarget.team)};">${teamSlot}</span>`;
             }
-            html += `${updatedTarget.name} (${updatedTarget.rank || 'Ensign'})`;
+            html += `${escapeHtml(updatedTarget.name)} (${escapeHtml(updatedTarget.rank) || 'Ensign'})`;
             html += '</div>';
             const kd = updatedTarget.deaths > 0 ? (updatedTarget.kills / updatedTarget.deaths).toFixed(2) : Math.floor(updatedTarget.kills).toFixed(1);
             html += `<div>${shipName} (${Math.floor(updatedTarget.killsStreak || 0)} / ${Math.floor(updatedTarget.kills)} / ${updatedTarget.deaths || 0} / ${kd})</div>`;

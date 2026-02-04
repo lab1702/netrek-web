@@ -78,12 +78,18 @@ func (c *Client) handleBotCommand(cmd string) {
 		c.server.AddBot(team, ship)
 
 	case "/removebot":
-		// Remove a random bot
+		// Remove a random bot — find bot ID under read lock, then remove
+		botID := -1
+		c.server.gameState.Mu.RLock()
 		for i, p := range c.server.gameState.Players {
 			if p.IsBot && p.Connected {
-				c.server.RemoveBot(i)
+				botID = i
 				break
 			}
+		}
+		c.server.gameState.Mu.RUnlock()
+		if botID >= 0 {
+			c.server.RemoveBot(botID)
 		}
 
 	case "/balance":
@@ -91,11 +97,17 @@ func (c *Client) handleBotCommand(cmd string) {
 		c.server.AutoBalanceBots()
 
 	case "/clearbots":
-		// Remove all bots
+		// Remove all bots — collect bot IDs under read lock, then remove
+		var botIDs []int
+		c.server.gameState.Mu.RLock()
 		for i, p := range c.server.gameState.Players {
 			if p.IsBot && p.Connected {
-				c.server.RemoveBot(i)
+				botIDs = append(botIDs, i)
 			}
+		}
+		c.server.gameState.Mu.RUnlock()
+		for _, id := range botIDs {
+			c.server.RemoveBot(id)
 		}
 
 	case "/fillbots":
