@@ -2134,7 +2134,25 @@ function updateAlertStatus() {
 
 function updatePlayerList() {
     const list = document.getElementById('player-list');
-    let html = '<div style="border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;"><span><span style="font-family: monospace; margin-right: 4px;">ID </span>&nbsp;PLAYERS</span><span>KS/K/D/KD</span></div>';
+    if (!list) return;
+
+    // Build header using DOM APIs
+    const header = document.createElement('div');
+    header.style.cssText = 'border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;';
+    const headerLeft = document.createElement('span');
+    const headerIdLabel = document.createElement('span');
+    headerIdLabel.style.fontFamily = 'monospace';
+    headerIdLabel.style.marginRight = '4px';
+    headerIdLabel.textContent = 'ID ';
+    headerLeft.appendChild(headerIdLabel);
+    headerLeft.appendChild(document.createTextNode('\u00a0PLAYERS'));
+    const headerRight = document.createElement('span');
+    headerRight.textContent = 'KS/K/D/KD';
+    header.appendChild(headerLeft);
+    header.appendChild(headerRight);
+
+    const fragment = document.createDocumentFragment();
+    fragment.appendChild(header);
     
     // Map team IDs to letters
     const teamLetters = {
@@ -2181,14 +2199,28 @@ function updatePlayerList() {
         // Add opacity style for dead players
         const deadStyle = isDead ? 'opacity: 0.4;' : '';
         
-        const safeName = (player.name || 'Player').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        html += `<div class="player-entry ${teamClass}" style="display: flex; justify-content: space-between; ${deadStyle}">
-            <span><span style="font-family: monospace; margin-right: 4px;">${playerID}</span> ${safeName} (${shipType})</span>
-            <span style="font-size: 9px;">${Math.floor(killsStreak)} / ${Math.floor(kills)} / ${deaths} / ${kd}</span>
-        </div>`;
+        const entry = document.createElement('div');
+        entry.className = `player-entry ${teamClass}`;
+        entry.style.cssText = `display: flex; justify-content: space-between; ${deadStyle}`;
+
+        const nameSpan = document.createElement('span');
+        const idSpan = document.createElement('span');
+        idSpan.style.fontFamily = 'monospace';
+        idSpan.style.marginRight = '4px';
+        idSpan.textContent = playerID;
+        nameSpan.appendChild(idSpan);
+        nameSpan.appendChild(document.createTextNode(` ${player.name || 'Player'} (${shipType})`));
+
+        const statsSpan = document.createElement('span');
+        statsSpan.style.fontSize = '9px';
+        statsSpan.textContent = `${Math.floor(killsStreak)} / ${Math.floor(kills)} / ${deaths} / ${kd}`;
+
+        entry.appendChild(nameSpan);
+        entry.appendChild(statsSpan);
+        fragment.appendChild(entry);
     }
-    
-    list.innerHTML = html;
+
+    list.replaceChildren(fragment);
 }
 
 let messageMode = '';

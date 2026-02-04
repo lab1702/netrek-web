@@ -40,7 +40,7 @@ class ShipRenderer {
         let x = Math.floor(degrees * 256 / 360);
         
         // Apply rosette formula
-        return ((x + 8) / 16) & 15;
+        return (Math.floor((x + 8) / 16)) & 15;
     }
     
     // Generate sprite key for caching
