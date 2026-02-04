@@ -94,7 +94,7 @@ function updateTeamDisplay(data) {
                 if (!teamLabels[i] || !teamRadios[i]) continue;
                 const count = counts[i];
                 // Remove any existing star
-                teamLabels[i].innerHTML = teamLabels[i].innerHTML.replace(' ⭐', '');
+                teamLabels[i].textContent = teamLabels[i].textContent.replace(' ⭐', '');
                 
                 if (count === maxCount && maxCount > minCount) {
                     // This team has the most players - disable it
@@ -116,7 +116,7 @@ function updateTeamDisplay(data) {
                     if (count === minCount) {
                         // This team has fewer players - suggest it
                         teamLabels[i].style.color = '#0f0';
-                        teamLabels[i].innerHTML += ' ⭐';
+                        teamLabels[i].textContent += ' ⭐';
                         if (firstAvailableIndex === -1) {
                             firstAvailableIndex = i;
                         }
@@ -660,8 +660,8 @@ function handleKeyPress(key) {
             showMessageInput('all', '/');
             break;
         case 't':
-            // Check if shift is held for Team message
-            if (controls.keys['Shift']) {
+            // Check if original key was uppercase T (Shift+T) for Team message
+            if (key === 'T') {
                 showMessageInput('team');
             } else {
                 // Find nearest enemy for tractor beam
@@ -1340,19 +1340,19 @@ function renderTactical() {
                 const baseColor = teamColors[planet.owner];
                 if (baseColor) {
                     // Owned planet - team colored
-                    if (baseColor === '#ff0') { // Fed
+                    if (baseColor === '#ffff00') { // Fed
                         gradient.addColorStop(0, '#ffd');
                         gradient.addColorStop(0.5, '#ff0');
                         gradient.addColorStop(1, '#cc0');
-                    } else if (baseColor === '#f00') { // Rom
+                    } else if (baseColor === '#ff0000') { // Rom
                         gradient.addColorStop(0, '#fcc');
                         gradient.addColorStop(0.5, '#f00');
                         gradient.addColorStop(1, '#800');
-                    } else if (baseColor === '#0f0') { // Kli
+                    } else if (baseColor === '#00ff00') { // Kli
                         gradient.addColorStop(0, '#cfc');
                         gradient.addColorStop(0.5, '#0f0');
                         gradient.addColorStop(1, '#080');
-                    } else if (baseColor === '#0ff') { // Ori
+                    } else if (baseColor === '#00ffff') { // Ori
                         gradient.addColorStop(0, '#cff');
                         gradient.addColorStop(0.5, '#0ff');
                         gradient.addColorStop(1, '#088');
@@ -1983,12 +1983,18 @@ function updateDashboard() {
     const maxSpeed = getMaxSpeed(player.ship);
     const maxArmies = getMaxArmies(player.ship);
     
-    document.getElementById('shields').textContent = `${player.shields || 0} / ${maxShields}`;
-    document.getElementById('damage').textContent = `${player.damage || 0} / ${maxDamage}`;
-    document.getElementById('fuel').textContent = `${player.fuel || 0} / ${maxFuel}`;
-    document.getElementById('wtemp').textContent = player.wtemp || 0;
-    document.getElementById('etemp').textContent = player.etemp || 0;
-    document.getElementById('speed').textContent = `${Math.round(player.speed || 0)} / ${maxSpeed}`;
+    const shieldsEl = document.getElementById('shields');
+    const damageEl = document.getElementById('damage');
+    const fuelEl = document.getElementById('fuel');
+    const wtempEl = document.getElementById('wtemp');
+    const etempEl = document.getElementById('etemp');
+    const speedEl = document.getElementById('speed');
+    if (shieldsEl) shieldsEl.textContent = `${player.shields || 0} / ${maxShields}`;
+    if (damageEl) damageEl.textContent = `${player.damage || 0} / ${maxDamage}`;
+    if (fuelEl) fuelEl.textContent = `${player.fuel || 0} / ${maxFuel}`;
+    if (wtempEl) wtempEl.textContent = player.wtemp || 0;
+    if (etempEl) etempEl.textContent = player.etemp || 0;
+    if (speedEl) speedEl.textContent = `${Math.round(player.speed || 0)} / ${maxSpeed}`;
     
     // Update KS/K/D stats
     const killStreak = Math.floor(player.killsStreak || 0);
@@ -2233,7 +2239,8 @@ function showInfoWindow() {
     let closestDistance = Infinity;
     let closestTarget = null;
     let targetType = null;
-    
+    let closestPlayerIndex = -1;
+
     // Get mouse position on the active canvas
     let mouseX, mouseY;
     if (controls.activeCanvas === 'tactical') {
@@ -2263,10 +2270,10 @@ function showInfoWindow() {
                 closestDistance = dist;
                 closestTarget = player;
                 targetType = 'player';
-                closestTarget.playerIndex = i; // Store the player index for team/slot display
+                closestPlayerIndex = i;
             }
         }
-        
+
         // Check planets
         for (const planet of gameState.planets) {
             if (!planet) continue;
@@ -2323,11 +2330,11 @@ function showInfoWindow() {
                 closestDistance = dist;
                 closestTarget = player;
                 targetType = 'player';
-                closestTarget.playerIndex = i; // Store the player index for team/slot display
+                closestPlayerIndex = i;
             }
         }
     }
-    
+
     // Show info window if we found something close enough
     if (closestTarget && closestDistance < 100) { // Within 100 pixels
         if (window.infoWindow) {
@@ -2341,8 +2348,7 @@ function showInfoWindow() {
             if (targetType === 'planet') {
                 window.infoWindow.showPlanetInfo(closestTarget, windowX, windowY);
             } else if (targetType === 'player') {
-                const playerIndex = closestTarget.playerIndex !== undefined ? closestTarget.playerIndex : -1;
-                window.infoWindow.showPlayerInfo(closestTarget, windowX, windowY, playerIndex);
+                window.infoWindow.showPlayerInfo(closestTarget, windowX, windowY, closestPlayerIndex);
             }
         }
     } else {

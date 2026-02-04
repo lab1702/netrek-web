@@ -2,8 +2,10 @@ package server
 
 import (
 	"fmt"
-	"github.com/lab1702/netrek-web/game"
+	"math"
 	"math/rand"
+
+	"github.com/lab1702/netrek-web/game"
 )
 
 // formatPlayerName returns the player name with team and slot info
@@ -129,8 +131,8 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// Add random offset between -5000 and +5000 for both X and Y
 	offsetX := float64(rand.Intn(10000) - 5000)
 	offsetY := float64(rand.Intn(10000) - 5000)
-	p.X = homeX + offsetX
-	p.Y = homeY + offsetY
+	p.X = math.Max(0, math.Min(game.GalaxyWidth, homeX+offsetX))
+	p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
 
 	// Random starting direction
 	p.Dir = float64(s.gameState.Frame%360) * 0.0174533 // Convert to radians

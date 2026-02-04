@@ -111,5 +111,6 @@ func validateTeam(team int) bool {
 
 // validateShipType ensures ship type is valid
 func validateShipType(ship game.ShipType) bool {
-	return ship >= 0 && ship < game.ShipType(len(game.ShipData))
+	_, ok := game.ShipData[ship]
+	return ok
 }

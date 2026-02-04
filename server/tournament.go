@@ -112,8 +112,8 @@ func (s *Server) checkTournamentMode() {
 				// Add random offset to prevent ships spawning on top of each other
 				offsetX := float64(rand.Intn(10000) - 5000)
 				offsetY := float64(rand.Intn(10000) - 5000)
-				p.X = homeX + offsetX
-				p.Y = homeY + offsetY
+				p.X = math.Max(0, math.Min(game.GalaxyWidth, homeX+offsetX))
+				p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
 
 				// Random starting direction
 				p.Dir = rand.Float64() * 2 * math.Pi

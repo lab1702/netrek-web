@@ -25,10 +25,16 @@ FROM alpine:latest
 # Install ca-certificates for HTTPS
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# Create non-root user
+RUN addgroup -S netrek && adduser -S netrek -G netrek
+
+WORKDIR /home/netrek
 
 # Copy the binary from builder
 COPY --from=builder /app/netrek-web .
+
+# Switch to non-root user
+USER netrek
 
 # Expose port 8080
 EXPOSE 8080

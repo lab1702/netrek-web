@@ -113,26 +113,35 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 		p.Y += unitsPerTick * math.Sin(p.Dir)
 
 		// Bounce off galaxy edges
+		bounced := false
 		if p.X < 0 {
 			p.X = 0
 			// Reverse X component of direction (bounce off left wall)
 			p.Dir = math.Pi - p.Dir
-			p.DesDir = p.Dir // Update desired direction to match bounced direction
+			bounced = true
 		} else if p.X > game.GalaxyWidth {
 			p.X = game.GalaxyWidth
 			// Reverse X component of direction (bounce off right wall)
 			p.Dir = math.Pi - p.Dir
-			p.DesDir = p.Dir // Update desired direction to match bounced direction
+			bounced = true
 		}
 		if p.Y < 0 {
 			p.Y = 0
 			// Reverse Y component of direction (bounce off top wall)
 			p.Dir = -p.Dir
-			p.DesDir = p.Dir // Update desired direction to match bounced direction
+			bounced = true
 		} else if p.Y > game.GalaxyHeight {
 			p.Y = game.GalaxyHeight
 			// Reverse Y component of direction (bounce off bottom wall)
 			p.Dir = -p.Dir
+			bounced = true
+		}
+		if bounced {
+			// Normalize direction to [0, 2*PI]
+			p.Dir = math.Mod(p.Dir, 2*math.Pi)
+			if p.Dir < 0 {
+				p.Dir += 2 * math.Pi
+			}
 			p.DesDir = p.Dir // Update desired direction to match bounced direction
 		}
 	}

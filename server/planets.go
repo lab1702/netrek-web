@@ -253,13 +253,13 @@ func (s *Server) updatePlanetCombat(p *game.Player, playerIndex int) {
 // updatePlanetArmies handles planet army repopulation
 func (s *Server) updatePlanetArmies() {
 	// Handle planet army repopulation
-	// AGRI planets generate 1 army every 5 seconds (100 frames at 20 FPS)
-	// Non-AGRI planets generate 1 army every 30 seconds (600 frames at 20 FPS)
+	// AGRI planets generate 1 army every 5 seconds (50 frames at 10 FPS)
+	// Non-AGRI planets generate 1 army every 30 seconds (300 frames at 10 FPS)
 	// Only planets with owner (not neutral) can grow armies
 	const maxPlanetArmies = 40
 
 	// Check AGRI planets every 5 seconds
-	if s.gameState.Frame%100 == 0 {
+	if s.gameState.Frame%50 == 0 {
 		for _, planet := range s.gameState.Planets {
 			if planet == nil {
 				continue
@@ -275,7 +275,7 @@ func (s *Server) updatePlanetArmies() {
 	}
 
 	// Check non-AGRI planets every 30 seconds
-	if s.gameState.Frame%600 == 0 {
+	if s.gameState.Frame%300 == 0 {
 		for _, planet := range s.gameState.Planets {
 			if planet == nil {
 				continue

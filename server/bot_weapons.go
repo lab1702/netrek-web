@@ -179,7 +179,7 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	}
 
 	// Check weapon temperature
-	if p.WTemp > 90 {
+	if p.WTemp > shipStats.MaxWpnTemp-100 {
 		return false
 	}
 
@@ -252,7 +252,7 @@ func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 
 	// Check fuel and temperature
 	phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
-	if p.Fuel < phaserCost || p.WTemp > 90 {
+	if p.Fuel < phaserCost || p.WTemp > shipStats.MaxWpnTemp-100 {
 		return false
 	}
 

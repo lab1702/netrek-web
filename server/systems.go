@@ -46,8 +46,8 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		fuelUsage = int(p.Speed) * 2
 		if p.Cloaked {
 			// Use ship-specific cloak cost
-			shipStats := game.ShipData[p.Ship]
-			fuelUsage += shipStats.CloakCost
+			cloakShipStats := game.ShipData[p.Ship]
+			fuelUsage += cloakShipStats.CloakCost
 		}
 		// Charge for shields (from original Netrek daemon.c)
 		if p.Shields_up {
@@ -67,17 +67,22 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 	}
 	p.Fuel = int(math.Max(0, float64(p.Fuel-fuelUsage)))
 
+	// Decloak if out of fuel
+	if p.Cloaked && p.Fuel == 0 {
+		p.Cloaked = false
+	}
+
 	// Cap ETemp at a reasonable maximum (150% of overheat threshold)
 	const maxETempCap = 1500
 	if p.ETemp > maxETempCap {
 		p.ETemp = maxETempCap
 	}
 
-	// Recharge fuel
+	// Recharge fuel using ship-specific rate
 	shipStats := game.ShipData[p.Ship]
 	if p.Orbiting < 0 {
 		// Normal fuel recharge when not orbiting
-		p.Fuel = int(math.Min(float64(shipStats.MaxFuel), float64(p.Fuel+10)))
+		p.Fuel = int(math.Min(float64(shipStats.MaxFuel), float64(p.Fuel+shipStats.FuelRecharge)))
 	}
 
 	// Cool weapons and engines using ship-specific rates
@@ -215,13 +220,4 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		}
 	}
 
-	// Cloak fuel consumption
-	if p.Cloaked {
-		// Cloak uses 10 fuel per frame
-		p.Fuel = int(math.Max(0, float64(p.Fuel-10)))
-		if p.Fuel == 0 {
-			// Out of fuel, decloak
-			p.Cloaked = false
-		}
-	}
 }
