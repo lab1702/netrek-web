@@ -260,6 +260,7 @@ function formatTeamNames(names) {
 
 // Victory countdown functions
 function startVictoryCountdown() {
+    stopVictoryCountdown();
     victoryCountdown = 10;
     victoryTimerId = setInterval(() => {
         victoryCountdown--;

@@ -77,7 +77,9 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 
 	// Lock ordering: s.mu first, then s.gameState.Mu
 	c.server.mu.RLock()
+	defer c.server.mu.RUnlock()
 	c.server.gameState.Mu.RLock()
+	defer c.server.gameState.Mu.RUnlock()
 	for _, client := range c.server.clients {
 		if client.PlayerID >= 0 && client.PlayerID < game.MaxPlayers {
 			clientPlayer := c.server.gameState.Players[client.PlayerID]
@@ -90,8 +92,6 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 			}
 		}
 	}
-	c.server.gameState.Mu.RUnlock()
-	c.server.mu.RUnlock()
 }
 
 // handlePrivateMessage handles private messages
@@ -132,6 +132,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 	}
 
 	c.server.mu.RLock()
+	defer c.server.mu.RUnlock()
 	for _, client := range c.server.clients {
 		if client.PlayerID == msgData.Target || client.PlayerID == c.PlayerID {
 			select {
@@ -141,5 +142,4 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 			}
 		}
 	}
-	c.server.mu.RUnlock()
 }

@@ -246,8 +246,6 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	p.Tractoring = -1
 	p.Pressoring = -1
 	p.Orbiting = -1
-	p.LockType = "none"
-	p.LockTarget = -1
 
 	// Broadcast self-destruct message
 	c.server.broadcast <- ServerMessage{

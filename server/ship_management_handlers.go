@@ -75,7 +75,7 @@ func (c *Client) handleBeam(data json.RawMessage) {
 	defer c.server.gameState.Mu.Unlock()
 
 	p := c.server.gameState.Players[c.PlayerID]
-	if p.Status != game.StatusAlive || p.Orbiting < 0 {
+	if p.Status != game.StatusAlive || p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
 		return
 	}
 
@@ -139,7 +139,7 @@ func (c *Client) handleBomb(data json.RawMessage) {
 	defer c.server.gameState.Mu.Unlock()
 
 	p := c.server.gameState.Players[c.PlayerID]
-	if p.Status != game.StatusAlive || p.Orbiting < 0 {
+	if p.Status != game.StatusAlive || p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
 		return
 	}
 

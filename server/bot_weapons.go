@@ -294,6 +294,17 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 		return
 	}
 
+	// Check fuel (using ship-specific multiplier, same as human handler)
+	plasmaCost := shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+	if p.Fuel < plasmaCost {
+		return
+	}
+
+	// Check weapon temperature against ship-specific limit
+	if p.WTemp > shipStats.MaxWpnTemp-100 {
+		return
+	}
+
 	// Pre-fire sanity check: don't fire beyond plasma maximum range
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
 	maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
@@ -326,7 +337,8 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 
 	s.gameState.Plasmas = append(s.gameState.Plasmas, plasma)
 	p.NumPlasma++
-	p.Fuel -= shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+	p.Fuel -= plasmaCost
+	p.WTemp += 100 // Plasma heats weapons (matching human handler)
 
 	// Log successful plasma firing
 	logPlasmaFiring("FIRED", int(p.Ship), dist, maxPlasmaRange, "within range")

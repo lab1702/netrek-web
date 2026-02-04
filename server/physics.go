@@ -281,7 +281,7 @@ func (s *Server) updateTractorBeams() {
 				isPressor = true
 			}
 
-			if targetID < game.MaxPlayers {
+			if targetID >= 0 && targetID < game.MaxPlayers {
 				target := s.gameState.Players[targetID]
 				if target.Status == game.StatusAlive {
 					dist := game.Distance(p.X, p.Y, target.X, target.Y)
