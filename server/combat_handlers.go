@@ -406,10 +406,26 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 	// Get ship stats for detonate cost
 	shipStats := game.ShipData[p.Ship]
 
-	// Find and detonate all torpedoes owned by this player
+	// Find and detonate enemy torpedoes near this player
 	detonatedCount := 0
 	for _, torp := range c.server.gameState.Torps {
-		if torp.Owner == c.PlayerID {
+		if torp.Status != 1 || torp.Owner == c.PlayerID {
+			continue
+		}
+		// Only detonate enemy torpedoes (skip friendly)
+		if torp.Owner < 0 || torp.Owner >= game.MaxPlayers {
+			continue
+		}
+		torpOwner := c.server.gameState.Players[torp.Owner]
+		if torpOwner == nil || torpOwner.Team == p.Team {
+			continue
+		}
+		// Check if torpedo is within detonate range
+		dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
+		if dist > float64(game.PhaserDist) {
+			continue
+		}
+		{
 			// Check if we have enough fuel
 			if p.Fuel < shipStats.DetCost {
 				// Not enough fuel to detonate

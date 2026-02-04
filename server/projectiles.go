@@ -178,8 +178,13 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 		target.LockType = "none"
 		target.LockTarget = -1
 		target.Deaths++ // Increment death count
-		s.gameState.Players[torp.Owner].Kills += 1
-		s.gameState.Players[torp.Owner].KillsStreak += 1
+		if torp.Owner >= 0 && torp.Owner < game.MaxPlayers && s.gameState.Players[torp.Owner] != nil {
+			s.gameState.Players[torp.Owner].Kills += 1
+			s.gameState.Players[torp.Owner].KillsStreak += 1
+
+			// Send death message
+			s.broadcastDeathMessage(target, s.gameState.Players[torp.Owner])
+		}
 
 		// Update tournament stats
 		if s.gameState.T_mode {
@@ -192,9 +197,6 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 				stats.DamageTaken += torp.Damage
 			}
 		}
-
-		// Send death message
-		s.broadcastDeathMessage(target, s.gameState.Players[torp.Owner])
 	}
 }
 
@@ -215,8 +217,13 @@ func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targe
 		target.LockType = "none"
 		target.LockTarget = -1
 		target.Deaths++ // Increment death count
-		s.gameState.Players[plasma.Owner].Kills += 1
-		s.gameState.Players[plasma.Owner].KillsStreak += 1
+		if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers && s.gameState.Players[plasma.Owner] != nil {
+			s.gameState.Players[plasma.Owner].Kills += 1
+			s.gameState.Players[plasma.Owner].KillsStreak += 1
+
+			// Send death message
+			s.broadcastDeathMessage(target, s.gameState.Players[plasma.Owner])
+		}
 
 		// Update tournament stats
 		if s.gameState.T_mode {
@@ -229,8 +236,5 @@ func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targe
 				stats.DamageTaken += plasma.Damage
 			}
 		}
-
-		// Send death message
-		s.broadcastDeathMessage(target, s.gameState.Players[plasma.Owner])
 	}
 }

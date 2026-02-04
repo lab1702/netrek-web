@@ -36,6 +36,22 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 
 	shipStats := game.ShipData[p.Ship]
 
+	// Check torpedo count
+	if p.NumTorps >= game.MaxTorps {
+		return
+	}
+
+	// Check fuel (same formula as human handler)
+	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
+	if p.Fuel < torpCost {
+		return
+	}
+
+	// Check weapon temperature
+	if p.WTemp > shipStats.MaxWpnTemp-100 {
+		return
+	}
+
 	// Use unified intercept solver
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
@@ -64,7 +80,8 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
 	p.NumTorps++
-	p.Fuel -= shipStats.TorpDamage * shipStats.TorpFuelMult
+	p.Fuel -= torpCost
+	p.WTemp += 50
 }
 
 // fireBotPhaser fires a phaser from a bot
@@ -75,6 +92,18 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
+
+	// Check fuel (same formula as human handler)
+	phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
+	if p.Fuel < phaserCost {
+		return
+	}
+
+	// Check weapon temperature
+	if p.WTemp > shipStats.MaxWpnTemp-100 {
+		return
+	}
+
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
 
 	// Calculate phaser range using original formula: PHASEDIST * phaserdamage / 100
@@ -119,7 +148,8 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		},
 	}
 
-	p.Fuel -= shipStats.PhaserDamage * shipStats.PhaserFuelMult
+	p.Fuel -= phaserCost
+	p.WTemp += 70
 }
 
 // fireBotPhaserAtPlasma fires a phaser at an incoming plasma torpedo to destroy it
@@ -311,6 +341,22 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 
 	shipStats := game.ShipData[p.Ship]
 
+	// Check torpedo count
+	if p.NumTorps >= game.MaxTorps {
+		return
+	}
+
+	// Check fuel (same formula as human handler)
+	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
+	if p.Fuel < torpCost {
+		return
+	}
+
+	// Check weapon temperature
+	if p.WTemp > shipStats.MaxWpnTemp-100 {
+		return
+	}
+
 	// Use unified intercept solver
 	shooterPos := Point2D{X: p.X, Y: p.Y}
 	targetPos := Point2D{X: target.X, Y: target.Y}
@@ -339,7 +385,8 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
 	p.NumTorps++
-	p.Fuel -= shipStats.TorpDamage * shipStats.TorpFuelMult
+	p.Fuel -= torpCost
+	p.WTemp += 50
 }
 
 // fireTorpedoSpread fires multiple torpedoes in a spread pattern
@@ -350,6 +397,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
+	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
 
 	// Use unified intercept solver for base direction
 	shooterPos := Point2D{X: p.X, Y: p.Y}
@@ -362,6 +410,14 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 
 	for i := 0; i < count; i++ {
 		if p.NumTorps >= game.MaxTorps {
+			break
+		}
+		// Check fuel for each torpedo
+		if p.Fuel < torpCost {
+			break
+		}
+		// Check weapon temperature
+		if p.WTemp > shipStats.MaxWpnTemp-100 {
 			break
 		}
 
@@ -387,7 +443,8 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 
 		s.gameState.Torps = append(s.gameState.Torps, torp)
 		p.NumTorps++
-		p.Fuel -= shipStats.TorpDamage * shipStats.TorpFuelMult
+		p.Fuel -= torpCost
+		p.WTemp += 50
 	}
 }
 
@@ -399,6 +456,22 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
+
+	// Check torpedo count
+	if p.NumTorps >= game.MaxTorps {
+		return
+	}
+
+	// Check fuel (same formula as human handler)
+	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
+	if p.Fuel < torpCost {
+		return
+	}
+
+	// Check weapon temperature
+	if p.WTemp > shipStats.MaxWpnTemp-100 {
+		return
+	}
 
 	// Use unified intercept solver
 	shooterPos := Point2D{X: p.X, Y: p.Y}
@@ -425,7 +498,8 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
 	p.NumTorps++
-	p.Fuel -= shipStats.TorpDamage * shipStats.TorpFuelMult
+	p.Fuel -= torpCost
+	p.WTemp += 50
 }
 
 // planetDefenseWeaponLogic implements aggressive weapon usage for planet defense

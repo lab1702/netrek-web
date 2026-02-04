@@ -896,8 +896,12 @@ function connect() {
     };
     
     ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        handleServerMessage(msg);
+        try {
+            const msg = JSON.parse(event.data);
+            handleServerMessage(msg);
+        } catch (e) {
+            console.error('Failed to parse server message:', e);
+        }
     };
     
     ws.onerror = (error) => {
@@ -1061,7 +1065,7 @@ function getInterpolatedPosition(current, previous, entityId) {
     
     const now = Date.now();
     const timeSinceUpdate = now - gameState.lastUpdate;
-    const updateInterval = 20; // 50 FPS = 20ms per frame
+    const updateInterval = 100; // 10 FPS = 100ms per frame
     const t = Math.min(timeSinceUpdate / updateInterval, 1);
     
     // Find previous position
@@ -2188,7 +2192,7 @@ function showInfoWindow() {
         const canvas = canvases.tactical;
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
-        const scale = canvas.width / 20000;
+        const scale = 0.025; // Must match renderTactical scale
         
         // Check players
         for (let i = 0; i < gameState.players.length; i++) {

@@ -120,7 +120,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		// Detonate all our torpedoes for area damage
 		for _, torp := range s.gameState.Torps {
 			if torp.Owner == p.ID && torp.Status == 1 {
-				torp.Status = 2 // Exploding
+				torp.Fuse = 1 // Will explode next frame
 			}
 		}
 		p.BotCooldown = 3
