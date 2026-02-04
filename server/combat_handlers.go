@@ -10,7 +10,7 @@ import (
 
 // handleFire processes torpedo fire commands
 func (c *Client) handleFire(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -26,8 +26,8 @@ func (c *Client) handleFire(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -324,7 +324,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 
 // handlePlasma processes plasma torpedo fire commands
 func (c *Client) handlePlasma(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -340,8 +340,8 @@ func (c *Client) handlePlasma(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -476,15 +476,15 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 
 // handleShields toggles shields
 func (c *Client) handleShields(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 

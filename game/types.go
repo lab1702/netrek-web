@@ -35,6 +35,9 @@ const (
 	ShipExplosionMaxDist = 3000 // Maximum explosion damage radius
 	ShipExplosionRange   = 2650 // Used in damage falloff calculation (MaxDist - ExplosionDist)
 
+	// Plasma explosion constant
+	PlasmaExplosionDist = 1500 // Plasma has larger explosion radius than torpedoes
+
 	// Phaser hit detection constants (from original Netrek)
 	ZAPPLAYERDIST = 390 // Phaser will hit player if line is this close
 	ZAPPLASMADIST = 270 // Phaser will hit plasma if line is this close
@@ -42,6 +45,23 @@ const (
 	// Game timing
 	FPS            = 10
 	UpdateInterval = time.Millisecond * 100 // 10 FPS (10 ticks per second)
+
+	// Physics constants
+	FractionScale = 1000 // Scale factor for fractional accumulators (turn rate, acceleration)
+
+	// Tractor/Pressor beam constants (from original Netrek daemon.c)
+	TractorFuelCost = 20 // Fuel cost per tick when using tractor/pressor
+	TractorHeatCost = 5  // Engine heat added per tick when using tractor/pressor
+
+	// Alert level range constants (from original Netrek)
+	AlertYellowRange = 14285 // YRANGE = GWIDTH/7 = 100000/7
+	AlertRedRange    = 10000 // RRANGE = GWIDTH/10 = 100000/10
+
+	// Temperature limits
+	MaxEngineTempCap = 1500 // Maximum engine temperature cap
+
+	// Ship type count for validation
+	NumShipTypes = 6 // Scout, Destroyer, Cruiser, Battleship, Assault, Starbase
 )
 
 // Team IDs

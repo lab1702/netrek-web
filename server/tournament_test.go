@@ -145,21 +145,37 @@ func TestTournamentMode(t *testing.T) {
 			}
 		}
 
-		// Check that activation message was broadcast
-		select {
-		case msg := <-server.broadcast:
-			if msg.Type != MsgTypeMessage {
-				t.Errorf("Expected message type %s, got %s", MsgTypeMessage, msg.Type)
+		// Check that activation messages were broadcast (warning before reset, info after)
+		// Drain all messages and verify we got both warning and info
+		gotWarning := false
+		gotInfo := false
+		for i := 0; i < 2; i++ {
+			select {
+			case msg := <-server.broadcast:
+				if msg.Type != MsgTypeMessage {
+					t.Errorf("Expected message type %s, got %s", MsgTypeMessage, msg.Type)
+					continue
+				}
+				data, ok := msg.Data.(map[string]interface{})
+				if !ok {
+					t.Error("Expected message data to be a map")
+					continue
+				}
+				switch data["type"] {
+				case "warning":
+					gotWarning = true
+				case "info":
+					gotInfo = true
+				}
+			default:
+				// No more messages
 			}
-			data, ok := msg.Data.(map[string]interface{})
-			if !ok {
-				t.Error("Expected message data to be a map")
-			}
-			if data["type"] != "info" {
-				t.Errorf("Expected info message, got %s", data["type"])
-			}
-		default:
-			t.Error("Expected tournament activation broadcast message")
+		}
+		if !gotWarning {
+			t.Error("Expected tournament activation warning message before reset")
+		}
+		if !gotInfo {
+			t.Error("Expected tournament activation info message after reset")
 		}
 	})
 

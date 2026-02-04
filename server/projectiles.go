@@ -19,8 +19,9 @@ func (s *Server) updateProjectiles() {
 }
 
 // updateTorpedoes handles torpedo movement, collision detection, and cleanup
+// Uses in-place filtering to avoid slice allocation every frame
 func (s *Server) updateTorpedoes() {
-	newTorps := make([]*game.Torpedo, 0)
+	writeIdx := 0
 	for _, torp := range s.gameState.Torps {
 		// If torpedo is already exploding, remove it this frame
 		if torp.Status == 3 {
@@ -97,14 +98,16 @@ func (s *Server) updateTorpedoes() {
 		}
 
 		// Keep torpedo in list (even if exploding, so it shows for one frame)
-		newTorps = append(newTorps, torp)
+		s.gameState.Torps[writeIdx] = torp
+		writeIdx++
 	}
-	s.gameState.Torps = newTorps
+	s.gameState.Torps = s.gameState.Torps[:writeIdx]
 }
 
 // updatePlasmas handles plasma movement, collision detection, and cleanup
+// Uses in-place filtering to avoid slice allocation every frame
 func (s *Server) updatePlasmas() {
-	newPlasmas := make([]*game.Plasma, 0)
+	writeIdx := 0
 	for _, plasma := range s.gameState.Plasmas {
 		// If plasma is already exploding, remove it this frame
 		if plasma.Status == 3 {
@@ -146,7 +149,6 @@ func (s *Server) updatePlasmas() {
 
 		// Check for hits using spatial grid for O(1) average lookup (falls back to O(n) if grid unavailable)
 		hit := false
-		explosionRadius := 1500.0 // Plasma has larger explosion radius
 		var nearbyPlayers []int
 		if s.playerGrid != nil {
 			nearbyPlayers = s.playerGrid.GetNearby(plasma.X, plasma.Y)
@@ -172,7 +174,7 @@ func (s *Server) updatePlasmas() {
 				}
 			}
 
-			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) < explosionRadius {
+			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) < game.PlasmaExplosionDist {
 				// Hit!
 				s.handlePlasmaHit(plasma, p, i)
 				hit = true
@@ -186,9 +188,10 @@ func (s *Server) updatePlasmas() {
 		}
 
 		// Keep plasma in list (even if exploding, so it shows for one frame)
-		newPlasmas = append(newPlasmas, plasma)
+		s.gameState.Plasmas[writeIdx] = plasma
+		writeIdx++
 	}
-	s.gameState.Plasmas = newPlasmas
+	s.gameState.Plasmas = s.gameState.Plasmas[:writeIdx]
 }
 
 // handleTorpedoHit processes a torpedo hit on a player

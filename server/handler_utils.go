@@ -115,3 +115,35 @@ func validateShipType(ship game.ShipType) bool {
 	_, ok := game.ShipData[ship]
 	return ok
 }
+
+// validPlayerID checks if the client has a valid player ID
+func (c *Client) validPlayerID() bool {
+	id := c.GetPlayerID()
+	return id >= 0 && id < game.MaxPlayers
+}
+
+// getAlivePlayer returns the player for this client if valid and alive.
+// Returns nil if player ID is invalid or player is not alive.
+// Caller must hold gameState lock (read or write).
+func (c *Client) getAlivePlayer() *game.Player {
+	id := c.GetPlayerID()
+	if id < 0 || id >= game.MaxPlayers {
+		return nil
+	}
+	p := c.server.gameState.Players[id]
+	if p.Status != game.StatusAlive {
+		return nil
+	}
+	return p
+}
+
+// getPlayer returns the player for this client regardless of status.
+// Returns nil if player ID is invalid.
+// Caller must hold gameState lock (read or write).
+func (c *Client) getPlayer() *game.Player {
+	id := c.GetPlayerID()
+	if id < 0 || id >= game.MaxPlayers {
+		return nil
+	}
+	return c.server.gameState.Players[id]
+}

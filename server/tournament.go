@@ -29,7 +29,18 @@ func (s *Server) checkTournamentMode() {
 	shouldBeInTMode := teamsWithEnough >= 2
 
 	if !wasInTMode && shouldBeInTMode {
-		// Entering tournament mode
+		// Entering tournament mode - announce BEFORE resetting so players understand the teleport
+		select {
+		case s.broadcast <- ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": "⚔️ TOURNAMENT MODE ACTIVATING! 4v4 minimum reached. Resetting galaxy and teleporting all players to home worlds...",
+				"type": "warning",
+			},
+		}:
+		default:
+		}
+
 		s.gameState.T_mode = true
 		s.gameState.T_start = s.gameState.Frame
 		s.gameState.T_remain = 1800 // 30 minutes in seconds
@@ -132,12 +143,12 @@ func (s *Server) checkTournamentMode() {
 			}
 		}
 
-		// Announce T-mode
+		// Announce T-mode is now active
 		select {
 		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": "⚔️ TOURNAMENT MODE ACTIVATED! 4v4 minimum reached. 30 minute time limit. Galaxy and all ships reset for fair start!",
+				"text": "⚔️ TOURNAMENT MODE ACTIVE! 30 minute time limit. Fight for victory!",
 				"type": "info",
 			},
 		}:

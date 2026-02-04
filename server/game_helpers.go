@@ -45,7 +45,8 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.RespawnMsgSent = false // Reset respawn message flag
 
 	// Check for pending refit before resetting ship stats
-	if p.NextShipType >= 0 && p.NextShipType < len(game.ShipData) {
+	// Use NumShipTypes constant for validation (ShipData is a map, len() may not be reliable)
+	if p.NextShipType >= 0 && p.NextShipType < game.NumShipTypes {
 		// Special check for starbase refit - ensure team doesn't already have one
 		if game.ShipType(p.NextShipType) == game.ShipStarbase {
 			starbaseCounts := s.countStarbasesByTeam()

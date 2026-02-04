@@ -73,9 +73,8 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 	}
 
 	// Cap ETemp at a reasonable maximum (150% of overheat threshold)
-	const maxETempCap = 1500
-	if p.ETemp > maxETempCap {
-		p.ETemp = maxETempCap
+	if p.ETemp > game.MaxEngineTempCap {
+		p.ETemp = game.MaxEngineTempCap
 	}
 
 	// Recharge fuel using ship-specific rate

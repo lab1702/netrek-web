@@ -7,6 +7,37 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
+// teamIndexToFlag converts a team array index (0-3) to a team flag (TeamFed, TeamRom, etc.)
+func teamIndexToFlag(index int) int {
+	return 1 << index // 0->1(Fed), 1->2(Rom), 2->4(Kli), 3->8(Ori)
+}
+
+// teamFlagToIndex converts a team flag to an array index
+func teamFlagToIndex(team int) int {
+	switch team {
+	case game.TeamFed:
+		return 0
+	case game.TeamRom:
+		return 1
+	case game.TeamKli:
+		return 2
+	case game.TeamOri:
+		return 3
+	default:
+		return -1
+	}
+}
+
+// countBitsSet counts the number of bits set in an integer (for counting teams)
+func countBitsSet(n int) int {
+	count := 0
+	for n > 0 {
+		count += n & 1
+		n >>= 1
+	}
+	return count
+}
+
 // checkVictoryConditions checks for genocide or conquest victory
 func (s *Server) checkVictoryConditions() {
 	if s.gameState.GameOver {
@@ -54,41 +85,26 @@ func (s *Server) checkVictoryConditions() {
 	totalPlayers := 0
 	teamsAlive := 0
 	lastTeamAlive := -1
-	teamsEverPlayed := 0 // Track how many teams have ever had players
+	teamsEverPlayed := 0 // Bitmask of teams that have ever had players
 
-	// Check current players
+	// Check current players and count teams with alive players
 	for i, count := range s.gameState.TeamPlayers {
 		totalPlayers += count
 		if count > 0 {
 			teamsAlive++
-			lastTeamAlive = 1 << i // Convert to team flag (1, 2, 4, 8)
+			lastTeamAlive = teamIndexToFlag(i)
 		}
 	}
 
-	// Count how many teams have ever had players in this game
+	// Build bitmask of teams that have ever had players in this game
 	for _, p := range s.gameState.Players {
 		if p.Status != game.StatusFree && p.Team > 0 {
-			// This player slot was used by a team
-			switch p.Team {
-			case game.TeamFed:
-				teamsEverPlayed |= 1
-			case game.TeamRom:
-				teamsEverPlayed |= 2
-			case game.TeamKli:
-				teamsEverPlayed |= 4
-			case game.TeamOri:
-				teamsEverPlayed |= 8
-			}
+			teamsEverPlayed |= p.Team // Team constants are already bit flags
 		}
 	}
 
-	// Count bits set in teamsEverPlayed to get number of teams that played
-	numTeamsPlayed := 0
-	for i := 0; i < 4; i++ {
-		if (teamsEverPlayed>>i)&1 == 1 {
-			numTeamsPlayed++
-		}
-	}
+	// Count number of distinct teams that have played
+	numTeamsPlayed := countBitsSet(teamsEverPlayed)
 
 	// Only check for genocide if:
 	// - At least 2 different teams have played
@@ -111,7 +127,7 @@ func (s *Server) checkVictoryConditions() {
 			if count == game.MaxPlanets {
 				// Conquest victory
 				s.gameState.GameOver = true
-				s.gameState.Winner = 1 << i // Convert to team flag
+				s.gameState.Winner = teamIndexToFlag(i)
 				s.gameState.WinType = "conquest"
 				s.announceVictory()
 				return
@@ -144,7 +160,7 @@ func (s *Server) checkVictoryConditions() {
 		if teamsOwningPlanets == 1 && teamWithPlanets >= 0 && independentPlanets > 0 {
 			// Check if any enemy players are carrying armies
 			enemyHasArmies := false
-			dominantTeam := 1 << teamWithPlanets
+			dominantTeam := teamIndexToFlag(teamWithPlanets)
 
 			for _, p := range s.gameState.Players {
 				// Check if player is alive, on a different team, and carrying armies

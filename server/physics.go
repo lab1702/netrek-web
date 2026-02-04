@@ -32,8 +32,8 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 		p.SubDir += turnIncrement
 
 		// Extract whole direction units and keep remainder
-		ticks := p.SubDir / 1000
-		p.SubDir = p.SubDir % 1000
+		ticks := p.SubDir / game.FractionScale
+		p.SubDir = p.SubDir % game.FractionScale
 
 		// Convert direction to 0-255 scale for calculation (like original)
 		currentDir256 := int(p.Dir * 256.0 / (2 * math.Pi))
@@ -85,20 +85,20 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 		if actualDesSpeed > p.Speed {
 			// Accelerating
 			p.AccFrac += shipStats.AccInt
-			// Each 1000 units of accumulator = 1 speed unit change (original Netrek uses 1000)
-			if p.AccFrac >= 1000 {
-				speedInc := p.AccFrac / 1000
+			// Each FractionScale units of accumulator = 1 speed unit change
+			if p.AccFrac >= game.FractionScale {
+				speedInc := p.AccFrac / game.FractionScale
 				p.Speed = math.Min(p.Speed+float64(speedInc), actualDesSpeed)
-				p.AccFrac = p.AccFrac % 1000
+				p.AccFrac = p.AccFrac % game.FractionScale
 			}
 		} else if actualDesSpeed < p.Speed {
 			// Decelerating
 			p.AccFrac += shipStats.DecInt
-			// Each 1000 units of accumulator = 1 speed unit change (original Netrek uses 1000)
-			if p.AccFrac >= 1000 {
-				speedDec := p.AccFrac / 1000
+			// Each FractionScale units of accumulator = 1 speed unit change
+			if p.AccFrac >= game.FractionScale {
+				speedDec := p.AccFrac / game.FractionScale
 				p.Speed = math.Max(p.Speed-float64(speedDec), actualDesSpeed)
-				p.AccFrac = p.AccFrac % 1000
+				p.AccFrac = p.AccFrac % game.FractionScale
 			}
 		}
 	}
@@ -356,12 +356,12 @@ func (s *Server) updateTractorBeams() {
 							}
 						}
 
-						// Use fuel for beam and add engine heat (from original: TRACTCOST=20, TRACTEHEAT=5)
-						p.Fuel = int(math.Max(0, float64(p.Fuel-20)))
-						p.ETemp += 5 // TRACTEHEAT from original
+						// Use fuel for beam and add engine heat
+						p.Fuel = int(math.Max(0, float64(p.Fuel-game.TractorFuelCost)))
+						p.ETemp += game.TractorHeatCost
 						// Cap at maximum
-						if p.ETemp > 1500 {
-							p.ETemp = 1500
+						if p.ETemp > game.MaxEngineTempCap {
+							p.ETemp = game.MaxEngineTempCap
 						}
 						if p.Fuel == 0 {
 							p.Tractoring = -1
@@ -381,11 +381,6 @@ func (s *Server) updateTractorBeams() {
 // updateAlertLevels calculates alert levels for all players based on nearby enemies
 func (s *Server) updateAlertLevels() {
 	// Calculate alert level based on nearby enemy ships (from original daemon.c)
-	// YRANGE = GWIDTH/7 = 100000/7 = ~14285
-	// RRANGE = GWIDTH/10 = 100000/10 = 10000
-	const YRANGE = 14285
-	const RRANGE = 10000
-
 	for i := 0; i < game.MaxPlayers; i++ {
 		p := s.gameState.Players[i]
 		if p.Status != game.StatusAlive {
@@ -417,17 +412,17 @@ func (s *Server) updateAlertLevels() {
 			dy := math.Abs(p.Y - enemy.Y)
 
 			// Quick range check
-			if dx > YRANGE || dy > YRANGE {
+			if dx > game.AlertYellowRange || dy > game.AlertYellowRange {
 				continue
 			}
 
 			dist := dx*dx + dy*dy
 
-			if dist < RRANGE*RRANGE {
+			if dist < game.AlertRedRange*game.AlertRedRange {
 				// Red alert - enemy very close
 				p.AlertLevel = "red"
 				break // Can't get worse than red
-			} else if dist < YRANGE*YRANGE && p.AlertLevel != "red" {
+			} else if dist < game.AlertYellowRange*game.AlertYellowRange && p.AlertLevel != "red" {
 				// Yellow alert - enemy moderately close
 				p.AlertLevel = "yellow"
 				// Don't break, keep checking for closer enemies
