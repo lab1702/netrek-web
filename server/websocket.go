@@ -103,6 +103,10 @@ type Client struct {
 	conn     *websocket.Conn
 	send     chan ServerMessage
 	server   *Server
+
+	// Rate limiting for destructive bot commands
+	lastBotCmd     time.Time // Last /fillbots or /clearbots execution
+	botCmdCooldown time.Duration
 }
 
 // GetPlayerID returns the player ID atomically
@@ -623,10 +627,11 @@ func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 
 	client := &Client{
-		ID:     clientID,
-		conn:   conn,
-		send:   make(chan ServerMessage, 256),
-		server: s,
+		ID:             clientID,
+		conn:           conn,
+		send:           make(chan ServerMessage, 256),
+		server:         s,
+		botCmdCooldown: 10 * time.Second,
 	}
 	client.SetPlayerID(-1)
 
@@ -650,6 +655,11 @@ func (c *Client) readPump() {
 		return nil
 	})
 
+	// Per-client rate limiting: allow bursts but cap sustained rate
+	const maxMessagesPerSecond = 50
+	messageCount := 0
+	rateLimitReset := time.Now()
+
 	for {
 		var msg ClientMessage
 		err := c.conn.ReadJSON(&msg)
@@ -658,6 +668,17 @@ func (c *Client) readPump() {
 				log.Printf("WebSocket error: %v", err)
 			}
 			break
+		}
+
+		// Rate limiting: reset counter each second, drop messages if over limit
+		now := time.Now()
+		if now.Sub(rateLimitReset) >= time.Second {
+			messageCount = 0
+			rateLimitReset = now
+		}
+		messageCount++
+		if messageCount > maxMessagesPerSecond {
+			continue // Drop excess messages silently
 		}
 
 		c.handleMessage(msg)

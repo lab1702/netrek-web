@@ -11,29 +11,38 @@ import (
 
 // handleLogin processes login requests
 func (c *Client) handleLogin(data json.RawMessage) {
+	// Guard against double login: reject if client already has a valid player slot
+	if existingID := c.GetPlayerID(); existingID >= 0 && existingID < game.MaxPlayers {
+		c.sendMsg(ServerMessage{
+			Type: MsgTypeError,
+			Data: "Already logged in",
+		})
+		return
+	}
+
 	var loginData LoginData
 	if err := json.Unmarshal(data, &loginData); err != nil {
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeError,
 			Data: "Invalid login data",
-		}
+		})
 		return
 	}
 
 	// Validate team and ship type
 	if !validateTeam(loginData.Team) {
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeError,
 			Data: "Invalid team selection",
-		}
+		})
 		return
 	}
 
 	if !validateShipType(loginData.Ship) {
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeError,
 			Data: "Invalid ship type",
-		}
+		})
 		return
 	}
 
@@ -92,10 +101,10 @@ func (c *Client) handleLogin(data json.RawMessage) {
 				// Reject - this team already has the most players
 				log.Printf("Team balance enforced: Player %s denied joining team %d (would have %d players, other teams have fewer)",
 					loginData.Name, loginData.Team, requestedTeamCount+1)
-				c.send <- ServerMessage{
+				c.sendMsg(ServerMessage{
 					Type: MsgTypeError,
 					Data: "Team is full. Please join a team with fewer players for balance.",
-				}
+				})
 				c.server.gameState.Mu.Unlock()
 				return
 			}
@@ -112,10 +121,10 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	if loginData.Ship == game.ShipStarbase {
 		starbaseCounts := c.server.countStarbasesByTeam()
 		if starbaseCounts[loginData.Team] >= 1 {
-			c.send <- ServerMessage{
+			c.sendMsg(ServerMessage{
 				Type: MsgTypeError,
 				Data: "Your team already has a starbase. Only one starbase per team is allowed.",
-			}
+			})
 			c.server.gameState.Mu.Unlock()
 			return
 		}
@@ -130,10 +139,10 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	}
 
 	if playerID == -1 {
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeError,
 			Data: "Server full",
-		}
+		})
 		c.server.gameState.Mu.Unlock()
 		return
 	}
@@ -141,7 +150,8 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	// Set up the player (use pointer to modify in place)
 	p := c.server.gameState.Players[playerID]
 
-	// Initialize new player
+	// Reset all player fields to prevent stale state inheritance
+	// Identity
 	p.Name = loginData.Name
 	p.Team = loginData.Team
 	p.Ship = loginData.Ship
@@ -168,33 +178,91 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	p.X = homeX + offsetX
 	p.Y = homeY + offsetY
 
-	// Initialize ship stats
+	// Movement
+	p.Dir = 0
+	p.Speed = 0
+	p.DesSpeed = 0
+	p.DesDir = 0
+	p.SubDir = 0
+	p.AccFrac = 0
+
+	// Ship stats
 	shipStats := game.ShipData[loginData.Ship]
 	p.Shields = shipStats.MaxShields
 	p.Damage = 0
 	p.Fuel = shipStats.MaxFuel
 	p.Armies = 0
+	p.Kills = 0
+	p.KillsStreak = 0
+	p.Deaths = 0
+
+	// Weapons
 	p.WTemp = 0
 	p.ETemp = 0
-	p.Dir = 0
-	p.Speed = 0
-	p.DesDir = 0
-	p.DesSpeed = 0
+	p.NumTorps = 0
+	p.NumPlasma = 0
+
+	// Flags
+	p.Shields_up = false
+	p.Cloaked = false
+	p.Repairing = false
+	p.RepairRequest = false
+	p.RepairCounter = 0
+	p.Bombing = false
+	p.Beaming = false
+	p.BeamingUp = false
+	p.EngineOverheat = false
+	p.Tractoring = -1
+	p.Pressoring = -1
+
+	// Lock-on
+	p.LockType = "none"
+	p.LockTarget = -1
+
+	// Orbiting
+	p.Orbiting = -1
+
+	// Death tracking
+	p.ExplodeTimer = 0
+	p.KilledBy = -1
+	p.WhyDead = 0
+	p.RespawnMsgSent = false
+
+	// Engine overheat
+	p.OverheatTimer = 0
+
+	// Alert
+	p.AlertLevel = "green"
+
+	// Network
 	p.Connected = true
-	p.Shields_up = false // Shields DOWN by default
-	p.NextShipType = -1  // No pending refit on join
+	p.LastUpdate = time.Now()
+
+	// Bot fields (ensure human player doesn't inherit bot state)
+	p.IsBot = false
+	p.BotTarget = -1
+	p.BotTargetLockTime = 0
+	p.BotTargetValue = 0
+	p.BotPlanetApproachID = -1
+	p.BotDefenseTarget = -1
+	p.BotGoalX = 0
+	p.BotGoalY = 0
+	p.BotCooldown = 0
+
+	// Refit
+	p.NextShipType = -1
 
 	c.SetPlayerID(playerID)
 
 	// Send success response
-	c.send <- ServerMessage{
+	c.sendMsg(ServerMessage{
 		Type: "login_success",
 		Data: map[string]interface{}{
 			"player_id": playerID,
 			"team":      loginData.Team,
 			"ship":      loginData.Ship,
 		},
-	}
+	})
 
 	shipData := game.ShipData[p.Ship]
 	log.Printf("Player %s joined as %s on team %d", loginData.Name, shipData.Name, loginData.Team)
@@ -265,8 +333,11 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
 
-	// Broadcast self-destruct message after releasing lock
-	c.server.broadcast <- selfDestructMsg
+	// Broadcast self-destruct message after releasing lock (non-blocking)
+	select {
+	case c.server.broadcast <- selfDestructMsg:
+	default:
+	}
 
 	// Broadcast pre-captured team counts to all clients
 	c.server.broadcastTeamCountsData(teamCounts)

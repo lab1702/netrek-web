@@ -28,10 +28,10 @@ func TestBotShieldAssessment(t *testing.T) {
 					Owner:  1,            // Different from bot
 					X:      bot.X + 1900, // Within TorpedoVeryClose range
 					Y:      bot.Y,
-					Dir:    math.Pi,      // Heading west (toward bot)
-					Speed:  600,          // Fast torpedo
-					Status: 1,            // Moving
-					Team:   game.TeamKli, // Enemy team
+					Dir:    math.Pi,       // Heading west (toward bot)
+					Speed:  600,           // Fast torpedo
+					Status: game.TorpMove, // Moving
+					Team:   game.TeamKli,  // Enemy team
 				}
 				gs.Torps = append(gs.Torps, torp)
 			},
@@ -78,7 +78,7 @@ func TestBotShieldAssessment(t *testing.T) {
 					Y:      bot.Y,
 					Dir:    math.Pi,
 					Speed:  600,
-					Status: 1,
+					Status: game.TorpMove,
 					Team:   game.TeamKli,
 				}
 				gs.Torps = append(gs.Torps, torp)
@@ -98,7 +98,7 @@ func TestBotShieldAssessment(t *testing.T) {
 					Y:      bot.Y,
 					Dir:    math.Pi,
 					Speed:  600,
-					Status: 1,
+					Status: game.TorpMove,
 					Team:   game.TeamKli,
 				}
 				gs.Torps = append(gs.Torps, torp)
@@ -152,7 +152,7 @@ func TestBotShieldAssessment(t *testing.T) {
 					Y:      bot.Y,
 					Dir:    math.Pi,
 					Speed:  300,
-					Status: 1,
+					Status: game.TorpMove,
 					Team:   game.TeamKli,
 				}
 				gs.Plasmas = append(gs.Plasmas, plasma)

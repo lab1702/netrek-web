@@ -247,7 +247,7 @@ func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 	speed := float64(game.ShipData[p.Ship].MaxSpeed) * 20
 
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner == p.ID || torp.Status != 1 {
+		if torp.Owner == p.ID || torp.Status != game.TorpMove {
 			continue
 		}
 

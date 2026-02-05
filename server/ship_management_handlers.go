@@ -10,15 +10,15 @@ import (
 
 // handleRepair toggles repair mode
 func (c *Client) handleRepair(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -70,7 +70,7 @@ func (c *Client) handleRepair(data json.RawMessage) {
 
 // handleBeam handles army beaming
 func (c *Client) handleBeam(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -83,8 +83,8 @@ func (c *Client) handleBeam(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive || p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
+	p := c.getAlivePlayer()
+	if p == nil || p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
 		return
 	}
 
@@ -140,15 +140,15 @@ func (c *Client) handleBeam(data json.RawMessage) {
 
 // handleBomb handles planet bombing
 func (c *Client) handleBomb(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive || p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
+	p := c.getAlivePlayer()
+	if p == nil || p.Orbiting < 0 || p.Orbiting >= game.MaxPlanets {
 		return
 	}
 

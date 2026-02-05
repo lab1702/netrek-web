@@ -24,7 +24,7 @@ func (s *Server) updateTorpedoes() {
 	writeIdx := 0
 	for _, torp := range s.gameState.Torps {
 		// If torpedo is already exploding, remove it this frame
-		if torp.Status == 3 {
+		if torp.Status == game.TorpDet {
 			// Decrement owner's torpedo count
 			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
 				if owner := s.gameState.Players[torp.Owner]; owner != nil {
@@ -92,7 +92,7 @@ func (s *Server) updateTorpedoes() {
 				// Hit!
 				s.handleTorpedoHit(torp, p, i)
 				// Mark torpedo as exploding - it will be removed next frame
-				torp.Status = 3
+				torp.Status = game.TorpDet
 				break
 			}
 		}
@@ -110,7 +110,7 @@ func (s *Server) updatePlasmas() {
 	writeIdx := 0
 	for _, plasma := range s.gameState.Plasmas {
 		// If plasma is already exploding, remove it this frame
-		if plasma.Status == 3 {
+		if plasma.Status == game.TorpDet {
 			// Decrement owner's plasma count
 			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
 				if owner := s.gameState.Players[plasma.Owner]; owner != nil {
@@ -184,7 +184,7 @@ func (s *Server) updatePlasmas() {
 
 		if hit {
 			// Mark plasma as exploding - it will be removed next frame
-			plasma.Status = 3
+			plasma.Status = game.TorpDet
 		}
 
 		// Keep plasma in list (even if exploding, so it shows for one frame)

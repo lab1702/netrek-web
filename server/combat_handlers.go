@@ -57,14 +57,14 @@ func (c *Client) handleFire(data json.RawMessage) {
 	// Fire torpedo
 	torp := &game.Torpedo{
 		ID:     c.server.nextTorpID,
-		Owner:  c.GetPlayerID(),
+		Owner:  p.ID,
 		X:      p.X,
 		Y:      p.Y,
 		Dir:    fireData.Dir,
 		Speed:  float64(shipStats.TorpSpeed * 20), // Warp speed: 20 units per tick at 10 ticks/sec
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse, // Use ship-specific torpedo fuse
-		Status: 1,                  // Moving
+		Status: game.TorpMove,      // Moving
 		Team:   p.Team,
 	}
 
@@ -77,7 +77,7 @@ func (c *Client) handleFire(data json.RawMessage) {
 
 // handlePhaser processes phaser fire commands (using original Netrek algorithm)
 func (c *Client) handlePhaser(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -87,11 +87,14 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		return
 	}
 
+	// Validate direction
+	phaserData.Dir = validateDirection(phaserData.Dir)
+
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p == nil || p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -194,7 +197,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 
 	// Check plasma torpedoes (if they exist)
 	for _, plasma := range c.server.gameState.Plasmas {
-		if plasma == nil || plasma.Status != 1 || plasma.Owner == c.GetPlayerID() {
+		if plasma == nil || plasma.Status != game.TorpMove || plasma.Owner == p.ID {
 			continue
 		}
 
@@ -228,16 +231,16 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		// Use ZAPPLASMADIST for plasma hit detection
 		if dx*dx+dy*dy <= float64(game.ZAPPLASMADIST*game.ZAPPLASMADIST) {
 			// Destroy the plasma - mark as exploding; updatePlasmas() will decrement NumPlasma
-			plasma.Status = 3 // Detonate
+			plasma.Status = game.TorpDet // Detonate
 
-			log.Printf("Phaser destroyed plasma: player %d destroyed plasma from player %d", c.GetPlayerID(), plasma.Owner)
+			log.Printf("Phaser destroyed plasma: player %d destroyed plasma from player %d", p.ID, plasma.Owner)
 
 			// Send phaser visual to plasma location (non-blocking)
 			select {
 			case c.server.broadcast <- ServerMessage{
 				Type: "phaser",
 				Data: map[string]interface{}{
-					"from":  c.GetPlayerID(),
+					"from":  p.ID,
 					"to":    -2, // Special code for plasma hit
 					"x":     plasma.X,
 					"y":     plasma.Y,
@@ -254,7 +257,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 	if target != nil {
 		// Calculate damage based on distance using original formula
 		damage := float64(shipStats.PhaserDamage) * (1.0 - targetDist/myPhaserRange)
-		log.Printf("Phaser hit: player %d hit player %d for %.1f damage at range %.0f", c.GetPlayerID(), target.ID, damage, targetDist)
+		log.Printf("Phaser hit: player %d hit player %d for %.1f damage at range %.0f", p.ID, target.ID, damage, targetDist)
 
 		// Apply damage to shields first, then hull
 		game.ApplyDamageWithShields(target, int(damage))
@@ -263,7 +266,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			// Ship destroyed by phaser!
 			target.Status = game.StatusExplode
 			target.ExplodeTimer = game.ExplodeTimerFrames
-			target.KilledBy = c.GetPlayerID()
+			target.KilledBy = p.ID
 			target.WhyDead = game.KillPhaser
 			target.Bombing = false   // Stop bombing when destroyed
 			target.Beaming = false   // Stop beaming when destroyed
@@ -278,7 +281,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 
 			// Update tournament stats
 			if c.server.gameState.T_mode {
-				if stats, ok := c.server.gameState.TournamentStats[c.GetPlayerID()]; ok {
+				if stats, ok := c.server.gameState.TournamentStats[p.ID]; ok {
 					stats.Kills++
 					stats.DamageDealt += int(damage)
 				}
@@ -297,7 +300,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		case c.server.broadcast <- ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
-				"from":  c.GetPlayerID(),
+				"from":  p.ID,
 				"to":    target.ID,
 				"range": myPhaserRange,
 			},
@@ -311,7 +314,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		case c.server.broadcast <- ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
-				"from":  c.GetPlayerID(),
+				"from":  p.ID,
 				"to":    -1,     // -1 indicates no target
 				"dir":   course, // Direction the phaser was fired
 				"range": myPhaserRange,
@@ -375,14 +378,14 @@ func (c *Client) handlePlasma(data json.RawMessage) {
 	// Fire plasma torpedo
 	plasma := &game.Plasma{
 		ID:     c.server.nextPlasmaID,
-		Owner:  c.GetPlayerID(),
+		Owner:  p.ID,
 		X:      p.X,
 		Y:      p.Y,
 		Dir:    plasmaData.Dir,
 		Speed:  float64(shipStats.PlasmaSpeed * 20), // Warp speed: 20 units per tick at 10 ticks/sec
 		Damage: shipStats.PlasmaDamage,
 		Fuse:   shipStats.PlasmaFuse, // Use original fuse value directly (already scaled for our 10 FPS)
-		Status: 1,                    // Moving
+		Status: game.TorpMove,        // Moving
 		Team:   p.Team,
 	}
 
@@ -395,15 +398,15 @@ func (c *Client) handlePlasma(data json.RawMessage) {
 
 // handleDetonate handles detonating own torpedoes
 func (c *Client) handleDetonate(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -418,7 +421,7 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 	// Find and detonate enemy torpedoes near this player
 	detonatedCount := 0
 	for _, torp := range c.server.gameState.Torps {
-		if torp.Status != 1 || torp.Owner == c.GetPlayerID() {
+		if torp.Status != game.TorpMove || torp.Owner == p.ID {
 			continue
 		}
 		// Only detonate enemy torpedoes (skip friendly)
@@ -444,7 +447,7 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 					Data: map[string]interface{}{
 						"text": "Not enough fuel to detonate",
 						"type": "error",
-						"to":   c.GetPlayerID(), // Send only to this player
+						"to":   p.ID, // Send only to this player
 					},
 				}:
 				default:
@@ -504,7 +507,7 @@ func (c *Client) handleShields(data json.RawMessage) {
 
 // handleTractor handles tractor beam engagement
 func (c *Client) handleTractor(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -519,8 +522,8 @@ func (c *Client) handleTractor(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -543,7 +546,7 @@ func (c *Client) handleTractor(data json.RawMessage) {
 		// Check if target is valid and in range
 		if tractorData.TargetID >= 0 && tractorData.TargetID < game.MaxPlayers {
 			target := c.server.gameState.Players[tractorData.TargetID]
-			if target.Status == game.StatusAlive && target.ID != c.GetPlayerID() {
+			if target != nil && target.Status == game.StatusAlive && target.ID != p.ID {
 				// Check range (using ship-specific range)
 				dist := game.Distance(p.X, p.Y, target.X, target.Y)
 				tractorRange := float64(game.TractorDist) * shipStats.TractorRange
@@ -557,7 +560,7 @@ func (c *Client) handleTractor(data json.RawMessage) {
 
 // handlePressor handles pressor beam engagement
 func (c *Client) handlePressor(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -572,8 +575,8 @@ func (c *Client) handlePressor(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -596,7 +599,7 @@ func (c *Client) handlePressor(data json.RawMessage) {
 		// Check if target is valid and in range
 		if pressorData.TargetID >= 0 && pressorData.TargetID < game.MaxPlayers {
 			target := c.server.gameState.Players[pressorData.TargetID]
-			if target.Status == game.StatusAlive && target.ID != c.GetPlayerID() {
+			if target != nil && target.Status == game.StatusAlive && target.ID != p.ID {
 				// Check range (using ship-specific range)
 				dist := game.Distance(p.X, p.Y, target.X, target.Y)
 				tractorRange := float64(game.TractorDist) * shipStats.TractorRange
@@ -610,7 +613,7 @@ func (c *Client) handlePressor(data json.RawMessage) {
 
 // handleCloak handles cloaking/uncloaking
 func (c *Client) handleCloak(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -621,8 +624,8 @@ func (c *Client) handleCloak(data json.RawMessage) {
 		c.server.gameState.Mu.Lock()
 		defer c.server.gameState.Mu.Unlock()
 
-		p := c.server.gameState.Players[c.GetPlayerID()]
-		if p.Status != game.StatusAlive {
+		p := c.getAlivePlayer()
+		if p == nil {
 			return
 		}
 
@@ -639,12 +642,15 @@ func (c *Client) handleCloak(data json.RawMessage) {
 
 	// Send cloak status message to all clients (after releasing lock to avoid deadlock)
 	if message != "" {
-		c.server.broadcast <- ServerMessage{
+		select {
+		case c.server.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": message,
 				"type": "info",
 			},
+		}:
+		default:
 		}
 	}
 }

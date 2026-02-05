@@ -119,7 +119,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	if s.considerTorpedoDetonation(p) {
 		// Detonate all our torpedoes for area damage
 		for _, torp := range s.gameState.Torps {
-			if torp.Owner == p.ID && torp.Status == 1 {
+			if torp.Owner == p.ID && torp.Status == game.TorpMove {
 				torp.Fuse = 1 // Will explode next frame
 			}
 		}
@@ -174,7 +174,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
 	if dist < myPhaserRange {
 		phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
-		if p.Fuel >= phaserCost && p.WTemp < 90 { // Lower fuel requirement, higher temp tolerance
+		if p.Fuel >= phaserCost && p.WTemp < shipStats.MaxWpnTemp-100 { // Match human firing threshold
 			targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 			// Calculate if phaser would be a kill shot
 			phaserDamage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
@@ -287,7 +287,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 
 	// Enhanced torpedo checking for all movement scenarios
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Status == 1 {
+		if torp.Owner != p.ID && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
 			if dist < threat.closestTorpDist {
 				threat.closestTorpDist = dist
@@ -326,7 +326,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 
 	// Check plasma threats
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Status == 1 {
+		if plasma.Owner != p.ID && plasma.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 			if dist < threat.closestPlasma {
 				threat.closestPlasma = dist
@@ -440,7 +440,7 @@ func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
 
 	// Check torpedoes
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Status == 1 {
+		if torp.Owner != p.ID && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
 			if dist < threat.closestTorpDist {
 				threat.closestTorpDist = dist
@@ -465,7 +465,7 @@ func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
 
 	// Check plasma
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Status == 1 {
+		if plasma.Owner != p.ID && plasma.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 			if dist < threat.closestPlasma {
 				threat.closestPlasma = dist
@@ -585,7 +585,7 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 
 	// Check all torpedo threats
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Status == 1 {
+		if torp.Owner != p.ID && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
 			if dist < closestTorpDist {
 				closestTorpDist = dist
@@ -646,7 +646,7 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 
 	// Check plasma threats
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Status == 1 {
+		if plasma.Owner != p.ID && plasma.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 			if dist < PlasmaFar {
 				threatLevel += ThreatLevelMedium

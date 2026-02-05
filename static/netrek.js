@@ -1,13 +1,24 @@
 // Netrek Web Client
 
-// Team colors used throughout the game
-const teamColors = {
+// Canonical team colors and letters - shared across all JS files via window globals
+window.TEAM_COLORS = {
     0: '#888888',  // Ind - gray
     1: '#ffff00',  // Fed - yellow
-    2: '#ff0000',  // Rom - red  
+    2: '#ff0000',  // Rom - red
     4: '#00ff00',  // Kli - green
     8: '#00ffff'   // Ori - cyan
 };
+
+window.TEAM_LETTERS = {
+    0: 'I',  // Ind
+    1: 'F',  // Fed
+    2: 'R',  // Rom
+    4: 'K',  // Kli
+    8: 'O'   // Ori
+};
+
+// Local alias for use throughout this file
+const teamColors = window.TEAM_COLORS;
 
 // Visual constants for galactic map
 const GALACTIC_DIM_ALPHA = 0.5;        // Alpha level for dimmed ships
@@ -1831,14 +1842,7 @@ function renderTactical() {
         */
         
         // Player label below (team letter + slot number)
-        const teamLetters = {
-            0: 'I',  // Ind
-            1: 'F',  // Fed
-            2: 'R',  // Rom
-            4: 'K',  // Kli
-            8: 'O'   // Ori
-        };
-        const teamLetter = teamLetters[player.team] || 'I';
+        const teamLetter = window.TEAM_LETTERS[player.team] || 'I';
         const playerLabel = teamLetter + i.toString().padStart(2, '0');
         
         ctx.fillStyle = teamColors[player.team] || '#fff';
@@ -1897,15 +1901,6 @@ function renderGalactic() {
         }
     }
     
-    // Map team IDs to letters
-    const teamLetters = {
-        0: 'I',  // Ind
-        1: 'F',  // Fed
-        2: 'R',  // Rom
-        4: 'K',  // Kli
-        8: 'O'   // Ori
-    };
-    
     // Draw players
     for (let i = 0; i < gameState.players.length; i++) {
         const player = gameState.players[i];
@@ -1949,7 +1944,7 @@ function renderGalactic() {
         }
         
         // Draw player as team letter + slot number (e.g., "R45")
-        const teamLetter = teamLetters[player.team] || 'I';
+        const teamLetter = window.TEAM_LETTERS[player.team] || 'I';
         const playerLabel = teamLetter + i.toString().padStart(2, '0');
         
         ctx.fillStyle = teamColors[player.team] || '#fff';
@@ -2179,15 +2174,6 @@ function updatePlayerList() {
     const fragment = document.createDocumentFragment();
     fragment.appendChild(header);
     
-    // Map team IDs to letters
-    const teamLetters = {
-        0: 'I',  // Ind
-        1: 'F',  // Fed
-        2: 'R',  // Rom
-        4: 'K',  // Kli
-        8: 'O'   // Ori
-    };
-    
     // Filter and collect visible players with their slot numbers
     const visiblePlayers = [];
     for (let i = 0; i < gameState.players.length; i++) {
@@ -2218,7 +2204,7 @@ function updatePlayerList() {
         const kd = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(1);
         
         // Create team/slot identifier
-        const teamLetter = teamLetters[player.team] || 'I';
+        const teamLetter = window.TEAM_LETTERS[player.team] || 'I';
         const playerID = teamLetter + player.slot.toString().padStart(2, '0');
         
         // Add opacity style for dead players

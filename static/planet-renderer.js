@@ -2,15 +2,7 @@
 
 class PlanetRenderer {
     constructor() {
-        // Team colors for planets
-        this.teamColors = {
-            1: '#ffff00',  // Federation - Yellow
-            2: '#ff0000',  // Romulan - Red
-            4: '#00ff00',  // Klingon - Green
-            8: '#00ffff',  // Orion - Cyan
-            0: '#aaa',     // Nobody/Neutral - Light Gray
-            '-1': '#aaa'   // Alternative for nobody
-        };
+        // Team colors sourced from window.TEAM_COLORS (defined in netrek.js)
     }
     
     // Draw resource letters inside planet circle
@@ -28,7 +20,7 @@ class PlanetRenderer {
         
         // Use same color as planet outline for resource letters
         const isNeutral = planet.owner === 0 || planet.owner === -1;
-        const textColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
+        const textColor = isNeutral ? '#aaa' : (window.TEAM_COLORS[planet.owner] || '#888');
         
         ctx.fillStyle = textColor;
         ctx.font = 'bold 8px monospace';
@@ -46,7 +38,7 @@ class PlanetRenderer {
         if (hasInfo) {
             // We have info - show actual planet with team colors
             const isNeutral = planet.owner === 0 || planet.owner === -1;
-            const planetColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
+            const planetColor = isNeutral ? '#aaa' : (window.TEAM_COLORS[planet.owner] || '#888');
             
             // Draw circle outline only
             ctx.strokeStyle = planetColor;
@@ -101,7 +93,7 @@ class PlanetRenderer {
         
         // Use same color as planet outline for resource letters
         const isNeutral = planet.owner === 0 || planet.owner === -1;
-        const textColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
+        const textColor = isNeutral ? '#aaa' : (window.TEAM_COLORS[planet.owner] || '#888');
         
         ctx.fillStyle = textColor;
         ctx.font = `bold ${14 * scale}px monospace`;
@@ -119,7 +111,7 @@ class PlanetRenderer {
         if (hasInfo) {
             // We have info - show actual planet with team colors
             const isNeutral = planet.owner === 0 || planet.owner === -1;
-            const planetColor = isNeutral ? '#aaa' : (this.teamColors[planet.owner] || '#888');
+            const planetColor = isNeutral ? '#aaa' : (window.TEAM_COLORS[planet.owner] || '#888');
             
             // Draw circle outline only
             ctx.strokeStyle = planetColor;

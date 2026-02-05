@@ -157,3 +157,14 @@ func (c *Client) getPlayer() *game.Player {
 	}
 	return c.server.gameState.Players[id]
 }
+
+// sendMsg sends a message to this client's send channel without blocking.
+// Returns true if the message was sent, false if the channel was full.
+func (c *Client) sendMsg(msg ServerMessage) bool {
+	select {
+	case c.send <- msg:
+		return true
+	default:
+		return false
+	}
+}

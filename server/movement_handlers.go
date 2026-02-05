@@ -11,7 +11,7 @@ import (
 
 // handleMove processes movement commands
 func (c *Client) handleMove(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -30,8 +30,8 @@ func (c *Client) handleMove(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -94,7 +94,7 @@ func (c *Client) handleMove(data json.RawMessage) {
 
 // handleLock handles lock-on to players or planets
 func (c *Client) handleLock(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
@@ -122,8 +122,8 @@ func (c *Client) handleLock(data json.RawMessage) {
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 
@@ -167,15 +167,15 @@ func (c *Client) handleLock(data json.RawMessage) {
 
 // handleOrbit toggles orbit around nearest planet
 func (c *Client) handleOrbit(data json.RawMessage) {
-	if c.GetPlayerID() < 0 || c.GetPlayerID() >= game.MaxPlayers {
+	if !c.validPlayerID() {
 		return
 	}
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
 
-	p := c.server.gameState.Players[c.GetPlayerID()]
-	if p.Status != game.StatusAlive {
+	p := c.getAlivePlayer()
+	if p == nil {
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/lab1702/netrek-web/game"
 )
@@ -41,13 +42,13 @@ func (c *Client) handleBotCommand(cmd string) {
 				ship = shipTypeInt
 			} else {
 				// Invalid ship type - send error message and return
-				c.send <- ServerMessage{
+				c.sendMsg(ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": "Invalid ship type. Usage: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB]",
 						"type": "warning",
 					},
-				}
+				})
 				return
 			}
 		}
@@ -63,13 +64,13 @@ func (c *Client) handleBotCommand(cmd string) {
 			starbaseCounts := c.server.countStarbasesByTeam()
 			if starbaseCounts[team] >= 1 {
 				c.server.gameState.Mu.Unlock()
-				c.send <- ServerMessage{
+				c.sendMsg(ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": "Cannot add starbase bot - team already has a starbase. Only one starbase per team is allowed.",
 						"type": "warning",
 					},
-				}
+				})
 				return
 			}
 			c.server.gameState.Mu.Unlock()
@@ -97,6 +98,19 @@ func (c *Client) handleBotCommand(cmd string) {
 		c.server.AutoBalanceBots()
 
 	case "/clearbots":
+		// Rate limit destructive bot commands
+		if time.Since(c.lastBotCmd) < c.botCmdCooldown {
+			c.sendMsg(ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": "Please wait before using this command again.",
+					"type": "warning",
+				},
+			})
+			return
+		}
+		c.lastBotCmd = time.Now()
+
 		// Remove all bots — collect bot IDs under read lock, then remove
 		var botIDs []int
 		c.server.gameState.Mu.RLock()
@@ -111,6 +125,19 @@ func (c *Client) handleBotCommand(cmd string) {
 		}
 
 	case "/fillbots":
+		// Rate limit destructive bot commands
+		if time.Since(c.lastBotCmd) < c.botCmdCooldown {
+			c.sendMsg(ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": "Please wait before using this command again.",
+					"type": "warning",
+				},
+			})
+			return
+		}
+		c.lastBotCmd = time.Now()
+
 		// Fill available slots with bots of every ship type
 		// All bots use hard difficulty mode
 		// Only allow one starbase per team
@@ -245,33 +272,33 @@ func (c *Client) handleBotCommand(cmd string) {
 
 		// Send confirmation message with details
 		if botsAdded > 0 {
-			c.send <- ServerMessage{
+			c.sendMsg(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": fmt.Sprintf("Added %d bots with diverse ship types (1 starbase max per team)", botsAdded),
 					"type": "info",
 				},
-			}
+			})
 		} else {
-			c.send <- ServerMessage{
+			c.sendMsg(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "No bots were added - server may be full or all ship types already present",
 					"type": "warning",
 				},
-			}
+			})
 		}
 
 	case "/refit":
 		// /refit [ship_type]
 		if len(parts) < 2 {
-			c.send <- ServerMessage{
+			c.sendMsg(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "Usage: /refit SC|DD|CA|BB|AS|SB",
 					"type": "warning",
 				},
-			}
+			})
 			return
 		}
 
@@ -279,19 +306,23 @@ func (c *Client) handleBotCommand(cmd string) {
 		shipTypeStr := strings.ToUpper(parts[1])
 		shipTypeInt, ok := shipAlias[shipTypeStr]
 		if !ok {
-			c.send <- ServerMessage{
+			c.sendMsg(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "Invalid ship type. Usage: /refit SC|DD|CA|BB|AS|SB",
 					"type": "warning",
 				},
-			}
+			})
 			return
 		}
 
 		// Check starbase limit before allowing refit (each team can have at most 1 starbase)
 		c.server.gameState.Mu.Lock()
-		p := c.server.gameState.Players[c.GetPlayerID()]
+		p := c.getPlayer()
+		if p == nil {
+			c.server.gameState.Mu.Unlock()
+			return
+		}
 		if shipTypeInt == int(game.ShipStarbase) {
 			// Count existing starbases, but exclude this player in case they're already a starbase
 			starbaseCounts := c.server.countStarbasesByTeam()
@@ -301,13 +332,13 @@ func (c *Client) handleBotCommand(cmd string) {
 			}
 			if starbaseCounts[p.Team] >= 1 {
 				c.server.gameState.Mu.Unlock()
-				c.send <- ServerMessage{
+				c.sendMsg(ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": "Your team already has a starbase. Only one starbase per team is allowed.",
 						"type": "warning",
 					},
-				}
+				})
 				return
 			}
 		}
@@ -320,31 +351,31 @@ func (c *Client) handleBotCommand(cmd string) {
 		shipName := game.ShipData[game.ShipType(shipTypeInt)].Name
 
 		// Send confirmation message
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("Refit to %s when you next respawn.", shipName),
 				"type": "info",
 			},
-		}
+		})
 
 	case "/help":
 		// Send help message
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "Bot commands: /addbot [fed/rom/kli/ori] [SC|DD|CA|BB|AS|SB] | /removebot | /balance | /clearbots | /fillbots | /refit SC|DD|CA|BB|AS|SB",
 				"type": "info",
 			},
-		}
+		})
 
 	default:
-		c.send <- ServerMessage{
+		c.sendMsg(ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "Unknown command. Type /help for bot commands.",
 				"type": "warning",
 			},
-		}
+		})
 	}
 }

@@ -5,13 +5,6 @@ class ShipRenderer {
     constructor() {
         this.sprites = new Map(); // Cache for generated sprites
         this.initialized = false;
-        this.teamColors = {
-            0: '#888',  // Independent - gray
-            1: '#ff0',  // Federation - yellow
-            2: '#f00',  // Romulan - red
-            4: '#0f0',  // Klingon - green
-            8: '#0ff'   // Orion - cyan
-        };
     }
     
     // Initialize and create all ship sprites
@@ -101,7 +94,7 @@ class ShipRenderer {
         
         const dimensions = window.shipDimensions[shipType];
         // Use team colors for the bitmaps
-        const color = this.teamColors[team] || '#fff';
+        const color = window.TEAM_COLORS[team] || '#fff';
         
         // Convert bitmap to ImageData
         const imageData = window.convertShipBitmap(
@@ -145,7 +138,7 @@ class ShipRenderer {
     // Fallback ship drawing (simple triangle)
     drawFallbackShip(ctx, player, x, y, scale = 1) {
         const size = 10 * scale;
-        const color = this.teamColors[player.team] || '#fff';
+        const color = window.TEAM_COLORS[player.team] || '#fff';
         
         ctx.save();
         ctx.translate(x, y);

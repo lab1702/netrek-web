@@ -74,8 +74,8 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 		Speed:  float64(shipStats.TorpSpeed * 20), // 20 units per tick
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
-		Status: 1,      // Moving
-		Team:   p.Team, // Set team color
+		Status: game.TorpMove, // Moving
+		Team:   p.Team,        // Set team color
 	}
 
 	s.gameState.Torps = append(s.gameState.Torps, torp)
@@ -211,7 +211,7 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	}
 
 	// Destroy the plasma - mark as exploding; updatePlasmas() will decrement NumPlasma
-	plasma.Status = 3 // Detonate
+	plasma.Status = game.TorpDet // Detonate
 
 	// Send phaser visual to plasma location
 	select {
@@ -256,7 +256,7 @@ func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 
 	for _, plasma := range s.gameState.Plasmas {
 		// Skip our own plasma or non-active plasma
-		if plasma.Owner == p.ID || plasma.Status != 1 {
+		if plasma.Owner == p.ID || plasma.Status != game.TorpMove {
 			continue
 		}
 
@@ -331,7 +331,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 		Speed:  float64(shipStats.PlasmaSpeed * 20), // 20 units per tick
 		Damage: shipStats.PlasmaDamage,
 		Fuse:   shipStats.PlasmaFuse, // Use original fuse value directly
-		Status: 1,                    // Moving
+		Status: game.TorpMove,        // Moving
 		Team:   p.Team,               // Set team color
 	}
 
@@ -392,7 +392,7 @@ func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
 		Speed:  projSpeed,
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
-		Status: 1,
+		Status: game.TorpMove,
 		Team:   p.Team,
 	}
 
@@ -451,7 +451,7 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 			Speed:  float64(shipStats.TorpSpeed * 20),
 			Damage: shipStats.TorpDamage,
 			Fuse:   shipStats.TorpFuse,
-			Status: 1,
+			Status: game.TorpMove,
 			Team:   p.Team,
 		}
 
@@ -507,7 +507,7 @@ func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
 		Speed:  float64(shipStats.TorpSpeed * 20),
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
-		Status: 1,
+		Status: game.TorpMove,
 		Team:   p.Team,
 	}
 
@@ -529,7 +529,7 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 	// Torpedoes can be fired in any direction regardless of ship facing
 	// Use velocity-adjusted range to prevent fuse expiry on fast targets
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
-	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < 85 {
+	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
 		firedWeapon = true
@@ -538,7 +538,7 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 	// Opportunistic phaser usage - prioritize planet protection over fuel conservation
 	// Phasers can be fired in any direction regardless of ship facing
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
-	if !firedWeapon && enemyDist < myPhaserRange && p.Fuel > 1000 && p.WTemp < 75 {
+	if !firedWeapon && enemyDist < myPhaserRange && p.Fuel > 1000 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		// Fire phasers more liberally when defending planets
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 8
@@ -565,7 +565,7 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	// Torpedoes can be fired in any direction regardless of ship facing
 	// Use velocity-adjusted range to prevent fuse expiry
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
-	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < 650 {
+	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < shipStats.MaxWpnTemp/2 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 6 // Faster than normal starbase firing
 		return
@@ -573,7 +573,7 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 
 	// Aggressive phaser usage for planet defense
 	// Phasers can be fired in any direction regardless of ship facing
-	if enemyDist < game.StarbasePhaserRange && p.Fuel > 1500 && p.WTemp < 700 {
+	if enemyDist < game.StarbasePhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 8
 		return
@@ -587,7 +587,7 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	}
 
 	// Unconditional close-range torpedo fallback - fires even when other conditions prevent it
-	if enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 2000 && p.WTemp < 800 {
+	if enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 2000 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 10
 		return
@@ -603,7 +603,7 @@ func (s *Server) considerTorpedoDetonation(p *game.Player) bool {
 
 	// Look for scenarios where detonation would be beneficial
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID || torp.Status != 1 {
+		if torp.Owner != p.ID || torp.Status != game.TorpMove {
 			continue
 		}
 

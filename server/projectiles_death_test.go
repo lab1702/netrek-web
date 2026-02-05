@@ -42,7 +42,7 @@ func TestTorpedoSurvivesOwnerExplosion(t *testing.T) {
 		Speed:  float64(shipStats.TorpSpeed * 20),
 		Damage: shipStats.TorpDamage,
 		Fuse:   shipStats.TorpFuse,
-		Status: 1, // Moving
+		Status: game.TorpMove, // Moving
 		Team:   playerA.Team,
 	}
 	server.gameState.Torps = append(server.gameState.Torps, torp)
@@ -150,7 +150,7 @@ func TestPlasmaSurvivesOwnerExplosion(t *testing.T) {
 		Speed:  float64(shipStats.PlasmaSpeed * 20),
 		Damage: shipStats.PlasmaDamage,
 		Fuse:   shipStats.PlasmaFuse,
-		Status: 1, // Moving
+		Status: game.TorpMove, // Moving
 		Team:   playerA.Team,
 	}
 	server.gameState.Plasmas = append(server.gameState.Plasmas, plasma)
@@ -246,7 +246,7 @@ func TestCounterConsistencyAfterOwnerDeath(t *testing.T) {
 		Speed:  240, // 12 * 20
 		Damage: 40,
 		Fuse:   5, // Will expire in 5 ticks (longer to debug)
-		Status: 1,
+		Status: game.TorpMove,
 		Team:   playerA.Team,
 	}
 	server.gameState.Torps = append(server.gameState.Torps, torp)
@@ -318,7 +318,7 @@ func TestProjectileUpdateAfterOwnerDeath(t *testing.T) {
 		Speed:  240,
 		Damage: 40,
 		Fuse:   40, // Normal fuse
-		Status: 1,
+		Status: game.TorpMove,
 		Team:   playerA.Team,
 	}
 	server.gameState.Torps = append(server.gameState.Torps, torp)

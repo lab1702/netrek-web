@@ -101,6 +101,14 @@ const (
 	StatusObserve = 6
 )
 
+// Projectile Status (Torpedo and Plasma)
+const (
+	TorpFree    = 0 // Projectile slot is free/unused
+	TorpMove    = 1 // Projectile is alive and moving
+	TorpExplode = 2 // Projectile is exploding
+	TorpDet     = 3 // Projectile has been detonated
+)
+
 // Death reasons (why player died)
 const (
 	KillTorp      = 0 // Killed by torpedo
