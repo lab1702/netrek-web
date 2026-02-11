@@ -1956,6 +1956,57 @@ function renderGalactic() {
         ctx.restore();
     }
     
+    // Draw team centroid markers
+    const teams = [1, 2, 4, 8];
+    for (const team of teams) {
+        const color = teamColors[team] || '#fff';
+
+        // Average position of alive players on this team (triangle)
+        let px = 0, py = 0, pCount = 0;
+        for (const player of gameState.players) {
+            if (player && player.status === 2 && player.team === team) {
+                px += player.x;
+                py += player.y;
+                pCount++;
+            }
+        }
+        if (pCount > 0) {
+            const cx = (px / pCount) * scale;
+            const cy = (py / pCount) * scale;
+            const s = 6;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - s);
+            ctx.lineTo(cx - s, cy + s);
+            ctx.lineTo(cx + s, cy + s);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Average position of planets owned by this team (square)
+        let plx = 0, ply = 0, plCount = 0;
+        for (const planet of gameState.planets) {
+            if (planet && planet.owner === team) {
+                plx += planet.x;
+                ply += planet.y;
+                plCount++;
+            }
+        }
+        if (plCount > 0) {
+            const cx = (plx / plCount) * scale;
+            const cy = (ply / plCount) * scale;
+            const s = 5;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = color;
+            ctx.fillRect(cx - s, cy - s, s * 2, s * 2);
+            ctx.restore();
+        }
+    }
+
     // Lock indicator on galactic map removed
 }
 
