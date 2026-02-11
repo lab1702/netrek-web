@@ -632,9 +632,15 @@ function handleKeyPress(key) {
         }
     }
     
+    // Toggle team centroid markers (works even when dead)
+    if (key === 'm') {
+        showTeamCentroids = !showTeamCentroids;
+        return;
+    }
+
     const player = gameState.players[gameState.myPlayerID];
     if (!player || player.status !== 2) return;
-    
+
     // Speed control - numbers set speed
     if (key >= '0' && key <= '9') {
         const speed = parseInt(key);
@@ -812,10 +818,6 @@ function handleKeyPress(key) {
         case 'b':
             // Bomb planet
             sendMessage({ type: 'bomb', data: {} });
-            break;
-        case 'm':
-            // Toggle team centroid markers on galactic map
-            showTeamCentroids = !showTeamCentroids;
             break;
         case 'p':
             // Fire plasma torpedo (use mouse direction)
@@ -1964,72 +1966,69 @@ function renderGalactic() {
     }
     
     // Draw team centroid markers
-    if (!showTeamCentroids) return;
-    const teams = [1, 2, 4, 8];
-    for (const team of teams) {
-        const color = teamColors[team] || '#fff';
+    if (showTeamCentroids) {
+        const teams = [1, 2, 4, 8];
+        for (const team of teams) {
+            const color = teamColors[team] || '#fff';
 
-        // Average position of alive players on this team
-        let px = 0, py = 0, pCount = 0;
-        for (const player of gameState.players) {
-            if (player && player.status === 2 && player.team === team) {
-                px += player.x;
-                py += player.y;
-                pCount++;
+            // Average position of alive players on this team
+            let px = 0, py = 0, pCount = 0;
+            for (const player of gameState.players) {
+                if (player && player.status === 2 && player.team === team) {
+                    px += player.x;
+                    py += player.y;
+                    pCount++;
+                }
             }
-        }
-        const playerCX = pCount > 0 ? (px / pCount) * scale : null;
-        const playerCY = pCount > 0 ? (py / pCount) * scale : null;
+            const playerCX = pCount > 0 ? (px / pCount) * scale : null;
+            const playerCY = pCount > 0 ? (py / pCount) * scale : null;
 
-        // Average position of planets owned by this team
-        let plx = 0, ply = 0, plCount = 0;
-        for (const planet of gameState.planets) {
-            if (planet && planet.owner === team) {
-                plx += planet.x;
-                ply += planet.y;
-                plCount++;
+            // Average position of planets owned by this team
+            let plx = 0, ply = 0, plCount = 0;
+            for (const planet of gameState.planets) {
+                if (planet && planet.owner === team) {
+                    plx += planet.x;
+                    ply += planet.y;
+                    plCount++;
+                }
             }
-        }
-        const planetCX = plCount > 0 ? (plx / plCount) * scale : null;
-        const planetCY = plCount > 0 ? (ply / plCount) * scale : null;
+            const planetCX = plCount > 0 ? (plx / plCount) * scale : null;
+            const planetCY = plCount > 0 ? (ply / plCount) * scale : null;
 
-        // Line connecting player centroid to planet centroid
-        if (playerCX !== null && planetCX !== null) {
             ctx.save();
-            ctx.globalAlpha = 0.5;
             ctx.strokeStyle = color;
-            ctx.lineWidth = 0.75;
-            ctx.beginPath();
-            ctx.moveTo(playerCX, playerCY);
-            ctx.lineTo(planetCX, planetCY);
-            ctx.stroke();
-            ctx.restore();
-        }
 
-        // Triangle for player centroid
-        if (playerCX !== null) {
-            const s = 6;
-            ctx.save();
-            ctx.globalAlpha = 0.7;
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(playerCX, playerCY - s);
-            ctx.lineTo(playerCX - s, playerCY + s);
-            ctx.lineTo(playerCX + s, playerCY + s);
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-        }
+            // Line connecting player centroid to planet centroid
+            if (playerCX !== null && planetCX !== null) {
+                ctx.globalAlpha = 0.5;
+                ctx.lineWidth = 0.75;
+                ctx.beginPath();
+                ctx.moveTo(playerCX, playerCY);
+                ctx.lineTo(planetCX, planetCY);
+                ctx.stroke();
+            }
 
-        // Square for planet centroid
-        if (planetCX !== null) {
-            const s = 5;
-            ctx.save();
-            ctx.globalAlpha = 0.7;
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(planetCX - s, planetCY - s, s * 2, s * 2);
+            // Triangle for player centroid
+            if (playerCX !== null) {
+                const s = 6;
+                ctx.globalAlpha = 0.7;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(playerCX, playerCY - s);
+                ctx.lineTo(playerCX - s, playerCY + s);
+                ctx.lineTo(playerCX + s, playerCY + s);
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            // Square for planet centroid
+            if (planetCX !== null) {
+                const s = 5;
+                ctx.globalAlpha = 0.7;
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(planetCX - s, planetCY - s, s * 2, s * 2);
+            }
+
             ctx.restore();
         }
     }
