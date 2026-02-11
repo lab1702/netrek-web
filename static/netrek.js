@@ -1961,7 +1961,7 @@ function renderGalactic() {
     for (const team of teams) {
         const color = teamColors[team] || '#fff';
 
-        // Average position of alive players on this team (triangle)
+        // Average position of alive players on this team
         let px = 0, py = 0, pCount = 0;
         for (const player of gameState.players) {
             if (player && player.status === 2 && player.team === team) {
@@ -1970,24 +1970,10 @@ function renderGalactic() {
                 pCount++;
             }
         }
-        if (pCount > 0) {
-            const cx = (px / pCount) * scale;
-            const cy = (py / pCount) * scale;
-            const s = 6;
-            ctx.save();
-            ctx.globalAlpha = 0.7;
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(cx, cy - s);
-            ctx.lineTo(cx - s, cy + s);
-            ctx.lineTo(cx + s, cy + s);
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-        }
+        const playerCX = pCount > 0 ? (px / pCount) * scale : null;
+        const playerCY = pCount > 0 ? (py / pCount) * scale : null;
 
-        // Average position of planets owned by this team (square)
+        // Average position of planets owned by this team
         let plx = 0, ply = 0, plCount = 0;
         for (const planet of gameState.planets) {
             if (planet && planet.owner === team) {
@@ -1996,15 +1982,46 @@ function renderGalactic() {
                 plCount++;
             }
         }
-        if (plCount > 0) {
-            const cx = (plx / plCount) * scale;
-            const cy = (ply / plCount) * scale;
+        const planetCX = plCount > 0 ? (plx / plCount) * scale : null;
+        const planetCY = plCount > 0 ? (ply / plCount) * scale : null;
+
+        // Line connecting player centroid to planet centroid
+        if (playerCX !== null && planetCX !== null) {
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 0.75;
+            ctx.beginPath();
+            ctx.moveTo(playerCX, playerCY);
+            ctx.lineTo(planetCX, planetCY);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Triangle for player centroid
+        if (playerCX !== null) {
+            const s = 6;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(playerCX, playerCY - s);
+            ctx.lineTo(playerCX - s, playerCY + s);
+            ctx.lineTo(playerCX + s, playerCY + s);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Square for planet centroid
+        if (planetCX !== null) {
             const s = 5;
             ctx.save();
             ctx.globalAlpha = 0.7;
             ctx.strokeStyle = color;
             ctx.lineWidth = 1.5;
-            ctx.strokeRect(cx - s, cy - s, s * 2, s * 2);
+            ctx.strokeRect(planetCX - s, planetCY - s, s * 2, s * 2);
             ctx.restore();
         }
     }
