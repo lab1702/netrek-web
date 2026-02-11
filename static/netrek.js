@@ -1976,13 +1976,14 @@ function renderGalactic() {
             const s = 6;
             ctx.save();
             ctx.globalAlpha = 0.7;
-            ctx.fillStyle = color;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.moveTo(cx, cy - s);
             ctx.lineTo(cx - s, cy + s);
             ctx.lineTo(cx + s, cy + s);
             ctx.closePath();
-            ctx.fill();
+            ctx.stroke();
             ctx.restore();
         }
 
@@ -2001,8 +2002,9 @@ function renderGalactic() {
             const s = 5;
             ctx.save();
             ctx.globalAlpha = 0.7;
-            ctx.fillStyle = color;
-            ctx.fillRect(cx - s, cy - s, s * 2, s * 2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(cx - s, cy - s, s * 2, s * 2);
             ctx.restore();
         }
     }
