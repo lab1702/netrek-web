@@ -216,7 +216,7 @@ let canvases = {
 let dashboardEls = {};
 
 // Toggle for team centroid markers on galactic map
-let showTeamCentroids = true;
+let showTeamCentroids = false;
 
 // Ship names
 const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
