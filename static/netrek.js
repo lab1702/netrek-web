@@ -215,6 +215,9 @@ let canvases = {
 // Cached DOM element references for dashboard (populated during init)
 let dashboardEls = {};
 
+// Toggle for team centroid markers on galactic map
+let showTeamCentroids = true;
+
 // Ship names
 const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
 
@@ -809,6 +812,10 @@ function handleKeyPress(key) {
         case 'b':
             // Bomb planet
             sendMessage({ type: 'bomb', data: {} });
+            break;
+        case 'm':
+            // Toggle team centroid markers on galactic map
+            showTeamCentroids = !showTeamCentroids;
             break;
         case 'p':
             // Fire plasma torpedo (use mouse direction)
@@ -1957,6 +1964,7 @@ function renderGalactic() {
     }
     
     // Draw team centroid markers
+    if (!showTeamCentroids) return;
     const teams = [1, 2, 4, 8];
     for (const team of teams) {
         const color = teamColors[team] || '#fff';
