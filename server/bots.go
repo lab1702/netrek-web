@@ -502,12 +502,17 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 	// NON-TOURNAMENT MODE: Prioritize combat for practice
 	if !s.gameState.T_mode {
-		// Skip behavior role switching while actively defending planets
+		// If defending a planet, verify the threat still exists before continuing.
+		// Without this check, bots get permanently stuck in defense mode after
+		// the threat is eliminated because nothing clears BotDefenseTarget.
 		if p.BotDefenseTarget >= 0 {
-			// Currently defending a planet - continue current behavior
-			// This prevents bots from abandoning defense mid-fight
-			p.BotCooldown = 10
-			return
+			if planet, enemy, _ := s.getThreatenedFriendlyPlanet(p); planet != nil && enemy != nil {
+				// Threat still active — continue defending
+				p.BotCooldown = 10
+				return
+			}
+			// Threat gone — clear defense target and resume normal behavior
+			p.BotDefenseTarget = -1
 		}
 
 		// Dynamic behavior based on situation

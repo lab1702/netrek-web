@@ -91,7 +91,7 @@ func (s *Server) updateTorpedoes() {
 				}
 			}
 
-			if game.Distance(torp.X, torp.Y, p.X, p.Y) < game.ExplosionDist {
+			if game.Distance(torp.X, torp.Y, p.X, p.Y) <= game.ExplosionDist {
 				// Hit!
 				s.handleTorpedoHit(torp, p, i)
 				// Mark torpedo as exploding - it will be removed next frame
@@ -178,7 +178,7 @@ func (s *Server) updatePlasmas() {
 				}
 			}
 
-			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) < game.PlasmaExplosionDist {
+			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) <= game.PlasmaExplosionDist {
 				// Hit!
 				s.handlePlasmaHit(plasma, p, i)
 				hit = true

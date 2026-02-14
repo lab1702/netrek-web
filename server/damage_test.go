@@ -239,7 +239,7 @@ func TestPhaserShieldHandling(t *testing.T) {
 
 	// Calculate expected damage: 85 * (1.0 - 1000/5100) ≈ 68.3 → 68
 	shipStats := game.ShipData[shooter.Ship]
-	phaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+	phaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
 	dist := float64(1000)
 	expectedDamage := int(float64(shipStats.PhaserDamage) * (1.0 - dist/phaserRange))
 

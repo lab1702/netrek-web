@@ -121,7 +121,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 	p.WTemp += 70
 
 	// Calculate phaser range using original formula: PHASEDIST * phaserdamage / 100
-	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
 
 	// Get phaser direction (use provided direction or calculate from target)
 	var course float64

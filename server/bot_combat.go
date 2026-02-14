@@ -107,8 +107,10 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Enhanced team coordination with target broadcasting
-	if coordinatedCooldown := s.coordinateTeamAttack(p, target); coordinatedCooldown > 0 {
+	// Enhanced team coordination with target broadcasting — only apply if the
+	// coordinated cooldown is at least as high as the current cooldown, to prevent
+	// integer division from making bots fire faster than their weapon logic intends.
+	if coordinatedCooldown := s.coordinateTeamAttack(p, target); coordinatedCooldown > 0 && coordinatedCooldown >= p.BotCooldown {
 		p.BotCooldown = coordinatedCooldown // Sync with team for volley fire
 	}
 
@@ -165,7 +167,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Enhanced phaser timing with kill securing
 	// Phasers can be fired in any direction regardless of ship facing
-	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
 	if dist < myPhaserRange {
 		phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
 		if p.Fuel >= phaserCost && p.WTemp < shipStats.MaxWpnTemp-100 { // Match human firing threshold
@@ -510,7 +512,7 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 			}
 
 			enemyStats := game.ShipData[enemy.Ship]
-			phaserRange := float64(game.PhaserDist * enemyStats.PhaserDamage / 100)
+			phaserRange := float64(game.PhaserDist) * float64(enemyStats.PhaserDamage) / 100.0
 
 			// Within phaser range - high priority for shields
 			// Phasers can be fired in any direction regardless of ship facing

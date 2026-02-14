@@ -296,13 +296,16 @@ func (s *Server) announceVictory() {
 
 // resetGame resets the game state for a new round
 func (s *Server) resetGame() {
-	// Lock ordering: s.mu first, then s.gameState.Mu
+	// Hold both locks for the entire reset to prevent a client from logging
+	// in between the client reset and game state reset (TOCTOU fix).
+	// Lock ordering: s.mu first, then s.gameState.Mu.
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// Reset all connected clients back to lobby (no player slot assigned)
 	for _, client := range s.clients {
 		client.SetPlayerID(-1) // Back to lobby - no slot assigned
 	}
-	s.mu.Unlock()
 
 	// Reset game state in-place (do not replace the pointer)
 	s.gameState.Mu.Lock()

@@ -998,6 +998,17 @@ function openWebSocket(name, team, ship) {
         // Connected to server - reset backoff
         reconnectDelay = 1000;
         reconnectAttempts = 0;
+
+        // Clear stale game state from previous session to prevent rendering
+        // ghost players/projectiles between reconnect and first server update.
+        gameState.players = [];
+        gameState.planets = [];
+        gameState.torps = [];
+        gameState.plasmas = [];
+        gameState.phasers = [];
+        prevState.players = [];
+        prevState.torps = [];
+        prevState.plasmas = [];
         // Check if compression is enabled by examining the WebSocket extensions
         wsCompressionActive = !!(ws.extensions && ws.extensions.includes('permessage-deflate'));
         updateCompressionIndicator();

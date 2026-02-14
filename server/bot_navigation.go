@@ -77,6 +77,13 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 	mySpeed := math.Max(p.DesSpeed, 2) * 20 // Convert to units/tick, minimum warp 2
 	timeToIntercept := dist / mySpeed
 
+	// Clamp prediction horizon to prevent unrealistic extrapolation at long range.
+	// Without this cap, distant targets get wildly overestimated speed predictions
+	// (e.g., +31 warp units at 15000 distance) leading to poor navigation courses.
+	if timeToIntercept > 15 {
+		timeToIntercept = 15 // Cap at ~1.5 seconds (15 ticks at 10 FPS)
+	}
+
 	// Predict future position with acceleration
 	futureSpeed := target.Speed + targetAccel*timeToIntercept*0.5
 	if futureSpeed < 0 {

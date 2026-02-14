@@ -19,6 +19,10 @@ const (
 	// WebSocket connection timeouts
 	wsReadTimeout  = 60 * time.Second // Read deadline for client messages
 	wsPingInterval = 54 * time.Second // Ping interval (must be less than wsReadTimeout)
+
+	// Maximum concurrent WebSocket connections to prevent memory exhaustion.
+	// Each connection spawns 2 goroutines and a 256-entry channel buffer.
+	maxConnections = 128
 )
 
 // isValidOrigin checks if the origin is allowed to connect
@@ -213,7 +217,23 @@ func (s *Server) Run() {
 
 		case message := <-s.broadcast:
 			s.mu.RLock()
+			// If the message has a "to" field, only send to that player's client
+			// to avoid leaking private error/info messages to all players.
+			targetPlayerID := -1
+			if dataMap, ok := message.Data.(map[string]interface{}); ok {
+				if to, exists := dataMap["to"]; exists {
+					switch v := to.(type) {
+					case int:
+						targetPlayerID = v
+					case float64:
+						targetPlayerID = int(v)
+					}
+				}
+			}
 			for _, client := range s.clients {
+				if targetPlayerID >= 0 && client.GetPlayerID() != targetPlayerID {
+					continue // Skip clients that are not the intended recipient
+				}
 				select {
 				case client.send <- message:
 					// Successfully sent
@@ -575,9 +595,15 @@ func (s *Server) sendGameState() {
 		return
 	}
 
-	s.broadcast <- ServerMessage{
+	// Non-blocking send to prevent the game loop from stalling if the
+	// broadcast channel is full (e.g. due to heavy chat traffic).
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: MsgTypeUpdate,
 		Data: json.RawMessage(data),
+	}:
+	default:
+		log.Printf("Warning: broadcast channel full, dropping game state update")
 	}
 }
 
@@ -626,6 +652,15 @@ func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
 
 // HandleWebSocket handles WebSocket connections
 func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Reject new connections when at capacity to prevent memory exhaustion.
+	s.mu.RLock()
+	numClients := len(s.clients)
+	s.mu.RUnlock()
+	if numClients >= maxConnections {
+		http.Error(w, "Server full", http.StatusServiceUnavailable)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade error: %v", err)
