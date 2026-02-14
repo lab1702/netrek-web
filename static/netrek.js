@@ -27,6 +27,17 @@ const GALACTIC_NEUTRAL_GRAY = '#888';  // Neutral gray for cloaked enemies
 // Tactical view scale: galaxy units to screen pixels (40 units per pixel, 20000 units visible)
 const TACTICAL_SCALE = 0.025;
 
+// Pre-computed RGB values for team colors (avoids hex parsing every frame)
+const TEAM_COLORS_RGB = {};
+for (const [team, hex] of Object.entries(window.TEAM_COLORS)) {
+    const h = hex.slice(1);
+    if (h.length === 3) {
+        TEAM_COLORS_RGB[team] = { r: parseInt(h[0]+h[0],16), g: parseInt(h[1]+h[1],16), b: parseInt(h[2]+h[2],16) };
+    } else {
+        TEAM_COLORS_RGB[team] = { r: parseInt(h.substring(0,2),16), g: parseInt(h.substring(2,4),16), b: parseInt(h.substring(4,6),16) };
+    }
+}
+
 // Update planet counter display
 function updatePlanetCounter() {
     if (!gameState.planets) return;
@@ -85,78 +96,78 @@ function getTeamDisplayElements() {
 
 // Update team display with the given data
 function updateTeamDisplay(data) {
-            const elems = getTeamDisplayElements();
+    const elems = getTeamDisplayElements();
 
-            // Update total players display
-            if (elems.total) {
-                elems.total.textContent = `${data.total} player${data.total !== 1 ? 's' : ''} online`;
+    // Update total players display
+    if (elems.total) {
+        elems.total.textContent = `${data.total} player${data.total !== 1 ? 's' : ''} online`;
+    }
+
+    // Update team radio button labels with player counts
+    const countTexts = [data.teams.fed, data.teams.rom, data.teams.kli, data.teams.ori];
+    for (let i = 0; i < elems.counts.length; i++) {
+        if (elems.counts[i]) elems.counts[i].textContent = `(${countTexts[i]})`;
+    }
+
+    // Highlight teams with fewer players for balance
+    const counts = countTexts;
+    const minCount = Math.min(...counts);
+    const maxCount = Math.max(...counts);
+
+    const teamLabels = elems.labels;
+    const teamRadios = elems.radios;
+
+    let needNewSelection = false;
+    let firstAvailableIndex = -1;
+
+    for (let i = 0; i < teamLabels.length; i++) {
+        if (!teamLabels[i] || !teamRadios[i]) continue;
+        const count = counts[i];
+        // Remove any existing star indicator
+        if (teamLabels[i].dataset.hasStar) {
+            teamLabels[i].textContent = teamLabels[i].dataset.originalText || teamLabels[i].textContent;
+            delete teamLabels[i].dataset.hasStar;
+        }
+
+        if (count === maxCount && maxCount > minCount + 1) {
+            // This team has significantly more players - disable it
+            teamLabels[i].style.color = '#f88';
+            teamRadios[i].disabled = true;
+            teamLabels[i].style.opacity = '0.5';
+            teamLabels[i].style.cursor = 'not-allowed';
+
+            // If this team is currently selected, we need to select another
+            if (teamRadios[i].checked) {
+                needNewSelection = true;
             }
+        } else {
+            // This team is available
+            teamRadios[i].disabled = false;
+            teamLabels[i].style.opacity = '1';
+            teamLabels[i].style.cursor = 'pointer';
 
-            // Update team radio button labels with player counts
-            const countTexts = [data.teams.fed, data.teams.rom, data.teams.kli, data.teams.ori];
-            for (let i = 0; i < elems.counts.length; i++) {
-                if (elems.counts[i]) elems.counts[i].textContent = `(${countTexts[i]})`;
-            }
-
-            // Highlight teams with fewer players for balance
-            const counts = countTexts;
-            const minCount = Math.min(...counts);
-            const maxCount = Math.max(...counts);
-
-            const teamLabels = elems.labels;
-            const teamRadios = elems.radios;
-            
-            let needNewSelection = false;
-            let firstAvailableIndex = -1;
-            
-            for (let i = 0; i < teamLabels.length; i++) {
-                if (!teamLabels[i] || !teamRadios[i]) continue;
-                const count = counts[i];
-                // Remove any existing star indicator
-                if (teamLabels[i].dataset.hasStar) {
-                    teamLabels[i].textContent = teamLabels[i].dataset.originalText || teamLabels[i].textContent;
-                    delete teamLabels[i].dataset.hasStar;
+            if (count === minCount) {
+                // This team has fewer players - suggest it
+                teamLabels[i].style.color = '#0f0';
+                teamLabels[i].dataset.originalText = teamLabels[i].textContent;
+                teamLabels[i].dataset.hasStar = '1';
+                teamLabels[i].textContent += ' \u2B50';
+                if (firstAvailableIndex === -1) {
+                    firstAvailableIndex = i;
                 }
-                
-                if (count === maxCount && maxCount > minCount + 1) {
-                    // This team has significantly more players - disable it
-                    teamLabels[i].style.color = '#f88';
-                    teamRadios[i].disabled = true;
-                    teamLabels[i].style.opacity = '0.5';
-                    teamLabels[i].style.cursor = 'not-allowed';
-                    
-                    // If this team is currently selected, we need to select another
-                    if (teamRadios[i].checked) {
-                        needNewSelection = true;
-                    }
-                } else {
-                    // This team is available
-                    teamRadios[i].disabled = false;
-                    teamLabels[i].style.opacity = '1';
-                    teamLabels[i].style.cursor = 'pointer';
-                    
-                    if (count === minCount) {
-                        // This team has fewer players - suggest it
-                        teamLabels[i].style.color = '#0f0';
-                        teamLabels[i].dataset.originalText = teamLabels[i].textContent;
-                        teamLabels[i].dataset.hasStar = '1';
-                        teamLabels[i].textContent += ' \u2B50';
-                        if (firstAvailableIndex === -1) {
-                            firstAvailableIndex = i;
-                        }
-                    } else {
-                        teamLabels[i].style.color = '#0f0';
-                        if (firstAvailableIndex === -1) {
-                            firstAvailableIndex = i;
-                        }
-                    }
+            } else {
+                teamLabels[i].style.color = '#0f0';
+                if (firstAvailableIndex === -1) {
+                    firstAvailableIndex = i;
                 }
             }
-            
-            // If the currently selected team is full, select the first available team
-            if (needNewSelection && firstAvailableIndex !== -1) {
-                teamRadios[firstAvailableIndex].checked = true;
-            }
+        }
+    }
+
+    // If the currently selected team is full, select the first available team
+    if (needNewSelection && firstAvailableIndex !== -1) {
+        teamRadios[firstAvailableIndex].checked = true;
+    }
 }
 
 // Fetch and display team populations  
@@ -738,16 +749,15 @@ function handleKeyPress(key) {
         case 'y':
             // Find nearest enemy for pressor beam
             let nearestPressor = -1;
-            let nearestPressorDist = 6000;
+            let nearestPressorDistSq = 6000 * 6000;
             for (let i = 0; i < gameState.players.length; i++) {
                 const other = gameState.players[i];
                 if (other && other.status === 2 && other.team !== player.team) {
-                    const dist = Math.sqrt(
-                        Math.pow(other.x - player.x, 2) + 
-                        Math.pow(other.y - player.y, 2)
-                    );
-                    if (dist < nearestPressorDist) {
-                        nearestPressorDist = dist;
+                    const dx = other.x - player.x;
+                    const dy = other.y - player.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < nearestPressorDistSq) {
+                        nearestPressorDistSq = distSq;
                         nearestPressor = i;
                     }
                 }
@@ -771,16 +781,15 @@ function handleKeyPress(key) {
             } else {
                 // Find nearest enemy for tractor beam
                 let nearestEnemy = -1;
-                let nearestDist = 6000;
+                let nearestDistSq = 6000 * 6000;
                 for (let i = 0; i < gameState.players.length; i++) {
                     const other = gameState.players[i];
                     if (other && other.status === 2 && other.team !== player.team) {
-                        const dist = Math.sqrt(
-                            Math.pow(other.x - player.x, 2) + 
-                            Math.pow(other.y - player.y, 2)
-                        );
-                        if (dist < nearestDist) {
-                            nearestDist = dist;
+                        const dx = other.x - player.x;
+                        const dy = other.y - player.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < nearestDistSq) {
+                            nearestDistSq = distSq;
                             nearestEnemy = i;
                         }
                     }
@@ -832,14 +841,13 @@ function handleKeyPress(key) {
                     for (let i = 0; i < gameState.planets.length; i++) {
                         const planet = gameState.planets[i];
                         if (!planet) continue;
-                        
-                        const dist = Math.sqrt(
-                            Math.pow(planet.x - mouseX, 2) + 
-                            Math.pow(planet.y - mouseY, 2)
-                        );
-                        
-                        if (dist < closestDist) {
-                            closestDist = dist;
+
+                        const dx = planet.x - mouseX;
+                        const dy = planet.y - mouseY;
+                        const distSq = dx * dx + dy * dy;
+
+                        if (distSq < closestDist) {
+                            closestDist = distSq;
                             closestPlanet = { type: 'planet', target: i };
                         }
                     }
@@ -987,10 +995,8 @@ function connect() {
     updateCompressionIndicator();
 
     // Initialize game (with async handling) - init() is safe to call multiple times
-    init().then(() => {
-        // Game initialized successfully
-    }).catch(err => {
-        // Failed to initialize game
+    init().catch(err => {
+        console.error('Failed to initialize game:', err);
     });
 
     openWebSocket(name, team, ship);
@@ -1321,9 +1327,6 @@ function renderTactical() {
         }
     }
     
-    // Tournament mode display moved to dashboard
-    
-    
     // Show victory screen if game is over
     if (gameState.gameOver) {
         const centerX = width / 2;
@@ -1483,18 +1486,8 @@ function renderTactical() {
         // Draw phaser beam with gradient
         const gradient = ctx.createLinearGradient(fromX, fromY, toX, toY);
         let color = teamColors[fromPlayer.team] || '#fff';
-        
-        // Parse hex color to RGB for rgba() gradient stops
-        let r = 0, g = 0, b = 0;
-        if (color.length === 4) {
-            r = parseInt(color[1] + color[1], 16);
-            g = parseInt(color[2] + color[2], 16);
-            b = parseInt(color[3] + color[3], 16);
-        } else if (color.length === 7) {
-            r = parseInt(color.substring(1, 3), 16);
-            g = parseInt(color.substring(3, 5), 16);
-            b = parseInt(color.substring(5, 7), 16);
-        }
+        const rgb = TEAM_COLORS_RGB[fromPlayer.team] || { r: 255, g: 255, b: 255 };
+        const r = rgb.r, g = rgb.g, b = rgb.b;
 
         gradient.addColorStop(0, `rgba(${r},${g},${b},1)`);
         gradient.addColorStop(0.3, `rgba(${r},${g},${b},0.8)`);
@@ -1562,6 +1555,7 @@ function renderTactical() {
         // Show explosion effect only when torpedo hits something (status = 3)
         // Do not show explosion when torpedo simply expires (fuse = 1)
         if (torp.status === 3) {
+            ctx.save();
             ctx.fillStyle = '#ff0';
             ctx.globalAlpha = 0.8;
             ctx.beginPath();
@@ -1571,7 +1565,7 @@ function renderTactical() {
             ctx.beginPath();
             ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.globalAlpha = 1;
+            ctx.restore();
         } else {
             ctx.fillStyle = teamColors[torp.team] || '#888';
             ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
@@ -1591,6 +1585,7 @@ function renderTactical() {
         
         // Show explosion effect when plasma hits something (status = 3)
         if (plasma.status === 3) {
+            ctx.save();
             ctx.fillStyle = '#ff0';
             ctx.globalAlpha = 0.8;
             ctx.beginPath();
@@ -1600,7 +1595,7 @@ function renderTactical() {
             ctx.beginPath();
             ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.globalAlpha = 1;
+            ctx.restore();
         } else {
             // Draw plasma as 8x8 square (looks like torpedo but bigger)
             const size = 8; // twice regular torpedo size
@@ -2141,9 +2136,7 @@ function updateDashboard() {
             dashboardEls.kdRatio.style.color = '#f88'; // Light red for poor
         }
     }
-    
-    
-    
+
     // Update armies and orbit status
     if (dashboardEls.armies) {
         dashboardEls.armies.textContent = `${player.armies || 0} / ${maxArmies}`;
@@ -2395,7 +2388,8 @@ function showInfoWindow() {
             const screenX = centerX + dx;
             const screenY = centerY + dy;
             
-            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
+            const sdx = screenX - mouseX, sdy = screenY - mouseY;
+            const dist = sdx * sdx + sdy * sdy;
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = player;
@@ -2413,7 +2407,8 @@ function showInfoWindow() {
             const screenX = centerX + dx;
             const screenY = centerY + dy;
             
-            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
+            const sdx = screenX - mouseX, sdy = screenY - mouseY;
+            const dist = sdx * sdx + sdy * sdy;
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = planet;
@@ -2435,7 +2430,8 @@ function showInfoWindow() {
             const screenX = planet.x * scale;
             const screenY = planet.y * scale;
             
-            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
+            const sdx = screenX - mouseX, sdy = screenY - mouseY;
+            const dist = sdx * sdx + sdy * sdy;
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = planet;
@@ -2447,15 +2443,15 @@ function showInfoWindow() {
         for (let i = 0; i < gameState.players.length; i++) {
             const player = gameState.players[i];
             if (!player || player.status !== 2) continue;
-            
+
             // Don't allow targeting cloaked enemies
-            const myPlayer = gameState.players[gameState.myPlayerID];
-            if (myPlayer && player.cloaked && player.team !== myPlayer.team) continue;
+            if (player.cloaked && player.team !== myPlayer.team) continue;
             
             const screenX = player.x * scale;
             const screenY = player.y * scale;
             
-            const dist = Math.sqrt(Math.pow(screenX - mouseX, 2) + Math.pow(screenY - mouseY, 2));
+            const sdx = screenX - mouseX, sdy = screenY - mouseY;
+            const dist = sdx * sdx + sdy * sdy;
             if (dist < closestDistance) {
                 closestDistance = dist;
                 closestTarget = player;
@@ -2466,7 +2462,7 @@ function showInfoWindow() {
     }
 
     // Show info window if we found something close enough
-    if (closestTarget && closestDistance < 100) { // Within 100 pixels
+    if (closestTarget && closestDistance < 10000) { // Within 100 pixels (squared)
         if (window.infoWindow) {
             // Get actual screen coordinates for window placement
             const rect = controls.activeCanvas === 'tactical' ? 

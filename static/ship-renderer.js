@@ -121,7 +121,7 @@ class ShipRenderer {
         const sprite = this.getShipSprite(player.team, player.ship, player.dir);
         if (!sprite) {
             // Fallback to simple triangle if no sprite
-            this.drawFallbackShip(ctx, player, x, y, 1);
+            this.drawFallbackShip(ctx, player, x, y, scale);
             return;
         }
         
