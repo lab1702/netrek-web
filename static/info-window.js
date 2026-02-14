@@ -130,14 +130,16 @@ class InfoWindow {
 
         const maxShields = getMaxShields(player.ship);
         const maxDamage = getMaxDamage(player.ship);
+        const maxFuel = getMaxFuel(player.ship);
         const shieldPct = Math.round((player.shields / maxShields) * 100);
         const damagePct = Math.round((player.damage / maxDamage) * 100);
+        const fuelPct = Math.round((player.fuel / maxFuel) * 100);
 
         html += '<div style="margin-top: 4px;">';
         html += `Speed: ${escapeHtml(Math.round(player.speed))} `;
         html += `Dam: ${escapeHtml(damagePct)}% `;
         html += `Sh: ${escapeHtml(shieldPct)}% `;
-        html += `Fuel: ${escapeHtml(player.fuel)}`;
+        html += `Fuel: ${escapeHtml(fuelPct)}%`;
         html += '</div>';
 
         let status = [];
