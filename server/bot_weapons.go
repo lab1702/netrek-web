@@ -399,64 +399,6 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	logPlasmaFiring("FIRED", int(p.Ship), dist, maxPlasmaRange, "within range")
 }
 
-// fireBotTorpedoWithLead fires torpedo with advanced leading
-func (s *Server) fireBotTorpedoWithLead(p, target *game.Player) {
-	// Can't fire while cloaked or repairing (same rules as human players)
-	if p.Cloaked || p.Repairing {
-		return
-	}
-
-	shipStats := game.ShipData[p.Ship]
-
-	// Check torpedo count
-	if p.NumTorps >= game.MaxTorps {
-		return
-	}
-
-	// Check fuel (same formula as human handler)
-	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
-	if p.Fuel < torpCost {
-		return
-	}
-
-	// Check weapon temperature
-	if p.WTemp > shipStats.MaxWpnTemp-100 {
-		return
-	}
-
-	// Use unified intercept solver
-	shooterPos := Point2D{X: p.X, Y: p.Y}
-	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := s.targetVelocity(target)
-	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
-
-	// Calculate intercept direction
-	fireDir, _ := InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-
-	// Add small random jitter
-	fireDir += randomJitterRad()
-
-	// Create torpedo
-	torp := &game.Torpedo{
-		ID:     s.nextTorpID,
-		Owner:  p.ID,
-		X:      p.X,
-		Y:      p.Y,
-		Dir:    fireDir,
-		Speed:  projSpeed,
-		Damage: shipStats.TorpDamage,
-		Fuse:   shipStats.TorpFuse,
-		Status: game.TorpMove,
-		Team:   p.Team,
-	}
-
-	s.gameState.Torps = append(s.gameState.Torps, torp)
-	s.nextTorpID++
-	p.NumTorps++
-	p.Fuel -= torpCost
-	p.WTemp += 50
-}
-
 // fireTorpedoSpread fires multiple torpedoes in a spread pattern
 func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	// Can't fire while cloaked or repairing (same rules as human players)
@@ -517,61 +459,6 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 	}
 }
 
-// fireEnhancedTorpedo fires a torpedo with enhanced prediction
-func (s *Server) fireEnhancedTorpedo(p, target *game.Player) {
-	// Can't fire while cloaked or repairing (same rules as human players)
-	if p.Cloaked || p.Repairing {
-		return
-	}
-
-	shipStats := game.ShipData[p.Ship]
-
-	// Check torpedo count
-	if p.NumTorps >= game.MaxTorps {
-		return
-	}
-
-	// Check fuel (same formula as human handler)
-	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
-	if p.Fuel < torpCost {
-		return
-	}
-
-	// Check weapon temperature
-	if p.WTemp > shipStats.MaxWpnTemp-100 {
-		return
-	}
-
-	// Use unified intercept solver
-	shooterPos := Point2D{X: p.X, Y: p.Y}
-	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := s.targetVelocity(target)
-	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
-	fireDir, _ := InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-
-	// Add small random jitter to make bot torpedoes harder to dodge
-	fireDir += randomJitterRad()
-
-	torp := &game.Torpedo{
-		ID:     s.nextTorpID,
-		Owner:  p.ID,
-		X:      p.X,
-		Y:      p.Y,
-		Dir:    fireDir,
-		Speed:  float64(shipStats.TorpSpeed * 20),
-		Damage: shipStats.TorpDamage,
-		Fuse:   shipStats.TorpFuse,
-		Status: game.TorpMove,
-		Team:   p.Team,
-	}
-
-	s.gameState.Torps = append(s.gameState.Torps, torp)
-	s.nextTorpID++
-	p.NumTorps++
-	p.Fuel -= torpCost
-	p.WTemp += 50
-}
-
 // planetDefenseWeaponLogic implements aggressive weapon usage for planet defense
 func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, enemyDist float64) {
 	shipStats := game.ShipData[p.Ship]
@@ -585,7 +472,7 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
 	canReach := s.canTorpReachTarget(p, enemy)
 	if canReach && enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
-		s.fireBotTorpedoWithLead(p, enemy)
+		s.fireBotTorpedo(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
 		firedWeapon = true
 	}
@@ -622,7 +509,7 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
 	canReach := s.canTorpReachTarget(p, enemy)
 	if canReach && enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
-		s.fireBotTorpedoWithLead(p, enemy)
+		s.fireBotTorpedo(p, enemy)
 		p.BotCooldown = 3
 		return
 	}
@@ -647,7 +534,7 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	// Close-range torpedo fallback - fires when other conditions prevent it, but still
 	// validates the torpedo can reach the intercept point before fuse expires
 	if canReach && enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 1000 && p.WTemp < shipStats.MaxWpnTemp-100 {
-		s.fireBotTorpedoWithLead(p, enemy)
+		s.fireBotTorpedo(p, enemy)
 		p.BotCooldown = 5
 		return
 	}

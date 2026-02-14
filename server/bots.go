@@ -10,12 +10,12 @@ import (
 )
 
 // AddBot adds a new bot player to the game
-func (s *Server) AddBot(team, ship int) {
+func (s *Server) AddBot(team int, ship game.ShipType) {
 	s.gameState.Mu.Lock()
 	defer s.gameState.Mu.Unlock()
 
 	// Enforce one starbase per team (checked atomically under lock)
-	if game.ShipType(ship) == game.ShipStarbase {
+	if ship == game.ShipStarbase {
 		for _, p := range s.gameState.Players {
 			if p.Connected && p.Ship == game.ShipStarbase && p.Team == team && p.Status != game.StatusFree {
 				return // Team already has a starbase
@@ -40,7 +40,7 @@ func (s *Server) AddBot(team, ship int) {
 	p := s.gameState.Players[botID]
 	p.Name = fmt.Sprintf("[BOT] %s", BotNames[rand.Intn(len(BotNames))])
 	p.Team = team
-	p.Ship = game.ShipType(ship)
+	p.Ship = ship
 	p.Status = game.StatusAlive
 	p.NextShipType = -1 // Ensure no pending refit; preserve ship on respawn
 
@@ -84,7 +84,7 @@ func (s *Server) UpdateBots() {
 		// Starbases are excluded — their specialized AI manages shields
 		// directly to avoid conflicting decisions that cause toggling.
 		if p.Ship != game.ShipStarbase {
-			s.assessAndActivateShields(p, nil)
+			s.assessAndActivateShields(p)
 		}
 
 		// Reduce cooldown
@@ -603,7 +603,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 	// Final fallback shield assessment to ensure all code paths are covered
 	// This catches any scenarios where shields weren't assessed in specific logic branches
-	s.assessAndActivateShields(p, nil)
+	s.assessAndActivateShields(p)
 }
 
 // updateStarbaseBot implements specialized AI for starbase bots
@@ -635,7 +635,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 	}
 
 	// Count team's planet ownership to determine strategic posture
-	teamPlanets := s.countPlanetsForTeam(p.Team)
+	teamPlanets := s.countTeamPlanets()[p.Team]
 	totalPlanets := len(s.gameState.Planets)
 	teamOwnership := float64(teamPlanets) / float64(totalPlanets)
 
@@ -705,7 +705,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				p.DesSpeed = 0
 				// Use proper threat assessment instead of a generous distance check
 				// to avoid shields staying up when no real threat exists
-				s.assessAndActivateShields(p, nil)
+				s.assessAndActivateShields(p)
 				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 15
 				return
@@ -759,7 +759,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				corePlanet.Info |= p.Team // Update planet info
 				p.DesSpeed = 0
 				// Use proper threat assessment for shield decisions
-				s.assessAndActivateShields(p, nil)
+				s.assessAndActivateShields(p)
 				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 20
 				return
@@ -789,7 +789,7 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 
 	// Torpedoes at long range
 	if canReach && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
-		s.fireBotTorpedoWithLead(p, enemy)
+		s.fireBotTorpedo(p, enemy)
 		p.BotCooldown = 4
 		return
 	}
@@ -1084,7 +1084,7 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 	p.DesSpeed = 0
 
 	// Use comprehensive shield management for starbase defense
-	s.assessAndActivateShields(p, enemy)
+	s.assessAndActivateShields(p)
 
 	// Priority: phaser incoming plasma torpedoes (devastating to starbases)
 	s.tryPhaserNearbyPlasma(p)

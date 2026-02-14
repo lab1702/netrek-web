@@ -33,7 +33,7 @@ func (c *Client) handleBotCommand(cmd string) {
 
 		// /addbot [team] [ship_type]
 		team := game.TeamFed
-		ship := 1 // Destroyer
+		ship := game.ShipDestroyer
 
 		if len(parts) > 1 {
 			switch parts[1] {
@@ -52,7 +52,7 @@ func (c *Client) handleBotCommand(cmd string) {
 			// Parse ship alias (SC, DD, CA, etc.) - consistent with /refit
 			shipTypeStr := strings.ToUpper(parts[2])
 			if shipTypeInt, ok := shipAlias[shipTypeStr]; ok {
-				ship = shipTypeInt
+				ship = game.ShipType(shipTypeInt)
 			} else {
 				// Invalid ship type - send error message and return
 				c.sendMsg(ServerMessage{
@@ -139,13 +139,13 @@ func (c *Client) handleBotCommand(cmd string) {
 		// Only allow one starbase per team
 
 		// All ship types including starbase (but starbase is limited)
-		allShipTypes := []int{
-			int(game.ShipScout),      // 0
-			int(game.ShipDestroyer),  // 1
-			int(game.ShipCruiser),    // 2
-			int(game.ShipBattleship), // 3
-			int(game.ShipAssault),    // 4
-			int(game.ShipStarbase),   // 5
+		allShipTypes := []game.ShipType{
+			game.ShipScout,
+			game.ShipDestroyer,
+			game.ShipCruiser,
+			game.ShipBattleship,
+			game.ShipAssault,
+			game.ShipStarbase,
 		}
 
 		teams := []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri}
@@ -154,9 +154,9 @@ func (c *Client) handleBotCommand(cmd string) {
 		maxBots := game.MaxPlayers - 4 // Leave room for humans
 
 		// Keep track of how many of each ship type we've added per team
-		teamShipCounts := make(map[int]map[int]int)
+		teamShipCounts := make(map[int]map[game.ShipType]int)
 		for _, team := range teams {
-			teamShipCounts[team] = make(map[int]int)
+			teamShipCounts[team] = make(map[game.ShipType]int)
 		}
 
 		// Snapshot existing bot count under a single read lock (no write lock needed)
@@ -194,7 +194,7 @@ func (c *Client) handleBotCommand(cmd string) {
 			}
 
 			// For the selected team, find ship type with lowest count
-			var candidateShips []int
+			var candidateShips []game.ShipType
 			minShipCount := 999
 			for _, shipType := range allShipTypes {
 				count := teamShipCounts[selectedTeam][shipType]

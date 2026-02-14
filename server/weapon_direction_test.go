@@ -109,40 +109,6 @@ func TestWeaponDirectionIndependence(t *testing.T) {
 				}
 			})
 
-			t.Run("fireBotTorpedoWithLead", func(t *testing.T) {
-				initialTorps := len(gs.Torps)
-				server.fireBotTorpedoWithLead(shooter, target)
-
-				if len(gs.Torps) <= initialTorps {
-					t.Fatal("No torpedo was fired")
-				}
-
-				torp := gs.Torps[len(gs.Torps)-1]
-
-				// For stationary target, should fire directly at target
-				if math.Abs(torp.Dir-tc.expectedAngle) > 0.1 {
-					t.Errorf("Torpedo with lead fired in wrong direction: got %.3f, expected %.3f",
-						torp.Dir, tc.expectedAngle)
-				}
-			})
-
-			t.Run("fireEnhancedTorpedo", func(t *testing.T) {
-				initialTorps := len(gs.Torps)
-				server.fireEnhancedTorpedo(shooter, target)
-
-				if len(gs.Torps) <= initialTorps {
-					t.Fatal("No torpedo was fired")
-				}
-
-				torp := gs.Torps[len(gs.Torps)-1]
-
-				// Should fire toward target regardless of ship direction
-				if math.Abs(torp.Dir-tc.expectedAngle) > 0.1 {
-					t.Errorf("Enhanced torpedo fired in wrong direction: got %.3f, expected %.3f",
-						torp.Dir, tc.expectedAngle)
-				}
-			})
-
 			// Test plasma firing for ships that have plasma
 			if game.ShipData[shooter.Ship].HasPlasma {
 				t.Run("fireBotPlasma", func(t *testing.T) {

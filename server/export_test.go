@@ -15,19 +15,9 @@ func (s *Server) GetGameState() *game.GameState {
 	return s.gameState
 }
 
-// FireBotTorpedoWithLead exposes the private fireBotTorpedoWithLead method for testing
-func (s *Server) FireBotTorpedoWithLead(shooter, target *game.Player) {
-	s.fireBotTorpedoWithLead(shooter, target)
-}
-
 // FireBotTorpedo exposes the private fireBotTorpedo method for testing
 func (s *Server) FireBotTorpedo(shooter, target *game.Player) {
 	s.fireBotTorpedo(shooter, target)
-}
-
-// FireEnhancedTorpedo exposes the private fireEnhancedTorpedo method for testing
-func (s *Server) FireEnhancedTorpedo(shooter, target *game.Player) {
-	s.fireEnhancedTorpedo(shooter, target)
 }
 
 // CalculateEnhancedInterceptCourse exposes the private calculateEnhancedInterceptCourse method for testing

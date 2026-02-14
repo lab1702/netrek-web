@@ -39,6 +39,10 @@ const (
 	PhaserRangeFactor    = 0.8     // Shield when within 80% of enemy phaser range
 	RepairSafetyDistance = 12000.0 // Minimum enemy distance to drop shields for repair (must exceed phaser range + buffer)
 
+	// Team Coordination Thresholds
+	BroadcastTargetMinValue = 15000.0 // Minimum target score to broadcast to allies
+	BroadcastTargetRange    = 15000.0 // Maximum distance to broadcast target suggestions
+
 	// Sentinel Values
 	MaxSearchDistance = 999999.0  // Sentinel for "no target found" in nearest-object searches
 	WorstScore        = -999999.0 // Sentinel for "no candidate scored" in best-candidate searches

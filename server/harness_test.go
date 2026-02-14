@@ -134,7 +134,7 @@ func runAccuracyTest(t *testing.T, iterations int, speed float64, pattern string
 
 		// Fire torpedo using current bot logic
 		initialTorpCount := len(gs.Torps)
-		testServer.FireBotTorpedoWithLead(shooter, target) // We'll need to expose this method
+		testServer.FireBotTorpedo(shooter, target)
 
 		if len(gs.Torps) <= initialTorpCount {
 			t.Errorf("Iteration %d: No torpedo was fired", i)

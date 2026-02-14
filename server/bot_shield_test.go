@@ -226,7 +226,7 @@ func TestBotShieldAssessment(t *testing.T) {
 			}
 
 			// Run shield assessment
-			server.assessAndActivateShields(bot, nil)
+			server.assessAndActivateShields(bot)
 
 			// Check result
 			if bot.Shields_up != tt.expectedShield {

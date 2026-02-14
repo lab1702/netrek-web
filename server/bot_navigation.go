@@ -178,6 +178,8 @@ func (s *Server) getOptimalSpeed(p *game.Player, dist float64) float64 {
 		decelerationFactor = 180
 	case game.ShipAssault:
 		decelerationFactor = 200
+	case game.ShipCruiser:
+		decelerationFactor = 200
 	case game.ShipStarbase:
 		decelerationFactor = 150
 	default:
@@ -326,7 +328,7 @@ func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desired
 	p.DesSpeed = desiredSpeed
 
 	// Apply comprehensive shield management for navigation threats
-	s.assessAndActivateShields(p, nil)
+	s.assessAndActivateShields(p)
 
 	// Check for medium-term torpedo threats and adjust speed
 	if threats.closestTorpDist < 3000 {

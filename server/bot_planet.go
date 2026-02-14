@@ -390,7 +390,7 @@ func (s *Server) defendPlanet(p *game.Player, planet *game.Planet, enemy *game.P
 	p.BotPlanetApproachID = -1
 
 	// Use comprehensive shield management for planet defense
-	s.assessAndActivateShields(p, enemy)
+	s.assessAndActivateShields(p)
 
 	// Calculate intercept position between enemy and planet
 	// We want to position ourselves optimally between the enemy and planet

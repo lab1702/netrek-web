@@ -24,13 +24,20 @@ var BotNames = []string{
 	"Friday", "Jarvis", "Vision", "Ultron", "Skynet", "Agent-Smith",
 }
 
-// CombatThreat tracks various combat threats
+// CombatThreat tracks various combat threats.
+// Fields are computed once per bot per game frame by assessUniversalThreats
+// and cached for reuse by both combat and shield logic.
 type CombatThreat struct {
 	closestTorpDist float64
 	closestPlasma   float64
-	nearbyEnemies   int
-	requiresEvasion bool
-	threatLevel     int
+	closestEnemyDist float64
+	nearbyEnemies    int
+	requiresEvasion  bool
+	threatLevel      int
+
+	// Shield-specific fields (computed in the same pass to avoid redundant iteration)
+	shieldThreatLevel int  // threat score using shield-specific weights
+	immediateThreat   bool // any threat requiring immediate shielding
 }
 
 // SeparationVector represents the direction and magnitude to separate from allies

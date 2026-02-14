@@ -44,7 +44,6 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 
 	// Check for all threats (torpedoes, plasma, nearby enemies)
 	threats := s.assessUniversalThreats(p)
-	closestTorpDist := threats.closestTorpDist
 
 	// Try to phaser any plasma in range before evading
 	if threats.closestPlasma < MaxSearchDistance {
@@ -98,20 +97,11 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Check for team coordination opportunities
-	if ally := s.findNearbyAlly(p, 10000); ally != nil {
-		// Coordinate attacks on same target
-		if ally.BotTarget == target.ID || s.shouldFocusFire(p, ally, target) {
-			// Synchronized attack timing
-			p.BotCooldown = (p.BotCooldown + ally.BotCooldown) / 2
-		}
-	}
-
-	// Enhanced team coordination with target broadcasting — only apply if the
-	// coordinated cooldown is at least as high as the current cooldown, to prevent
-	// integer division from making bots fire faster than their weapon logic intends.
+	// Team coordination: synchronize cooldowns for volley fire.
+	// Only apply if the coordinated cooldown is at least as high as the current
+	// cooldown, to prevent averaging from making bots fire faster than intended.
 	if coordinatedCooldown := s.coordinateTeamAttack(p, target); coordinatedCooldown > 0 && coordinatedCooldown >= p.BotCooldown {
-		p.BotCooldown = coordinatedCooldown // Sync with team for volley fire
+		p.BotCooldown = coordinatedCooldown
 	}
 
 	// Broadcast high-value targets to nearby allies
@@ -159,7 +149,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 				s.fireTorpedoSpread(p, target, 3)
 				p.BotCooldown = 5 // Reduced from 8 to 5 for higher fire rate
 			} else {
-				s.fireEnhancedTorpedo(p, target)
+				s.fireBotTorpedo(p, target)
 				p.BotCooldown = 3 // Reduced from 6 to 3 for aggressive combat
 			}
 		}
@@ -174,7 +164,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 			targetRunAngle = 2*math.Pi - targetRunAngle
 		}
 		if targetRunAngle < math.Pi/3 && target.Speed > float64(shipStats.MaxSpeed)*0.5 {
-			s.fireBotTorpedoWithLead(p, target)
+			s.fireBotTorpedo(p, target)
 			p.BotCooldown = 4 // Reduced from 8 to 4
 		}
 	}
@@ -187,7 +177,6 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		if dist < myPhaserRange {
 			phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
 			if p.Fuel >= phaserCost && p.WTemp < shipStats.MaxWpnTemp-100 { // Match human firing threshold
-				targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 				// Calculate if phaser would be a kill shot
 				phaserDamage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
 				wouldKill := target.Damage+int(phaserDamage) >= targetStats.MaxDamage
@@ -202,8 +191,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Predictive shield management
-	s.managePredictiveShields(p, target, dist, closestTorpDist)
+	// Shield management
+	s.assessAndActivateShields(p)
 
 	// Enhanced plasma usage for area control — only if no other weapon fired this tick
 	if !firedTorps && !firedPhaser && shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 {
@@ -252,11 +241,11 @@ func (s *Server) defendWhileCarrying(p, enemy *game.Player) {
 		// Fire defensively
 		if p.NumTorps < game.MaxTorps && p.Fuel > 2000 {
 			// Fire torpedo behind us
-			s.fireBotTorpedoWithLead(p, enemy)
+			s.fireBotTorpedo(p, enemy)
 		}
 
 		// Use enhanced shield management when carrying armies
-		s.assessAndActivateShields(p, enemy)
+		s.assessAndActivateShields(p)
 	}
 }
 
@@ -275,14 +264,28 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 	}
 
 	threat := CombatThreat{
-		closestTorpDist: MaxSearchDistance,
-		closestPlasma:   MaxSearchDistance,
-		nearbyEnemies:   0,
-		requiresEvasion: false,
-		threatLevel:     0,
+		closestTorpDist:  MaxSearchDistance,
+		closestPlasma:    MaxSearchDistance,
+		closestEnemyDist: MaxSearchDistance,
+		nearbyEnemies:    0,
+		requiresEvasion:  false,
+		threatLevel:      0,
 	}
 
-	// Enhanced torpedo checking for all movement scenarios
+	// Pre-compute which planets are near the bot (within 10k) once, so we
+	// don't re-iterate all 40 planets for every threatening torpedo.
+	type nearbyPlanet struct {
+		x, y float64
+	}
+	var nearbyPlanets []nearbyPlanet
+	for _, planet := range s.gameState.Planets {
+		if game.Distance(p.X, p.Y, planet.X, planet.Y) < 10000 {
+			nearbyPlanets = append(nearbyPlanets, nearbyPlanet{x: planet.X, y: planet.Y})
+		}
+	}
+
+	// Enhanced torpedo checking for all movement scenarios.
+	// Also computes shield-specific threat values in the same pass.
 	for _, torp := range s.gameState.Torps {
 		if torp.Owner != p.ID && torp.Team != p.Team && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
@@ -290,10 +293,26 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 				threat.closestTorpDist = dist
 			}
 
+			// Shield scoring: torpedoes within detection range
+			if dist < TorpedoClose {
+				threat.shieldThreatLevel += 2
+			}
+			if dist < TorpedoVeryClose {
+				threat.shieldThreatLevel += 5
+				threat.immediateThreat = true
+			}
+
 			// Improved torpedo threat prediction
-			if s.isTorpedoThreatening(p, torp) {
+			isThreatening := s.isTorpedoThreatening(p, torp)
+			if isThreatening {
 				threat.requiresEvasion = true
 				threat.threatLevel += 4
+
+				// Shield scoring: trajectory-confirmed threatening torpedoes
+				if dist < TorpedoClose {
+					threat.shieldThreatLevel += TorpedoThreatBonus
+					threat.immediateThreat = true
+				}
 
 				// Increase threat level based on proximity — always applied
 				// regardless of planet proximity (fixes bug where open-space
@@ -307,12 +326,10 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 				threat.threatLevel += baseThreatIncrease
 
 				// Additional bonus when near a planet — torpedoes are more
-				// dangerous in contested planet areas
-				for _, planet := range s.gameState.Planets {
-					pDistToPlanet := game.Distance(p.X, p.Y, planet.X, planet.Y)
-					torpDistToPlanet := game.Distance(torp.X, torp.Y, planet.X, planet.Y)
-
-					if pDistToPlanet < 10000 && torpDistToPlanet < 10000 {
+				// dangerous in contested planet areas. Uses pre-computed
+				// nearby planets to avoid O(torps * planets) iteration.
+				for _, np := range nearbyPlanets {
+					if game.Distance(torp.X, torp.Y, np.x, np.y) < 10000 {
 						threat.threatLevel += baseThreatIncrease // Double the proximity bonus near planets
 						break
 					}
@@ -332,6 +349,15 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 				threat.requiresEvasion = true
 				threat.threatLevel += 5
 			}
+
+			// Shield scoring: plasma threats
+			if dist < PlasmaFar {
+				threat.shieldThreatLevel += ThreatLevelMedium
+				if dist < PlasmaClose {
+					threat.shieldThreatLevel += ThreatLevelHigh
+					threat.immediateThreat = true
+				}
+			}
 		}
 	}
 
@@ -339,6 +365,12 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 	for _, enemy := range s.gameState.Players {
 		if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
 			dist := game.Distance(p.X, p.Y, enemy.X, enemy.Y)
+
+			// Track closest enemy (for shield decisions)
+			if dist < threat.closestEnemyDist {
+				threat.closestEnemyDist = dist
+			}
+
 			if dist < 5000 {
 				threat.nearbyEnemies++
 				threat.threatLevel++
@@ -353,6 +385,25 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 					threat.requiresEvasion = true
 					threat.threatLevel += 2
 				}
+			}
+
+			// Shield scoring: enemy proximity and phaser range
+			enemyStats := game.ShipData[enemy.Ship]
+			phaserRange := float64(game.PhaserDist) * float64(enemyStats.PhaserDamage) / 100.0
+			if dist < phaserRange {
+				threat.shieldThreatLevel += ThreatLevelMedium
+				if dist < phaserRange*PhaserRangeFactor {
+					threat.shieldThreatLevel += ThreatLevelHigh
+					threat.immediateThreat = true
+				}
+			}
+			if dist < EnemyVeryClose {
+				threat.shieldThreatLevel += CloseEnemyBonus
+				threat.immediateThreat = true
+			}
+			if dist < EnemyClose {
+				threat.immediateThreat = true
+				threat.shieldThreatLevel += 2
 			}
 		}
 	}
@@ -485,15 +536,11 @@ func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) Comb
 	return maneuver
 }
 
-// managePredictiveShields manages shields with prediction
-func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torpDist float64) {
-	s.assessAndActivateShields(p, target)
-}
-
 // assessAndActivateShields provides comprehensive shield assessment for all bot scenarios.
-// Uses BotShieldFrame to run at most once per game tick (avoids redundant iterations
-// over torpedoes, plasmas, and enemies when called from multiple code paths).
-func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Player) {
+// Uses BotShieldFrame to run at most once per game tick, and delegates to the cached
+// assessUniversalThreats result to avoid redundant iteration over torpedoes, plasmas,
+// and enemies.
+func (s *Server) assessAndActivateShields(p *game.Player) {
 	// Skip if already assessed this tick (Frame starts at 1 in game loop,
 	// BotShieldFrame zero-value means "never assessed")
 	if p.BotShieldFrame > 0 && p.BotShieldFrame == s.gameState.Frame {
@@ -507,117 +554,36 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 		return
 	}
 
-	// Remove the orbit repair shield drop - bots were dying during base repair
-	// Let threat assessment handle shield decisions even while repairing
-
-	// Initialize threat assessment
-	threatLevel := 0
-	closestTorpDist := MaxSearchDistance
-	closestEnemyDist := MaxSearchDistance
-	immediateThreat := false
-
-	// Check all torpedo threats (skip friendly torpedoes)
-	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Team != p.Team && torp.Status == game.TorpMove {
-			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
-			if dist < closestTorpDist {
-				closestTorpDist = dist
-			}
-
-			// Torpedo threat levels based on distance and trajectory
-			if dist < TorpedoClose {
-				threatLevel += 2
-				if s.isTorpedoThreatening(p, torp) {
-					threatLevel += TorpedoThreatBonus
-					immediateThreat = true
-				}
-			}
-
-			// Very close torpedoes are always dangerous (increased range)
-			if dist < TorpedoVeryClose {
-				threatLevel += 5
-				immediateThreat = true
-			}
-		}
-	}
-
-	// Check all enemy players for phaser threats and proximity
-	for _, enemy := range s.gameState.Players {
-		if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
-			dist := game.Distance(p.X, p.Y, enemy.X, enemy.Y)
-			if dist < closestEnemyDist {
-				closestEnemyDist = dist
-			}
-
-			enemyStats := game.ShipData[enemy.Ship]
-			phaserRange := float64(game.PhaserDist) * float64(enemyStats.PhaserDamage) / 100.0
-
-			// Within phaser range - high priority for shields
-			// Phasers can be fired in any direction regardless of ship facing
-			if dist < phaserRange {
-				threatLevel += ThreatLevelMedium
-				// Any enemy within phaser range is an immediate threat
-				if dist < phaserRange*PhaserRangeFactor {
-					threatLevel += ThreatLevelHigh
-					immediateThreat = true
-				}
-			}
-
-			// Very close enemies are dangerous regardless of facing
-			if dist < EnemyVeryClose {
-				threatLevel += CloseEnemyBonus
-				immediateThreat = true
-			}
-
-			// Always treat any enemy within EnemyClose range as immediate threat
-			if dist < EnemyClose {
-				immediateThreat = true
-				threatLevel += 2
-			}
-		}
-	}
-
-	// Check plasma threats (skip friendly plasma)
-	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Team != p.Team && plasma.Status == game.TorpMove {
-			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
-			if dist < PlasmaFar {
-				threatLevel += ThreatLevelMedium
-				if dist < PlasmaClose {
-					threatLevel += ThreatLevelHigh
-					immediateThreat = true
-				}
-			}
-		}
-	}
+	// Use cached threat assessment (computed once per bot per frame)
+	threat := s.assessUniversalThreats(p)
 
 	// Shield decision logic based on threat assessment and fuel availability
 	shouldShield := false
 
 	// Immediate threats - shield if we have minimal fuel (much lower threshold)
-	if immediateThreat && p.Fuel > FuelLow {
+	if threat.immediateThreat && p.Fuel > FuelLow {
 		shouldShield = true
-	} else if threatLevel >= ThreatLevelImmediate && p.Fuel > FuelModerate {
+	} else if threat.shieldThreatLevel >= ThreatLevelImmediate && p.Fuel > FuelModerate {
 		// High threat level - shield up
 		shouldShield = true
-	} else if threatLevel >= ThreatLevelMedium && p.Fuel > FuelGood {
+	} else if threat.shieldThreatLevel >= ThreatLevelMedium && p.Fuel > FuelGood {
 		// Medium threat with good fuel reserves
 		shouldShield = true
-	} else if closestTorpDist < TorpedoVeryClose && p.Fuel > FuelLow {
+	} else if threat.closestTorpDist < TorpedoVeryClose && p.Fuel > FuelLow {
 		// Torpedo very close - be defensive with lower fuel requirement
 		shouldShield = true
-	} else if closestEnemyDist < EnemyClose && p.Fuel > FuelModerate {
+	} else if threat.closestEnemyDist < EnemyClose && p.Fuel > FuelModerate {
 		// Enemy nearby - be prepared with moderate fuel requirement
 		shouldShield = true
 	}
 
 	// Special case: always shield when carrying armies and threatened (lower fuel requirement)
-	if p.Armies > 0 && (closestEnemyDist < ArmyCarryingRange || closestTorpDist < TorpedoClose) && p.Fuel > FuelLow {
+	if p.Armies > 0 && (threat.closestEnemyDist < ArmyCarryingRange || threat.closestTorpDist < TorpedoClose) && p.Fuel > FuelLow {
 		shouldShield = true
 	}
 
 	// Special case: shield during planet defense when enemies are close (lower fuel requirement)
-	if p.BotDefenseTarget >= 0 && (closestEnemyDist < DefenseShieldRange || closestTorpDist < TorpedoVeryClose) && p.Fuel > FuelLow {
+	if p.BotDefenseTarget >= 0 && (threat.closestEnemyDist < DefenseShieldRange || threat.closestTorpDist < TorpedoVeryClose) && p.Fuel > FuelLow {
 		shouldShield = true
 	}
 

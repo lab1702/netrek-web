@@ -123,17 +123,6 @@ func (s *Server) countTeamPlanets() map[int]int {
 	return s.cachedTeamPlanets
 }
 
-// countPlanetsForTeam counts how many planets a team owns
-func (s *Server) countPlanetsForTeam(team int) int {
-	count := 0
-	for _, planet := range s.gameState.Planets {
-		if planet.Owner == team {
-			count++
-		}
-	}
-	return count
-}
-
 // calculateTeamCenter calculates the center of a team's territory
 func (s *Server) calculateTeamCenter(team int) (float64, float64) {
 	totalX, totalY := 0.0, 0.0
@@ -219,7 +208,7 @@ func (s *Server) shouldFocusFire(p, ally, target *game.Player) bool {
 }
 
 // selectBotShipType chooses appropriate ship type based on team composition
-func (s *Server) selectBotShipType(team int) int {
+func (s *Server) selectBotShipType(team int) game.ShipType {
 	// Count existing ship types on team
 	shipCounts := make(map[game.ShipType]int)
 	for _, p := range s.gameState.Players {
@@ -236,28 +225,28 @@ func (s *Server) selectBotShipType(team int) int {
 
 	if total == 0 {
 		// First bot - random from main combat ships (avoid too many scouts)
-		options := []int{int(game.ShipDestroyer), int(game.ShipCruiser), int(game.ShipBattleship), int(game.ShipAssault)}
+		options := []game.ShipType{game.ShipDestroyer, game.ShipCruiser, game.ShipBattleship, game.ShipAssault}
 		return options[rand.Intn(len(options))]
 	}
 
 	// Prefer destroyers and cruisers for balance
 	if shipCounts[game.ShipDestroyer] < 2 {
-		return int(game.ShipDestroyer)
+		return game.ShipDestroyer
 	}
 	if shipCounts[game.ShipCruiser] < 2 {
-		return int(game.ShipCruiser)
+		return game.ShipCruiser
 	}
 
 	// Add assault ship if none exists
 	if shipCounts[game.ShipAssault] == 0 && total > 3 {
-		return int(game.ShipAssault)
+		return game.ShipAssault
 	}
 
 	// Random from all combat ships for variety
 	// Excludes Starbase (handled separately) and Galaxy (rare)
-	combatShips := []int{
-		int(game.ShipScout), int(game.ShipDestroyer), int(game.ShipCruiser),
-		int(game.ShipBattleship), int(game.ShipAssault),
+	combatShips := []game.ShipType{
+		game.ShipScout, game.ShipDestroyer, game.ShipCruiser,
+		game.ShipBattleship, game.ShipAssault,
 	}
 	return combatShips[rand.Intn(len(combatShips))]
 }
@@ -483,7 +472,7 @@ type targetSuggestion struct {
 // affect targeting decisions.
 func (s *Server) broadcastTargetToAllies(p *game.Player, target *game.Player, targetValue float64) {
 	// Only broadcast for high-value targets (carriers, heavily damaged ships)
-	if targetValue <= 15000 && target.Armies <= 0 {
+	if targetValue <= BroadcastTargetMinValue && target.Armies <= 0 {
 		return
 	}
 
@@ -493,7 +482,7 @@ func (s *Server) broadcastTargetToAllies(p *game.Player, target *game.Player, ta
 		}
 
 		dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
-		if dist >= 15000 {
+		if dist >= BroadcastTargetRange {
 			continue
 		}
 
