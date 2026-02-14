@@ -158,9 +158,9 @@ func (s *Server) calculateDamageAtDirection(p *game.Player, dir, speed float64) 
 	dx := speed * math.Cos(dir) * 20
 	dy := speed * math.Sin(dir) * 20
 
-	// Check collision with torpedoes over next few ticks
+	// Check collision with torpedoes over next few ticks (skip friendly)
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner == p.ID {
+		if torp.Owner == p.ID || torp.Team == p.Team {
 			continue
 		}
 
@@ -203,7 +203,7 @@ func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 	speed := float64(game.ShipData[p.Ship].MaxSpeed) * 20
 
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner == p.ID || torp.Status != game.TorpMove {
+		if torp.Owner == p.ID || torp.Team == p.Team || torp.Status != game.TorpMove {
 			continue
 		}
 
@@ -278,30 +278,14 @@ func (s *Server) getEvasionSpeed(p *game.Player, threats CombatThreat) float64 {
 	shipStats := game.ShipData[p.Ship]
 	baseSpeed := float64(shipStats.MaxSpeed)
 
-	// Check if we're near a planet - may need higher speed for better dodging
-	planetProximity := false
-	for _, planet := range s.gameState.Planets {
-		dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-		if dist < 8000 {
-			planetProximity = true
-			break
-		}
-	}
-
-	// Planet proximity bonus - slight speed increase for better dodging options
-	planetSpeedMultiplier := 1.0
-	if planetProximity {
-		planetSpeedMultiplier = 1.15
-	}
-
 	// High threat - maximum speed
 	if threats.threatLevel > 5 {
-		return baseSpeed * planetSpeedMultiplier
+		return baseSpeed
 	}
 
 	// Medium threat - variable speed for unpredictability
 	if threats.threatLevel > 2 {
-		return baseSpeed * planetSpeedMultiplier * (0.6 + rand.Float64()*0.4)
+		return baseSpeed * (0.6 + rand.Float64()*0.4)
 	}
 
 	// Low threat - maintain combat speed

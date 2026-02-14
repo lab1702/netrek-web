@@ -116,15 +116,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	s.broadcastTargetToAllies(p, target, p.BotTargetValue)
 
 	// Check for torpedo detonation opportunities for area denial
-	if s.considerTorpedoDetonation(p) {
-		// Detonate all our torpedoes for area damage
-		for _, torp := range s.gameState.Torps {
-			if torp.Owner == p.ID && torp.Status == game.TorpMove {
-				torp.Fuse = 1 // Will explode next frame
-			}
-		}
-		p.BotCooldown = 3
-	}
+	// Only detonate specific torpedoes that are passing by enemies, not all in-flight
+	s.detonatePassingTorpedoes(p)
 
 	// Weapon usage - no facing restrictions needed
 
@@ -136,6 +129,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Check for burst fire opportunity on vulnerable targets
 	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 	burstFireMode := targetDamageRatio > 0.7 && dist < effectiveTorpRange*0.6 // Burst when target is heavily damaged and in close range
+	firedTorps := false
 	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		if burstFireMode && p.NumTorps < game.MaxTorps-6 && p.Fuel > 2500 {
 			// Burst fire mode - rapid successive torpedoes for kill securing
@@ -153,11 +147,11 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 				p.BotCooldown = 3 // Reduced from 6 to 3 for aggressive combat
 			}
 		}
+		firedTorps = true
 	}
 
-	// Fire when enemy is running away - use velocity-adjusted range to prevent fuse expiry
-	velocityAdjustedRange := s.getVelocityAdjustedTorpRange(p, target)
-	if dist < velocityAdjustedRange && p.NumTorps < game.MaxTorps-3 && p.Fuel > 1000 { // More aggressive thresholds
+	// Fire when enemy is running away - only if we didn't already fire torpedoes above
+	if !firedTorps && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-3 && p.Fuel > 1000 {
 		targetAngleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
 		targetRunAngle := math.Abs(target.Dir - targetAngleToUs)
 		if targetRunAngle > math.Pi {
@@ -260,7 +254,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 
 	// Enhanced torpedo checking for all movement scenarios
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Status == game.TorpMove {
+		if torp.Owner != p.ID && torp.Team != p.Team && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
 			if dist < threat.closestTorpDist {
 				threat.closestTorpDist = dist
@@ -297,9 +291,9 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 		}
 	}
 
-	// Check plasma threats
+	// Check plasma threats (skip friendly plasma)
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Status == game.TorpMove {
+		if plasma.Owner != p.ID && plasma.Team != p.Team && plasma.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 			if dist < threat.closestPlasma {
 				threat.closestPlasma = dist
@@ -482,9 +476,9 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 	closestEnemyDist := 999999.0
 	immediateThreat := false
 
-	// Check all torpedo threats
+	// Check all torpedo threats (skip friendly torpedoes)
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Status == game.TorpMove {
+		if torp.Owner != p.ID && torp.Team != p.Team && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
 			if dist < closestTorpDist {
 				closestTorpDist = dist
@@ -543,9 +537,9 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 		}
 	}
 
-	// Check plasma threats
+	// Check plasma threats (skip friendly plasma)
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Status == game.TorpMove {
+		if plasma.Owner != p.ID && plasma.Team != p.Team && plasma.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 			if dist < PlasmaFar {
 				threatLevel += ThreatLevelMedium

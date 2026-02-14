@@ -61,7 +61,8 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	// Check team balance
 	{
-		// Count players per team (only count connected, alive players)
+		// Count players per team (count all connected, non-free players including
+		// exploding/dead players who will respawn, to prevent imbalanced joins)
 		teamCounts := make(map[int]int)
 		// Initialize all teams to 0
 		teamCounts[game.TeamFed] = 0
@@ -70,7 +71,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 		teamCounts[game.TeamOri] = 0
 
 		for _, p := range c.server.gameState.Players {
-			if p.Status == game.StatusAlive && p.Connected {
+			if p.Status != game.StatusFree && p.Connected {
 				teamCounts[p.Team]++
 			}
 		}
@@ -330,6 +331,11 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	}
 	teamCounts := c.server.computeTeamCounts()
 
+	// Clear playerID before releasing lock so the unregister handler won't
+	// try to free a slot that the game loop will handle via the explosion timer.
+	// SetPlayerID is atomic and safe to call while holding the game state lock.
+	c.SetPlayerID(-1)
+
 	// Unlock before broadcasting to avoid deadlock
 	c.server.gameState.Mu.Unlock()
 
@@ -341,10 +347,6 @@ func (c *Client) handleQuit(data json.RawMessage) {
 
 	// Broadcast pre-captured team counts to all clients
 	c.server.broadcastTeamCountsData(teamCounts)
-
-	// Clear playerID so the unregister handler won't try to free a
-	// slot that the game loop will handle (avoids race if slot is reused).
-	c.SetPlayerID(-1)
 
 	// Close the connection after a short delay to allow the explosion to be seen
 	go func() {

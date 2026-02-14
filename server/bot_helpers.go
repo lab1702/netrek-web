@@ -1,6 +1,7 @@
 package server
 
 import (
+	"math"
 	"math/rand"
 
 	"github.com/lab1702/netrek-web/game"
@@ -308,8 +309,9 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 		}
 
 		// Require 20% better score to switch targets when locked
+		// Use absolute value to handle negative scores correctly
 		if p.BotTargetLockTime > 0 {
-			if score > bestScore*1.2 {
+			if score > bestScore+math.Abs(bestScore)*0.2 {
 				bestScore = score
 				bestTarget = other
 			}
@@ -418,23 +420,30 @@ func (s *Server) coordinateTeamAttack(p *game.Player, target *game.Player) int {
 	return -1 // No coordination needed
 }
 
-// broadcastTargetToAllies shares high-value target information with nearby allies
+// broadcastTargetToAllies shares high-value target information with nearby allies.
+// Only suggests targets to allies that have no current target, to avoid overwriting
+// targeting decisions that other bots already made this tick.
 func (s *Server) broadcastTargetToAllies(p *game.Player, target *game.Player, targetValue float64) {
-	// High-value targets (carriers, heavily damaged ships)
-	if targetValue > 15000 || target.Armies > 0 {
-		// Check for nearby allies to coordinate with
-		for _, ally := range s.gameState.Players {
-			if ally.Status == game.StatusAlive && ally.Team == p.Team && ally.ID != p.ID && ally.IsBot {
-				dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
-				if dist < 15000 { // Within coordination range
-					// If ally has no target or a lower-value target, suggest switching
-					if ally.BotTarget < 0 || ally.BotTargetValue < targetValue*0.8 {
-						ally.BotTarget = target.ID
-						ally.BotTargetLockTime = 20 // Short lock for coordination
-						ally.BotTargetValue = targetValue
-					}
-				}
-			}
+	// Only broadcast for high-value targets (carriers, heavily damaged ships)
+	if targetValue <= 15000 && target.Armies <= 0 {
+		return
+	}
+
+	for _, ally := range s.gameState.Players {
+		if ally.Status != game.StatusAlive || ally.Team != p.Team || ally.ID == p.ID || !ally.IsBot {
+			continue
+		}
+
+		dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
+		if dist >= 15000 {
+			continue
+		}
+
+		// Only suggest to allies with no current target — never overwrite an existing lock
+		if ally.BotTarget < 0 {
+			ally.BotTarget = target.ID
+			ally.BotTargetLockTime = 20
+			ally.BotTargetValue = targetValue
 		}
 	}
 }

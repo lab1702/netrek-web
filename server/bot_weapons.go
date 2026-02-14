@@ -635,7 +635,9 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 
 	// Aggressive phaser usage for planet defense
 	// Phasers can be fired in any direction regardless of ship facing
-	if enemyDist < game.StarbasePhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
+	// Use the canonical phaser range formula for consistency
+	sbPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
+	if enemyDist < sbPhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 8
 		return
@@ -656,20 +658,20 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	}
 }
 
-// considerTorpedoDetonation checks if bot should detonate torpedoes for area denial
-func (s *Server) considerTorpedoDetonation(p *game.Player) bool {
-	// Check if we have torpedoes in flight
+// detonatePassingTorpedoes checks each torpedo individually and only detonates
+// torpedoes that are passing by enemies (not heading for direct hits).
+// This avoids the previous bug where ALL torpedoes were detonated when one triggered.
+func (s *Server) detonatePassingTorpedoes(p *game.Player) {
 	if p.NumTorps == 0 {
-		return false
+		return
 	}
 
-	// Look for scenarios where detonation would be beneficial
 	for _, torp := range s.gameState.Torps {
 		if torp.Owner != p.ID || torp.Status != game.TorpMove {
 			continue
 		}
 
-		// Check for enemies near our torpedoes
+		// Check if this specific torpedo should be detonated
 		for _, enemy := range s.gameState.Players {
 			if enemy.Status != game.StatusAlive || enemy.Team == p.Team {
 				continue
@@ -679,7 +681,6 @@ func (s *Server) considerTorpedoDetonation(p *game.Player) bool {
 
 			// Detonate if enemy is in blast radius but torpedo won't hit directly
 			if dist < 2500 && dist > 800 {
-				// Check if torpedo is not heading directly at enemy
 				dx := enemy.X - torp.X
 				dy := enemy.Y - torp.Y
 				angleToEnemy := math.Atan2(dy, dx)
@@ -688,28 +689,28 @@ func (s *Server) considerTorpedoDetonation(p *game.Player) bool {
 					angleDiff = 2*math.Pi - angleDiff
 				}
 
-				// Detonate if torpedo is passing by the enemy
-				if angleDiff > math.Pi/6 {
-					return true
+				// Only detonate if torpedo is clearly passing by (not heading at) the enemy
+				if angleDiff > math.Pi/4 {
+					torp.Fuse = 1 // Detonate this specific torpedo
+					break         // Move to next torpedo
 				}
 			}
 
-			// Detonate if multiple enemies are clustered
+			// Detonate if 3+ enemies are clustered near this torpedo
 			if dist < 3000 {
 				nearbyCount := 0
 				for _, other := range s.gameState.Players {
-					if other.Status == game.StatusAlive && other.Team == enemy.Team && other.ID != enemy.ID {
-						if game.Distance(torp.X, torp.Y, other.X, other.Y) < 3500 {
+					if other.Status == game.StatusAlive && other.Team != p.Team {
+						if game.Distance(torp.X, torp.Y, other.X, other.Y) < 3000 {
 							nearbyCount++
 						}
 					}
 				}
-				if nearbyCount >= 1 {
-					return true // Detonate for area damage on clustered enemies
+				if nearbyCount >= 3 {
+					torp.Fuse = 1 // Detonate for area damage on clustered enemies
+					break         // Move to next torpedo
 				}
 			}
 		}
 	}
-
-	return false
 }

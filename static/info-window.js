@@ -290,10 +290,10 @@ class InfoWindow {
             // Show detailed stats for all players (teammates, enemies, and self)
             // Stats
             html += '<div style="margin-top: 4px;">';
-            html += `Speed: ${Math.round(updatedTarget.speed)} `;
-            html += `Dam: ${updatedTarget.damage}% `;
-            html += `Sh: ${updatedTarget.shields}% `;
-            html += `Fuel: ${updatedTarget.fuel}`;
+            html += `Speed: ${escapeHtml(Math.round(updatedTarget.speed))} `;
+            html += `Dam: ${escapeHtml(updatedTarget.damage)}% `;
+            html += `Sh: ${escapeHtml(updatedTarget.shields)}% `;
+            html += `Fuel: ${escapeHtml(updatedTarget.fuel)}`;
             html += '</div>';
             
             // Status flags
