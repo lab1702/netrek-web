@@ -18,25 +18,25 @@ func TestBlendWithSeparation(t *testing.T) {
 		tolerDeg float64 // tolerance in degrees
 	}{
 		{
-			name:     "Zero magnitude returns baseDir unchanged",
-			baseDir:  math.Pi / 4,
-			sep:      SeparationVector{x: 1, y: 0, magnitude: 0},
-			divisor:  300, maxWt: 0.5,
+			name:    "Zero magnitude returns baseDir unchanged",
+			baseDir: math.Pi / 4,
+			sep:     SeparationVector{x: 1, y: 0, magnitude: 0},
+			divisor: 300, maxWt: 0.5,
 			expected: math.Pi / 4, tolerDeg: 0.01,
 		},
 		{
-			name:     "Full weight caps at maxWeight",
-			baseDir:  0, // east
-			sep:      SeparationVector{x: 0, y: 1, magnitude: 10000}, // north, huge magnitude
-			divisor:  300, maxWt: 0.5,
+			name:    "Full weight caps at maxWeight",
+			baseDir: 0,                                              // east
+			sep:     SeparationVector{x: 0, y: 1, magnitude: 10000}, // north, huge magnitude
+			divisor: 300, maxWt: 0.5,
 			expected: math.Atan2(0.5, 0.5), // blended 50/50 -> ~45 degrees
 			tolerDeg: 1,
 		},
 		{
-			name:     "Low magnitude gives small deflection",
-			baseDir:  0, // east
-			sep:      SeparationVector{x: 0, y: 1, magnitude: 30}, // north, small
-			divisor:  300, maxWt: 0.5,
+			name:    "Low magnitude gives small deflection",
+			baseDir: 0,                                           // east
+			sep:     SeparationVector{x: 0, y: 1, magnitude: 30}, // north, small
+			divisor: 300, maxWt: 0.5,
 			expected: 0, // 30/300=0.1 weight, mostly east
 			tolerDeg: 10,
 		},

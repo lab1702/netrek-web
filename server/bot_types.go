@@ -35,8 +35,8 @@ var BotNames = []string{
 // Fields are computed once per bot per game frame by assessUniversalThreats
 // and cached for reuse by both combat and shield logic.
 type CombatThreat struct {
-	closestTorpDist float64
-	closestPlasma   float64
+	closestTorpDist  float64
+	closestPlasma    float64
 	closestEnemyDist float64
 	nearbyEnemies    int
 	requiresEvasion  bool

@@ -20,6 +20,16 @@ window.TEAM_LETTERS = {
 // Local alias for use throughout this file
 const teamColors = window.TEAM_COLORS;
 
+// Base path for API and WebSocket URLs, derived from the current page location.
+// Supports reverse proxies that strip a prefix (e.g. Caddy serving /netrek/ → /).
+function getBasePath() {
+    let basePath = window.location.pathname;
+    if (basePath.endsWith('.html')) {
+        basePath = basePath.substring(0, basePath.lastIndexOf('/'));
+    }
+    return basePath.replace(/\/+$/, '');
+}
+
 // Visual constants for galactic map
 const GALACTIC_DIM_ALPHA = 0.5;        // Alpha level for dimmed ships
 const GALACTIC_NEUTRAL_GRAY = '#888';  // Neutral gray for cloaked enemies
@@ -172,7 +182,8 @@ function updateTeamDisplay(data) {
 
 // Fetch and display team populations  
 function updateTeamStats() {
-    fetch('/api/teams')
+    const basePath = getBasePath();
+    fetch(`${basePath}/api/teams`)
         .then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.json();
@@ -1020,15 +1031,8 @@ function openWebSocket(name, team, ship) {
 
     // Connect to WebSocket
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Get the base directory path (excluding the HTML file)
-    let basePath = window.location.pathname;
-    // If it ends with .html, get the directory path
-    if (basePath.endsWith('.html')) {
-        basePath = basePath.substring(0, basePath.lastIndexOf('/'));
-    }
-    // Remove trailing slashes and construct WebSocket path
-    basePath = basePath.replace(/\/+$/, '');
-    const wsPath = basePath ? `${basePath}/ws` : '/ws';
+    const basePath = getBasePath();
+    const wsPath = `${basePath}/ws`;
     ws = new WebSocket(`${protocol}//${window.location.host}${wsPath}`);
 
     ws.onopen = () => {
