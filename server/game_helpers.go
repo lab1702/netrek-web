@@ -271,7 +271,8 @@ func (s *Server) computeTeamCounts() TeamCountData {
 // broadcastTeamCountsData broadcasts pre-computed team counts to all clients.
 // Use this when you need to capture counts under a lock and broadcast after releasing.
 func (s *Server) broadcastTeamCountsData(counts TeamCountData) {
-	s.broadcast <- ServerMessage{
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: MsgTypeTeamUpdate,
 		Data: map[string]interface{}{
 			"total": counts.Total,
@@ -282,6 +283,8 @@ func (s *Server) broadcastTeamCountsData(counts TeamCountData) {
 				"ori": counts.Ori,
 			},
 		},
+	}:
+	default:
 	}
 }
 

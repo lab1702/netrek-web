@@ -25,9 +25,9 @@ func (s *Server) updateTorpedoes() {
 	for _, torp := range s.gameState.Torps {
 		// If torpedo is already exploding, remove it this frame
 		if torp.Status == game.TorpDet {
-			// Decrement owner's torpedo count
+			// Decrement owner's torpedo count (floor at 0 to handle post-death expiry)
 			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil {
+				if owner := s.gameState.Players[torp.Owner]; owner != nil && owner.NumTorps > 0 {
 					owner.NumTorps--
 				}
 			}
@@ -38,9 +38,9 @@ func (s *Server) updateTorpedoes() {
 		torp.Fuse--
 		if torp.Fuse <= 0 {
 			// Torpedo exploded
-			// Decrement owner's torpedo count
+			// Decrement owner's torpedo count (floor at 0 to handle post-death expiry)
 			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil {
+				if owner := s.gameState.Players[torp.Owner]; owner != nil && owner.NumTorps > 0 {
 					owner.NumTorps--
 				}
 			}
@@ -53,9 +53,9 @@ func (s *Server) updateTorpedoes() {
 
 		// Check if torpedo went out of bounds
 		if torp.X < 0 || torp.X > game.GalaxyWidth || torp.Y < 0 || torp.Y > game.GalaxyHeight {
-			// Torpedo hit galaxy edge - remove it
+			// Torpedo hit galaxy edge - remove it (floor at 0 to handle post-death expiry)
 			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil {
+				if owner := s.gameState.Players[torp.Owner]; owner != nil && owner.NumTorps > 0 {
 					owner.NumTorps--
 				}
 			}
@@ -111,9 +111,9 @@ func (s *Server) updatePlasmas() {
 	for _, plasma := range s.gameState.Plasmas {
 		// If plasma is already exploding, remove it this frame
 		if plasma.Status == game.TorpDet {
-			// Decrement owner's plasma count
+			// Decrement owner's plasma count (floor at 0 to handle post-death expiry)
 			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[plasma.Owner]; owner != nil {
+				if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.NumPlasma > 0 {
 					owner.NumPlasma--
 				}
 			}
@@ -123,9 +123,9 @@ func (s *Server) updatePlasmas() {
 		plasma.Fuse--
 		if plasma.Fuse <= 0 {
 			// Plasma dissipated
-			// Decrement owner's plasma count
+			// Decrement owner's plasma count (floor at 0 to handle post-death expiry)
 			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[plasma.Owner]; owner != nil {
+				if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.NumPlasma > 0 {
 					owner.NumPlasma--
 				}
 			}
@@ -138,9 +138,9 @@ func (s *Server) updatePlasmas() {
 
 		// Check if plasma went out of bounds
 		if plasma.X < 0 || plasma.X > game.GalaxyWidth || plasma.Y < 0 || plasma.Y > game.GalaxyHeight {
-			// Plasma hit galaxy edge - remove it
+			// Plasma hit galaxy edge - remove it (floor at 0 to handle post-death expiry)
 			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[plasma.Owner]; owner != nil {
+				if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.NumPlasma > 0 {
 					owner.NumPlasma--
 				}
 			}
