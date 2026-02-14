@@ -125,8 +125,6 @@ func (c *Client) handleBotCommand(cmd string) {
 		// All bots use hard difficulty mode
 		// Only allow one starbase per team
 
-		c.server.gameState.Mu.Lock()
-
 		// All ship types including starbase (but starbase is limited)
 		allShipTypes := []int{
 			int(game.ShipScout),      // 0
@@ -143,30 +141,32 @@ func (c *Client) handleBotCommand(cmd string) {
 		maxBots := game.MaxPlayers - 4 // Leave room for humans
 
 		// Keep track of how many of each ship type we've added per team
-		// This helps ensure we get variety
 		teamShipCounts := make(map[int]map[int]int)
 		for _, team := range teams {
 			teamShipCounts[team] = make(map[int]int)
 		}
 
-		// Count existing bots
+		// Snapshot existing bot count under a single read lock (no write lock needed)
+		c.server.gameState.Mu.RLock()
 		currentBots := 0
 		for _, p := range c.server.gameState.Players {
 			if p.IsBot && p.Status != game.StatusFree {
 				currentBots++
 			}
 		}
+		c.server.gameState.Mu.RUnlock()
 
-		c.server.gameState.Mu.Unlock()
+		// Pre-compute the full addition plan without holding any lock,
+		// then execute all AddBot calls in a batch. Each AddBot acquires
+		// its own lock atomically, but we avoid the old pattern of
+		// re-locking after every single addition just to recount.
+		targetBots := maxBots - currentBots
+		if targetBots < 0 {
+			targetBots = 0
+		}
 
-		// Add bots using balanced selection to ensure ship type diversity
-		// Use a round-robin approach that interleaves teams and ship types
-		consecutiveFailures := 0
-		maxConsecutiveFailures := len(teams) * len(allShipTypes) * 3 // Safety limit
-
-		for currentBots+botsAdded < maxBots && consecutiveFailures < maxConsecutiveFailures {
-			// Select team and ship type to promote diversity
-			// Find the team with the fewest bots
+		for botsAdded < targetBots {
+			// Select team with fewest bots so far
 			var selectedTeam int
 			minTeamBots := 999
 			for _, team := range teams {
@@ -181,56 +181,45 @@ func (c *Client) handleBotCommand(cmd string) {
 			}
 
 			// For the selected team, find ship type with lowest count
-			// But add some randomness to avoid pure determinism
 			var candidateShips []int
 			minShipCount := 999
-
-			// First pass: find minimum count for this team
 			for _, shipType := range allShipTypes {
 				count := teamShipCounts[selectedTeam][shipType]
 				if count < minShipCount {
 					minShipCount = count
 				}
 			}
-
-			// Second pass: collect all ship types with minimum count
 			for _, shipType := range allShipTypes {
 				if teamShipCounts[selectedTeam][shipType] == minShipCount {
 					candidateShips = append(candidateShips, shipType)
 				}
 			}
 
-			// If no candidates (shouldn't happen), break
 			if len(candidateShips) == 0 {
-				consecutiveFailures++
-				continue
+				break
 			}
 
-			// Randomly select from candidates to add variety
 			selectedShipType := candidateShips[rand.Intn(len(candidateShips))]
 
-			// Try to add the bot
+			// AddBot acquires its own lock and silently returns if no free slot
 			c.server.AddBot(selectedTeam, selectedShipType)
+			botsAdded++
+			teamShipCounts[selectedTeam][selectedShipType]++
+		}
 
-			// Check if bot was actually added
-			c.server.gameState.Mu.RLock()
-			newBotCount := 0
-			for _, p := range c.server.gameState.Players {
-				if p.IsBot && p.Status != game.StatusFree {
-					newBotCount++
-				}
+		// Get the actual count of bots added (AddBot may have silently
+		// failed for some if slots filled up)
+		c.server.gameState.Mu.RLock()
+		finalBots := 0
+		for _, p := range c.server.gameState.Players {
+			if p.IsBot && p.Status != game.StatusFree {
+				finalBots++
 			}
-			c.server.gameState.Mu.RUnlock()
-
-			if newBotCount > currentBots+botsAdded {
-				// Bot was successfully added
-				botsAdded++
-				teamShipCounts[selectedTeam][selectedShipType]++
-				consecutiveFailures = 0
-			} else {
-				// Bot was not added (probably no free slots)
-				consecutiveFailures++
-			}
+		}
+		c.server.gameState.Mu.RUnlock()
+		botsAdded = finalBots - currentBots
+		if botsAdded < 0 {
+			botsAdded = 0
 		}
 
 		// Send confirmation message with details

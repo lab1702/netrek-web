@@ -4583,11 +4583,7 @@ const teamBitmapMap = {
 
 // Function to convert X11 bitmap data to ImageData
 function convertShipBitmap(bitmapData, width, height, color) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.createImageData(width, height);
+    const imageData = new ImageData(width, height);
     const data = imageData.data;
     
     // Parse color (assume it's in hex format like '#ff0' or '#ffff00')

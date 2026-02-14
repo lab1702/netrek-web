@@ -144,7 +144,9 @@ type Server struct {
 	galaxyReset        bool // Track if galaxy has been reset (true = already reset/empty)
 	done               chan struct{}
 	playerGrid         *SpatialGrid      // Spatial index for efficient collision detection
-	pendingSuggestions []targetSuggestion // Buffered target suggestions applied after UpdateBots
+	pendingSuggestions     []targetSuggestion // Buffered target suggestions applied after UpdateBots
+	cachedTeamPlanets      map[int]int         // Cached planet counts per team
+	cachedTeamPlanetsFrame int64                // Frame when cache was last computed
 }
 
 // NewServer creates a new game server
@@ -410,27 +412,9 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 					}
 
 					if damage > 0 {
-						// Apply damage to shields first, then hull
-						game.ApplyDamageWithShields(target, damage)
+						actualDamage := game.ApplyDamageWithShields(target, damage)
 						if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-							// Ship destroyed by explosion!
-							target.Status = game.StatusExplode
-							target.ExplodeTimer = game.ExplodeTimerFrames
-							target.KilledBy = i
-							target.WhyDead = game.KillExplosion
-							// Clear lock-on when destroyed
-							target.LockType = "none"
-							target.LockTarget = -1
-
-							// Update kill statistics (only if exploding player is still in explode state)
-							if i >= 0 && i < game.MaxPlayers && p.Status == game.StatusExplode {
-								p.Kills++
-								p.KillsStreak++
-							}
-							target.Deaths++
-
-							// Send kill message
-							s.broadcastDeathMessage(target, p)
+							s.killPlayer(target, i, game.KillExplosion, actualDamage)
 						}
 					}
 				}

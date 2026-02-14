@@ -145,6 +145,48 @@ func (s *Server) respawnPlayer(p *game.Player) {
 
 }
 
+// killPlayer handles all common state changes when a player is destroyed.
+// Must be called under gameState.Mu write lock.
+func (s *Server) killPlayer(target *game.Player, killerID int, whyDead int, actualDamage int) {
+	target.Status = game.StatusExplode
+	target.ExplodeTimer = game.ExplodeTimerFrames
+	target.KilledBy = killerID
+	target.WhyDead = whyDead
+	target.Bombing = false
+	target.Beaming = false
+	target.BeamingUp = false
+	target.Orbiting = -1
+	target.LockType = "none"
+	target.LockTarget = -1
+	target.Deaths++
+
+	var killer *game.Player
+	if killerID >= 0 && killerID < game.MaxPlayers && s.gameState.Players[killerID] != nil {
+		k := s.gameState.Players[killerID]
+		// Credit kills to alive players and exploding players (chain kills)
+		if k.Status == game.StatusAlive || k.Status == game.StatusExplode {
+			killer = k
+			killer.Kills += 1
+			killer.KillsStreak += 1
+		}
+	}
+
+	if s.gameState.T_mode {
+		if stats, ok := s.gameState.TournamentStats[killerID]; ok {
+			stats.Kills++
+			stats.DamageDealt += actualDamage
+		}
+		if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
+			stats.Deaths++
+			stats.DamageTaken += actualDamage
+		}
+	}
+
+	if killer != nil {
+		s.broadcastDeathMessage(target, killer)
+	}
+}
+
 // broadcastDeathMessage sends a death message to all players
 func (s *Server) broadcastDeathMessage(victim *game.Player, killer *game.Player) {
 	var msg string
@@ -165,6 +207,14 @@ func (s *Server) broadcastDeathMessage(victim *game.Player, killer *game.Player)
 				formatPlayerName(victim), shipType, formatPlayerName(killer))
 		} else {
 			msg = fmt.Sprintf("%s (%s) was killed by a phaser",
+				formatPlayerName(victim), shipType)
+		}
+	case game.KillPlasma:
+		if killer != nil {
+			msg = fmt.Sprintf("%s (%s) was destroyed by %s's plasma torpedo",
+				formatPlayerName(victim), shipType, formatPlayerName(killer))
+		} else {
+			msg = fmt.Sprintf("%s (%s) was destroyed by a plasma torpedo",
 				formatPlayerName(victim), shipType)
 		}
 	case game.KillExplosion:

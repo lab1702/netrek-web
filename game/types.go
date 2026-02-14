@@ -117,6 +117,7 @@ const (
 	KillExplosion = 3 // Killed by explosion
 	KillQuit      = 4 // Player quit
 	KillDaemon    = 5 // Server killed player
+	KillPlasma    = 6 // Killed by plasma torpedo
 )
 
 // Planet combat constants
@@ -461,6 +462,8 @@ type Player struct {
 	BotDefenseTarget    int     `json:"-"` // Planet ID bot is actively defending (-1 if none)
 	BotGoalX            float64 `json:"-"` // Navigation goal
 	BotGoalY            float64 `json:"-"`
+	BotHasGoal          bool    `json:"-"` // Whether a patrol goal is set (avoids (0,0) sentinel)
+	BotShieldFrame      int64   `json:"-"` // Last frame shields were assessed (avoids redundant per-tick calls)
 	BotCooldown         int     `json:"-"` // Frames until next action
 
 	// Refit system - ship type to use on next respawn (-1 means no pending refit)

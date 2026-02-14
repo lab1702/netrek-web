@@ -200,82 +200,32 @@ func (s *Server) updatePlasmas() {
 
 // handleTorpedoHit processes a torpedo hit on a player
 func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targetIndex int) {
-	// Apply damage to shields first, then hull
-	game.ApplyDamageWithShields(target, torp.Damage)
+	actualDamage := game.ApplyDamageWithShields(target, torp.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-		// Ship destroyed!
-		target.Status = game.StatusExplode
-		target.ExplodeTimer = game.ExplodeTimerFrames
-		target.KilledBy = torp.Owner
-		target.WhyDead = game.KillTorp
-		target.Bombing = false   // Stop bombing when destroyed
-		target.Beaming = false   // Stop beaming when destroyed
-		target.BeamingUp = false // Clear beam direction
-		target.Orbiting = -1     // Break orbit when destroyed
-		// Clear lock-on when destroyed
-		target.LockType = "none"
-		target.LockTarget = -1
-		target.Deaths++ // Increment death count
-		if torp.Owner >= 0 && torp.Owner < game.MaxPlayers && s.gameState.Players[torp.Owner] != nil &&
-			s.gameState.Players[torp.Owner].Status == game.StatusAlive {
-			s.gameState.Players[torp.Owner].Kills += 1
-			s.gameState.Players[torp.Owner].KillsStreak += 1
-
-			// Send death message
-			s.broadcastDeathMessage(target, s.gameState.Players[torp.Owner])
+		s.killPlayer(target, torp.Owner, game.KillTorp, actualDamage)
+	} else if s.gameState.T_mode {
+		// Non-lethal hit: still track damage for tournament stats
+		if stats, ok := s.gameState.TournamentStats[torp.Owner]; ok {
+			stats.DamageDealt += actualDamage
 		}
-
-		// Update tournament stats
-		if s.gameState.T_mode {
-			if stats, ok := s.gameState.TournamentStats[torp.Owner]; ok {
-				stats.Kills++
-				stats.DamageDealt += torp.Damage
-			}
-			if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
-				stats.Deaths++
-				stats.DamageTaken += torp.Damage
-			}
+		if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
+			stats.DamageTaken += actualDamage
 		}
 	}
 }
 
 // handlePlasmaHit processes a plasma hit on a player
 func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targetIndex int) {
-	// Apply damage to shields first, then hull
-	game.ApplyDamageWithShields(target, plasma.Damage)
+	actualDamage := game.ApplyDamageWithShields(target, plasma.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-		// Ship destroyed by plasma!
-		target.Status = game.StatusExplode
-		target.ExplodeTimer = game.ExplodeTimerFrames
-		target.KilledBy = plasma.Owner
-		target.WhyDead = game.KillTorp   // Using torp constant for now
-		target.Bombing = false           // Stop bombing when destroyed
-		target.Beaming = false           // Stop beaming when destroyed
-		target.BeamingUp = false         // Clear beam direction
-		target.Orbiting = -1             // Break orbit when destroyed
-		// Clear lock-on when destroyed
-		target.LockType = "none"
-		target.LockTarget = -1
-		target.Deaths++ // Increment death count
-		if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers && s.gameState.Players[plasma.Owner] != nil &&
-			s.gameState.Players[plasma.Owner].Status == game.StatusAlive {
-			s.gameState.Players[plasma.Owner].Kills += 1
-			s.gameState.Players[plasma.Owner].KillsStreak += 1
-
-			// Send death message
-			s.broadcastDeathMessage(target, s.gameState.Players[plasma.Owner])
+		s.killPlayer(target, plasma.Owner, game.KillPlasma, actualDamage)
+	} else if s.gameState.T_mode {
+		// Non-lethal hit: still track damage for tournament stats
+		if stats, ok := s.gameState.TournamentStats[plasma.Owner]; ok {
+			stats.DamageDealt += actualDamage
 		}
-
-		// Update tournament stats
-		if s.gameState.T_mode {
-			if stats, ok := s.gameState.TournamentStats[plasma.Owner]; ok {
-				stats.Kills++
-				stats.DamageDealt += plasma.Damage
-			}
-			if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
-				stats.Deaths++
-				stats.DamageTaken += plasma.Damage
-			}
+		if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
+			stats.DamageTaken += actualDamage
 		}
 	}
 }

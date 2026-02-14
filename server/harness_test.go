@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/lab1702/netrek-web/game"
 )
@@ -281,8 +282,8 @@ func simulateClosestApproach(torpedo *game.Torpedo, target *game.Player, targetV
 // saveBaselineResults saves the baseline metrics to a file
 func saveBaselineResults(metrics AccuracyMetrics) {
 	// Create results directory if it doesn't exist
-	// Use relative path from test directory
-	docsDir := "../../../docs"
+	// Use a path relative to the project root (one level up from server/)
+	docsDir := "../docs"
 	os.MkdirAll(docsDir, 0755)
 
 	filename := docsDir + "/torp_aim_baseline.txt"
@@ -294,7 +295,7 @@ func saveBaselineResults(metrics AccuracyMetrics) {
 	defer file.Close()
 
 	fmt.Fprintf(file, "NETREK BOT TORPEDO ACCURACY BASELINE\n")
-	fmt.Fprintf(file, "Generated: %s\n\n", "2025-09-05") // We'd use time.Now() normally
+	fmt.Fprintf(file, "Generated: %s\n\n", time.Now().Format("2006-01-02"))
 	fmt.Fprintf(file, "Total Shots:         %d\n", metrics.TotalShots)
 	fmt.Fprintf(file, "Hits:                %d\n", metrics.Hits)
 	fmt.Fprintf(file, "Hit Rate:            %.2f%%\n", metrics.HitRate*100)

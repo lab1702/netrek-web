@@ -605,7 +605,7 @@ func (s *Server) executePatrol(p *game.Player) {
 	shipStats := game.ShipData[p.Ship]
 
 	// Dynamic patrol based on game state
-	if p.BotGoalX == 0 && p.BotGoalY == 0 {
+	if !p.BotHasGoal {
 		// Choose patrol destination based on strategy
 		teamPlanets := s.countTeamPlanets()
 		controlRatio := float64(teamPlanets[p.Team]) / float64(len(s.gameState.Planets))
@@ -648,6 +648,7 @@ func (s *Server) executePatrol(p *game.Player) {
 		margin := 5000.0 // Keep away from edges
 		p.BotGoalX = math.Max(margin, math.Min(game.GalaxyWidth-margin, p.BotGoalX))
 		p.BotGoalY = math.Max(margin, math.Min(game.GalaxyHeight-margin, p.BotGoalY))
+		p.BotHasGoal = true
 	}
 
 	// Check if bot is stuck at galaxy edge and reset patrol
@@ -655,8 +656,7 @@ func (s *Server) executePatrol(p *game.Player) {
 	if p.X < edgeMargin || p.X > game.GalaxyWidth-edgeMargin ||
 		p.Y < edgeMargin || p.Y > game.GalaxyHeight-edgeMargin {
 		// Bot is at edge, reset patrol destination
-		p.BotGoalX = 0
-		p.BotGoalY = 0
+		p.BotHasGoal = false
 		p.BotCooldown = 10
 		return
 	}
@@ -668,8 +668,7 @@ func (s *Server) executePatrol(p *game.Player) {
 
 	if dist < 3000 {
 		// Reached patrol point, set new one
-		p.BotGoalX = 0
-		p.BotGoalY = 0
+		p.BotHasGoal = false
 	} else {
 		baseDir := math.Atan2(dy, dx)
 

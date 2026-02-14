@@ -461,8 +461,17 @@ func (s *Server) managePredictiveShields(p, target *game.Player, enemyDist, torp
 	s.assessAndActivateShields(p, target)
 }
 
-// assessAndActivateShields provides comprehensive shield assessment for all bot scenarios
+// assessAndActivateShields provides comprehensive shield assessment for all bot scenarios.
+// Uses BotShieldFrame to run at most once per game tick (avoids redundant iterations
+// over torpedoes, plasmas, and enemies when called from multiple code paths).
 func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Player) {
+	// Skip if already assessed this tick (Frame starts at 1 in game loop,
+	// BotShieldFrame zero-value means "never assessed")
+	if p.BotShieldFrame > 0 && p.BotShieldFrame == s.gameState.Frame {
+		return
+	}
+	p.BotShieldFrame = s.gameState.Frame
+
 	// Don't shield if critically low on fuel (emergency threshold)
 	if p.Fuel < FuelCritical {
 		p.Shields_up = false

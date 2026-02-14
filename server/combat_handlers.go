@@ -259,40 +259,11 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		damage := float64(shipStats.PhaserDamage) * (1.0 - targetDist/myPhaserRange)
 		log.Printf("Phaser hit: player %d hit player %d for %.1f damage at range %.0f", p.ID, target.ID, damage, targetDist)
 
-		// Apply damage to shields first, then hull
-		game.ApplyDamageWithShields(target, int(damage))
+		// Apply damage to shields first, then hull (round instead of truncate)
+		game.ApplyDamageWithShields(target, int(math.Round(damage)))
 
 		if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-			// Ship destroyed by phaser!
-			target.Status = game.StatusExplode
-			target.ExplodeTimer = game.ExplodeTimerFrames
-			target.KilledBy = p.ID
-			target.WhyDead = game.KillPhaser
-			target.Bombing = false   // Stop bombing when destroyed
-			target.Beaming = false   // Stop beaming when destroyed
-			target.BeamingUp = false // Clear beam direction
-			target.Orbiting = -1     // Break orbit when destroyed
-			// Clear lock-on when destroyed
-			target.LockType = "none"
-			target.LockTarget = -1
-			target.Deaths++ // Increment death count
-			p.Kills += 1
-			p.KillsStreak += 1
-
-			// Update tournament stats
-			if c.server.gameState.T_mode {
-				if stats, ok := c.server.gameState.TournamentStats[p.ID]; ok {
-					stats.Kills++
-					stats.DamageDealt += int(damage)
-				}
-				if stats, ok := c.server.gameState.TournamentStats[target.ID]; ok {
-					stats.Deaths++
-					stats.DamageTaken += int(damage)
-				}
-			}
-
-			// Send death message
-			c.server.broadcastDeathMessage(target, p)
+			c.server.killPlayer(target, p.ID, game.KillPhaser, int(math.Round(damage)))
 		}
 
 		// Send phaser visual (non-blocking)

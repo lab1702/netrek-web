@@ -54,43 +54,57 @@ function updatePlanetCounter() {
     if (dashboardEls.indPlanets) dashboardEls.indPlanets.textContent = counts[0];
 }
 
-// Update team display with the given data
-function updateTeamDisplay(data) {
-            // Update total players display
-            const totalElement = document.getElementById('totalPlayers');
-            if (totalElement) {
-                totalElement.textContent = `${data.total} player${data.total !== 1 ? 's' : ''} online`;
-            }
-            
-            // Update team radio button labels with player counts
-            const fedCount = document.getElementById('fedCount');
-            const romCount = document.getElementById('romCount');
-            const kliCount = document.getElementById('kliCount');
-            const oriCount = document.getElementById('oriCount');
-            
-            if (fedCount) fedCount.textContent = `(${data.teams.fed})`;
-            if (romCount) romCount.textContent = `(${data.teams.rom})`;
-            if (kliCount) kliCount.textContent = `(${data.teams.kli})`;
-            if (oriCount) oriCount.textContent = `(${data.teams.ori})`;
-            
-            // Highlight teams with fewer players for balance
-            const counts = [data.teams.fed, data.teams.rom, data.teams.kli, data.teams.ori];
-            const minCount = Math.min(...counts);
-            const maxCount = Math.max(...counts);
-            
-            const teamLabels = [
+// Cached DOM references for updateTeamDisplay (avoids repeated queries)
+let _teamDisplayCache = null;
+function getTeamDisplayElements() {
+    if (!_teamDisplayCache) {
+        _teamDisplayCache = {
+            total: document.getElementById('totalPlayers'),
+            counts: [
+                document.getElementById('fedCount'),
+                document.getElementById('romCount'),
+                document.getElementById('kliCount'),
+                document.getElementById('oriCount')
+            ],
+            labels: [
                 document.querySelector('label[for="teamFed"]'),
                 document.querySelector('label[for="teamRom"]'),
                 document.querySelector('label[for="teamKli"]'),
                 document.querySelector('label[for="teamOri"]')
-            ];
-            
-            const teamRadios = [
+            ],
+            radios: [
                 document.getElementById('teamFed'),
                 document.getElementById('teamRom'),
                 document.getElementById('teamKli'),
                 document.getElementById('teamOri')
-            ];
+            ]
+        };
+    }
+    return _teamDisplayCache;
+}
+
+// Update team display with the given data
+function updateTeamDisplay(data) {
+            const elems = getTeamDisplayElements();
+
+            // Update total players display
+            if (elems.total) {
+                elems.total.textContent = `${data.total} player${data.total !== 1 ? 's' : ''} online`;
+            }
+
+            // Update team radio button labels with player counts
+            const countTexts = [data.teams.fed, data.teams.rom, data.teams.kli, data.teams.ori];
+            for (let i = 0; i < elems.counts.length; i++) {
+                if (elems.counts[i]) elems.counts[i].textContent = `(${countTexts[i]})`;
+            }
+
+            // Highlight teams with fewer players for balance
+            const counts = countTexts;
+            const minCount = Math.min(...counts);
+            const maxCount = Math.max(...counts);
+
+            const teamLabels = elems.labels;
+            const teamRadios = elems.radios;
             
             let needNewSelection = false;
             let firstAvailableIndex = -1;
@@ -679,10 +693,16 @@ function handleKeyPress(key) {
     }
     
     // Handle capital Q for quit/self-destruct (before toLowerCase)
+    // Requires double-tap within 2 seconds to confirm (avoids blocking confirm() dialog)
     if (key === 'Q') {
-        if (confirm('Self destruct? This will destroy your ship and disconnect you.')) {
+        const now = Date.now();
+        if (gameState._quitPending && now - gameState._quitPending < 2000) {
+            delete gameState._quitPending;
             sendMessage({ type: 'quit', data: {} });
-            gameState.quitRequested = true; // Track that we've requested to quit
+            gameState.quitRequested = true;
+        } else {
+            gameState._quitPending = now;
+            addMessage('Press Q again within 2 seconds to self-destruct.', 'warning', null, null, 'messages-server');
         }
         return;
     }
@@ -890,8 +910,10 @@ function showLoginScreenAfterReset() {
         teamRadios.forEach(r => { if (parseInt(r.value, 10) === teamValue) r.checked = true; });
         
         // Pre-select the radio button for current ship
-        const shipValue = myPlayer.ship;
-        const shipRadio = document.querySelector(`input[name="ship"][value="${shipValue}"]`);
+        const shipValue = parseInt(myPlayer.ship, 10);
+        const shipRadio = (Number.isFinite(shipValue) && shipValue >= 0 && shipValue <= 6)
+            ? document.querySelector(`input[name="ship"][value="${shipValue}"]`)
+            : null;
         if (shipRadio) {
             shipRadio.checked = true;
         }
@@ -1101,10 +1123,10 @@ function handleServerMessage(msg) {
             }
             
             gameState.frame = msg.data.frame;
-            gameState.players = msg.data.players || [];
-            gameState.planets = msg.data.planets || [];
-            gameState.torps = msg.data.torps || [];
-            gameState.plasmas = msg.data.plasmas || [];
+            gameState.players = Array.isArray(msg.data.players) ? msg.data.players : [];
+            gameState.planets = Array.isArray(msg.data.planets) ? msg.data.planets : [];
+            gameState.torps = Array.isArray(msg.data.torps) ? msg.data.torps : [];
+            gameState.plasmas = Array.isArray(msg.data.plasmas) ? msg.data.plasmas : [];
             gameState.gameOver = msg.data.gameOver || false;
             gameState.winner = msg.data.winner;
             gameState.winType = msg.data.winType;
@@ -1411,12 +1433,14 @@ function renderTactical() {
         
     }
     
-    // Draw phaser beams
+    // Draw phaser beams (wrapped in save/restore to prevent globalAlpha leaks)
     gameState.phasers = gameState.phasers.filter(phaser => {
         if (phaser.life <= 0) return false;
-        
+
         const fromPlayer = gameState.players[phaser.from];
         if (!fromPlayer) return false;
+
+        ctx.save();
         
         const fromX = centerX + (fromPlayer.x - myPlayer.x) * scale;
         const fromY = centerY + (fromPlayer.y - myPlayer.y) * scale;
@@ -1501,11 +1525,11 @@ function renderTactical() {
             }
         }
         
-        ctx.globalAlpha = 1;
+        ctx.restore();
         phaser.life--;
         return true;
     });
-    
+
     // Draw torpedoes
     for (const torp of gameState.torps) {
         if (!torp) continue;
@@ -1633,10 +1657,12 @@ function renderTactical() {
             const dy = (player.y - myPlayer.y) * scale;
             const screenX = centerX + dx;
             const screenY = centerY + dy;
-            
-            if (screenX < -50 || screenX > width + 50 || 
+
+            if (screenX < -50 || screenX > width + 50 ||
                 screenY < -50 || screenY > height + 50) continue;
-            
+
+            ctx.save(); // Prevent globalAlpha leak from explosion rendering
+
             // Draw improved explosion with multiple effects
             const progress = Math.max(0, Math.min(1, 1 - (player.explodeTimer || 0) / 10));
             const maxSize = 80;
@@ -1705,10 +1731,10 @@ function renderTactical() {
                     particleSize, particleSize
                 );
             }
-            ctx.globalAlpha = 1;
+            ctx.restore();
             continue;
         }
-        
+
         // Skip dead players (status 4)
         if (player.status !== 2) continue; // Not alive
         

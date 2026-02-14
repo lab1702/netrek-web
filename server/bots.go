@@ -962,8 +962,9 @@ func (s *Server) AutoBalanceBots() {
 
 	s.gameState.Mu.RLock()
 	for _, p := range s.gameState.Players {
-		if p.Status == game.StatusAlive && p.Connected {
-			// Count both human players and bots equally
+		// Count all non-free connected players (including dead/exploding),
+		// since they will respawn and are still team members.
+		if p.Status != game.StatusFree && p.Connected {
 			teamCounts[p.Team]++
 		}
 	}

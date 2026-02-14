@@ -69,20 +69,27 @@ func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
 
 // countTeamPlanets counts planets owned by each team.
 // Returns a map keyed by team flag. Must be called under gameState.Mu lock.
+// Results are cached per game frame to avoid redundant iteration when called
+// from multiple bots in the same tick.
 func (s *Server) countTeamPlanets() map[int]int {
+	if s.cachedTeamPlanetsFrame > 0 && s.cachedTeamPlanetsFrame == s.gameState.Frame && s.cachedTeamPlanets != nil {
+		return s.cachedTeamPlanets
+	}
 	var counts [9]int // Indexed by team flag (0=None, 1=Fed, 2=Rom, 4=Kli, 8=Ori)
 	for _, planet := range s.gameState.Planets {
 		if planet.Owner >= 0 && planet.Owner < len(counts) {
 			counts[planet.Owner]++
 		}
 	}
-	return map[int]int{
+	s.cachedTeamPlanets = map[int]int{
 		game.TeamNone: counts[game.TeamNone],
 		game.TeamFed:  counts[game.TeamFed],
 		game.TeamRom:  counts[game.TeamRom],
 		game.TeamKli:  counts[game.TeamKli],
 		game.TeamOri:  counts[game.TeamOri],
 	}
+	s.cachedTeamPlanetsFrame = s.gameState.Frame
+	return s.cachedTeamPlanets
 }
 
 // countPlanetsForTeam counts how many planets a team owns

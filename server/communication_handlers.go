@@ -22,6 +22,8 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 	msgData.Text = sanitizeText(msgData.Text)
 
 	// Check for bot commands (after sanitization)
+	// Bot commands require an active (alive) player — validPlayerID is checked
+	// above but we also verify the player exists before routing to bot handler.
 	if strings.HasPrefix(msgData.Text, "/") {
 		c.handleBotCommand(msgData.Text)
 		return
@@ -65,7 +67,8 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 	// Sanitize the message text to prevent XSS
 	msgData.Text = sanitizeText(msgData.Text)
 
-	// Read sender info under game state lock
+	// Read sender info and cache player teams in a single lock acquisition
+	// to avoid stale routing between two separate RLock calls.
 	playerID := c.GetPlayerID()
 	c.server.gameState.Mu.RLock()
 	p := c.server.gameState.Players[playerID]
@@ -75,6 +78,12 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 	}
 	senderName := formatPlayerName(p)
 	team := p.Team
+	playerTeams := make(map[int]int)
+	for i, pl := range c.server.gameState.Players {
+		if pl.Status != game.StatusFree {
+			playerTeams[i] = pl.Team
+		}
+	}
 	c.server.gameState.Mu.RUnlock()
 
 	// Send to team members only
@@ -87,16 +96,6 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 			"team": team,
 		},
 	}
-
-	// Cache player teams under gameState lock to avoid nested locks
-	playerTeams := make(map[int]int)
-	c.server.gameState.Mu.RLock()
-	for i, p := range c.server.gameState.Players {
-		if p.Status != game.StatusFree {
-			playerTeams[i] = p.Team
-		}
-	}
-	c.server.gameState.Mu.RUnlock()
 
 	// Iterate clients under s.mu only (no nested gameState lock)
 	c.server.mu.RLock()

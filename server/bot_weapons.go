@@ -185,25 +185,8 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	game.ApplyDamageWithShields(hitTarget, int(damage))
 
 	// Check if target destroyed
-	targetStats := game.ShipData[hitTarget.Ship]
-	if hitTarget.Damage >= targetStats.MaxDamage {
-		hitTarget.Status = game.StatusExplode
-		hitTarget.ExplodeTimer = game.ExplodeTimerFrames
-		hitTarget.KilledBy = p.ID
-		hitTarget.WhyDead = game.KillPhaser
-		hitTarget.Bombing = false   // Stop bombing when destroyed
-		hitTarget.Beaming = false   // Stop beaming when destroyed
-		hitTarget.BeamingUp = false // Clear beam direction
-		hitTarget.Orbiting = -1     // Break orbit when destroyed
-		// Clear lock-on when destroyed
-		hitTarget.LockType = "none"
-		hitTarget.LockTarget = -1
-		hitTarget.Deaths++ // Increment death count
-		p.Kills += 1
-		p.KillsStreak += 1
-
-		// Send death message
-		s.broadcastDeathMessage(hitTarget, p)
+	if hitTarget.Damage >= game.ShipData[hitTarget.Ship].MaxDamage {
+		s.killPlayer(hitTarget, p.ID, game.KillPhaser, int(damage))
 	}
 
 	// Create phaser visual
@@ -674,12 +657,16 @@ func (s *Server) detonatePassingTorpedoes(p *game.Player) {
 		}
 
 		// Check if this specific torpedo should be detonated
+		nearbyEnemyCount := 0
 		for _, enemy := range s.gameState.Players {
 			if enemy.Status != game.StatusAlive || enemy.Team == p.Team {
 				continue
 			}
 
 			dist := game.Distance(torp.X, torp.Y, enemy.X, enemy.Y)
+			if dist < 3000 {
+				nearbyEnemyCount++
+			}
 
 			// Detonate if enemy is in blast radius but torpedo won't hit directly
 			if dist < 2500 && dist > 800 {
@@ -698,20 +685,11 @@ func (s *Server) detonatePassingTorpedoes(p *game.Player) {
 				}
 			}
 
-			// Detonate if 3+ enemies are clustered near this torpedo
-			if dist < 3000 {
-				nearbyCount := 0
-				for _, other := range s.gameState.Players {
-					if other.Status == game.StatusAlive && other.Team != p.Team {
-						if game.Distance(torp.X, torp.Y, other.X, other.Y) < 3000 {
-							nearbyCount++
-						}
-					}
-				}
-				if nearbyCount >= 3 {
-					torp.Fuse = 1 // Detonate for area damage on clustered enemies
-					break         // Move to next torpedo
-				}
+			// Detonate if this enemy is close and we already found
+			// another enemy nearby (avoids O(n^2) inner loop).
+			if dist < 3000 && nearbyEnemyCount >= 2 {
+				torp.Fuse = 1 // Detonate for area damage on clustered enemies
+				break         // Move to next torpedo
 			}
 		}
 	}

@@ -156,6 +156,10 @@ func (c *Client) handleBomb(data json.RawMessage) {
 
 	// Can only bomb enemy or independent planets
 	if planet.Owner != p.Team {
+		// Don't start bombing if planet has no armies
+		if !p.Bombing && planet.Armies == 0 {
+			return
+		}
 		// Toggle bombing state
 		p.Bombing = !p.Bombing
 		if p.Bombing && planet.Armies > 0 {
