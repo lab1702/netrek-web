@@ -103,7 +103,7 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 // getAdvancedDodgeDirection calculates optimal dodge considering multiple threats
 func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, threats CombatThreat) float64 {
 	bestDir := p.Dir
-	bestScore := -999999.0
+	bestScore := WorstScore
 
 	// Test different dodge angles
 	for delta := 0.0; delta < math.Pi; delta += math.Pi / 12 {
@@ -398,9 +398,6 @@ func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desired
 
 		// Shorter cooldown for immediate re-evaluation after dodging
 		p.BotCooldown = 2
-
-		// For debugging/logging - comment this out in production
-		// fmt.Printf("Bot %d dodging torpedo while %s\n", p.ID, objective)
 		return
 	}
 

@@ -137,7 +137,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 	criticalDamage := p.Damage > shipStats.MaxDamage*3/4
 
 	nearestEnemy := s.findNearestEnemy(p)
-	enemyDist := 999999.0
+	enemyDist := MaxSearchDistance
 	if nearestEnemy != nil {
 		enemyDist = game.Distance(p.X, p.Y, nearestEnemy.X, nearestEnemy.Y)
 	}
@@ -608,7 +608,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 	criticalDamage := p.Damage > shipStats.MaxDamage*2/3
 
 	nearestEnemy := s.findNearestEnemy(p)
-	enemyDist := 999999.0
+	enemyDist := MaxSearchDistance
 	if nearestEnemy != nil {
 		enemyDist = game.Distance(p.X, p.Y, nearestEnemy.X, nearestEnemy.Y)
 	}
@@ -825,7 +825,7 @@ func (s *Server) starbaseDefensivePatrol(p *game.Player) {
 // findNearestCorePlanet finds the nearest core (home) planet
 func (s *Server) findNearestCorePlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet
-	nearestDist := 999999.0
+	nearestDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -900,7 +900,7 @@ func (s *Server) RemoveBot(botID int) {
 // Planet finding functions
 func (s *Server) findNearestRepairPlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet
-	minDist := 999999.0
+	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -917,7 +917,7 @@ func (s *Server) findNearestRepairPlanet(p *game.Player) *game.Planet {
 
 func (s *Server) findNearestFuelPlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet
-	minDist := 999999.0
+	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -1071,7 +1071,7 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *game.Player, float64) {
 	var bestPlanet *game.Planet
 	var bestEnemy *game.Player
-	var bestEnemyDist float64 = 999999.0
+	var bestEnemyDist float64 = MaxSearchDistance
 	bestThreatScore := 0.0
 
 	// Check each friendly planet within bot's scanning range
@@ -1089,7 +1089,7 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 
 		// Find the closest threatening enemy to this planet
 		var closestEnemy *game.Player
-		closestEnemyDist := 999999.0
+		closestEnemyDist := MaxSearchDistance
 		threatScore := 0.0
 
 		for j := range s.gameState.Players {

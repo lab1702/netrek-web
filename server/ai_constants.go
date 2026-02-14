@@ -37,4 +37,8 @@ const (
 	ArmyCarryingRange  = 3500.0 // Shield range when carrying armies
 	DefenseShieldRange = 3000.0 // Shield range during planet defense
 	PhaserRangeFactor  = 0.8    // Shield when within 80% of enemy phaser range
+
+	// Sentinel Values
+	MaxSearchDistance = 999999.0  // Sentinel for "no target found" in nearest-object searches
+	WorstScore       = -999999.0 // Sentinel for "no candidate scored" in best-candidate searches
 )

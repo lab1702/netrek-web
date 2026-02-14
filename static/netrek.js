@@ -869,8 +869,6 @@ function showLoginScreenAfterReset() {
     if (uiState.inOutfitScreen) return;
     uiState.inOutfitScreen = true;
     
-    console.log('Returning to team/ship selection after game reset');
-    
     // Hide game interface, show login screen
     document.getElementById('game').style.display = 'none';
     document.getElementById('login').style.display = 'block';
@@ -999,13 +997,7 @@ function openWebSocket(name, team, ship) {
         reconnectDelay = 1000;
         reconnectAttempts = 0;
         // Check if compression is enabled by examining the WebSocket extensions
-        if (ws.extensions && ws.extensions.includes('permessage-deflate')) {
-            wsCompressionActive = true;
-            console.log('WebSocket compression is ACTIVE (permessage-deflate)');
-        } else {
-            wsCompressionActive = false;
-            console.log('WebSocket compression is NOT active');
-        }
+        wsCompressionActive = !!(ws.extensions && ws.extensions.includes('permessage-deflate'));
         updateCompressionIndicator();
 
         sendMessage({
@@ -1178,10 +1170,6 @@ function handleServerMessage(msg) {
                 range: msg.data.range || 5000, // Ship-specific phaser range, fallback to 5000
                 life: 10 // Frames to display
             });
-            // Play phaser sound when we see a phaser fired
-            if (msg.data.from === gameState.myPlayerID || msg.data.to === gameState.myPlayerID) {
-                // soundManager.play('phaser');  // TODO: implement sound
-            }
             break;
             
         case 'error':
@@ -1994,8 +1982,6 @@ function renderGalactic() {
     // Lock indicator on galactic map removed
 }
 
-let lastWarningTime = 0;
-
 function updateCompressionIndicator() {
     const indicator = dashboardEls.compression || document.getElementById('compression-indicator');
     if (indicator) {
@@ -2077,20 +2063,6 @@ function updateDashboard() {
     }
     
     
-    // Warning sounds (limit to once every 2 seconds)
-    const now = Date.now();
-    if (now - lastWarningTime > 2000) {
-        // Critical fuel warning
-        if (player.fuel < 1000 && player.fuel > 0) {
-            // soundManager.play('warning');  // TODO: implement sound
-            lastWarningTime = now;
-        }
-        // Critical damage warning
-        else if (player.damage > 80) {
-            // soundManager.play('warning');  // TODO: implement sound
-            lastWarningTime = now;
-        }
-    }
     
     // Update armies and orbit status
     if (dashboardEls.armies) {
@@ -2542,14 +2514,23 @@ function getTeamName(team) {
     }
 }
 
+// Ship stats lookup table indexed by ship type (0=SC, 1=DD, 2=CA, 3=BB, 4=AS, 5=SB)
+// Must match server-side game.ShipData values
+const SHIP_STATS = [
+    { shields: 75,  damage: 75,  fuel: 5000,  speed: 12, armies: 2  }, // Scout
+    { shields: 85,  damage: 85,  fuel: 7000,  speed: 10, armies: 5  }, // Destroyer
+    { shields: 100, damage: 100, fuel: 10000, speed: 9,  armies: 10 }, // Cruiser
+    { shields: 130, damage: 130, fuel: 14000, speed: 8,  armies: 6  }, // Battleship
+    { shields: 80,  damage: 200, fuel: 6000,  speed: 8,  armies: 20 }, // Assault
+    { shields: 500, damage: 600, fuel: 60000, speed: 2,  armies: 25 }, // Starbase
+];
+
 function getMaxShields(shipType) {
-    const shields = [75, 85, 100, 130, 80, 500]; // Scout, DD, CA, BB, AS, SB
-    return shields[shipType] || 100;
+    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].shields) || 100;
 }
 
 function getMaxDamage(shipType) {
-    const damage = [75, 85, 100, 130, 200, 600]; // Scout, DD, CA, BB, AS, SB
-    return damage[shipType] || 100;
+    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].damage) || 100;
 }
 
 // Bot control functions for practice mode
@@ -2582,8 +2563,6 @@ function clearBots() {
             to: 'all'
         } 
     });
-    
-    // Clearing all bots
 }
 
 function fillWithBots() {
@@ -2602,7 +2581,6 @@ function fillWithBots() {
     }
     
     if (freeSlots === 0) {
-        console.log('No free slots available');
         return;
     }
     
@@ -2614,21 +2592,16 @@ function fillWithBots() {
             to: 'all'
         } 
     });
-    
-    console.log(`Filling ${freeSlots} slots with bots`);
 }
 
 function getMaxFuel(shipType) {
-    const fuel = [5000, 7000, 10000, 14000, 6000, 60000]; // Scout, DD, CA, BB, AS, SB
-    return fuel[shipType] || 10000;
+    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].fuel) || 10000;
 }
 
 function getMaxSpeed(shipType) {
-    const speeds = [12, 10, 9, 8, 8, 2]; // Scout, DD, CA, BB, AS, SB
-    return speeds[shipType] || 10;
+    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].speed) || 10;
 }
 
 function getMaxArmies(shipType) {
-    const armies = [2, 5, 10, 6, 20, 25]; // Scout, DD, CA, BB, AS, SB
-    return armies[shipType] || 10;
+    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].armies) || 10;
 }

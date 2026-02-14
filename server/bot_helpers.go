@@ -7,12 +7,6 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
-// randomJitterRad returns a random angle for torpedo firing jitter
-// This function is already defined in bot_jitter.go, but we may need to use it here
-// func randomJitterRad() float64 {
-//     // Implementation is in bot_jitter.go
-// }
-
 // getVelocityAdjustedTorpRange calculates torpedo range adjusted for target velocity
 // to prevent fuse expiry on fast-moving targets
 func (s *Server) getVelocityAdjustedTorpRange(p *game.Player, target *game.Player) float64 {
@@ -58,7 +52,7 @@ func (s *Server) getBotArmyCapacity(p *game.Player) int {
 // findNearestEnemy finds the closest enemy player
 func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
 	var nearest *game.Player
-	minDist := 999999.0
+	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Players {
 		other := s.gameState.Players[i]
@@ -231,9 +225,13 @@ func (s *Server) selectBotShipType(team int) int {
 		return int(game.ShipAssault)
 	}
 
-	// Random from main combat ships for variety (includes Scout, Destroyer, Cruiser, Battleship, Assault)
-	// Note: This excludes Starbase (handled separately) and Galaxy (rare)
-	return rand.Intn(5) // 0-4: Scout, Destroyer, Cruiser, Battleship, Assault
+	// Random from all combat ships for variety
+	// Excludes Starbase (handled separately) and Galaxy (rare)
+	combatShips := []int{
+		int(game.ShipScout), int(game.ShipDestroyer), int(game.ShipCruiser),
+		int(game.ShipBattleship), int(game.ShipAssault),
+	}
+	return combatShips[rand.Intn(len(combatShips))]
 }
 
 // selectBotBehavior determines bot behavior based on game state
@@ -280,7 +278,7 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 // selectBestCombatTarget selects the optimal combat target with persistence
 func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 	var bestTarget *game.Player
-	bestScore := -999999.0
+	bestScore := WorstScore
 	var currentTargetScore float64
 
 	// Check if we have a current target lock

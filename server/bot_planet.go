@@ -16,7 +16,7 @@ import (
 // findBestPlanetToTake finds the best planet to attack based on strategic value
 func (s *Server) findBestPlanetToTake(p *game.Player) *game.Planet {
 	var best *game.Planet
-	bestScore := -999999.0
+	bestScore := WorstScore
 
 	// Get strategic context
 	teamPlanets := s.countTeamPlanets()
@@ -164,7 +164,7 @@ func (s *Server) detectPlanetDefenders(planet *game.Planet, team int) *PlanetDef
 	info := &PlanetDefenderInfo{
 		Defenders:       make([]*game.Player, 0),
 		DefenderCount:   0,
-		MinDefenderDist: 999999.0,
+		MinDefenderDist: MaxSearchDistance,
 	}
 
 	// Find all enemy ships near the planet
@@ -238,7 +238,7 @@ func (s *Server) isPlanetOnFrontline(planet *game.Planet, team int) bool {
 // findNearestNeutralPlanet finds the closest neutral planet
 func (s *Server) findNearestNeutralPlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet
-	minDist := 999999.0
+	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -256,7 +256,7 @@ func (s *Server) findNearestNeutralPlanet(p *game.Player) *game.Planet {
 // findNearestArmyPlanet finds the closest friendly planet with armies
 func (s *Server) findNearestArmyPlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet
-	minDist := 999999.0
+	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -274,7 +274,7 @@ func (s *Server) findNearestArmyPlanet(p *game.Player) *game.Planet {
 // findNearestEnemyArmyPlanet finds the closest enemy planet with armies
 func (s *Server) findNearestEnemyArmyPlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet
-	minDist := 999999.0
+	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -292,7 +292,7 @@ func (s *Server) findNearestEnemyArmyPlanet(p *game.Player) *game.Planet {
 // findPlanetToDefend finds a friendly planet that needs defense
 func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 	var best *game.Planet
-	bestScore := -999999.0
+	bestScore := WorstScore
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
@@ -339,7 +339,7 @@ func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 // findPlanetToRaid finds an enemy planet suitable for raiding
 func (s *Server) findPlanetToRaid(p *game.Player) *game.Planet {
 	var best *game.Planet
-	bestScore := -999999.0
+	bestScore := WorstScore
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"math/rand"
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
@@ -9,7 +8,7 @@ import (
 
 func TestBotPlanetDefense(t *testing.T) {
 	// Set deterministic seed for reproducible tests
-	rand.Seed(42)
+
 
 	// Create minimal game state
 	gs := game.NewGameState()
@@ -109,7 +108,7 @@ func TestBotPlanetDefense(t *testing.T) {
 }
 
 func TestBotDefensePersistence(t *testing.T) {
-	rand.Seed(42)
+
 
 	gs := game.NewGameState()
 	server := &Server{
@@ -155,7 +154,7 @@ func TestBotDefensePersistence(t *testing.T) {
 }
 
 func TestStarbaseDefense(t *testing.T) {
-	rand.Seed(42)
+
 
 	gs := game.NewGameState()
 	server := &Server{

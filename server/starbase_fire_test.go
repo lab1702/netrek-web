@@ -2,7 +2,6 @@ package server
 
 import (
 	"math"
-	"math/rand"
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
@@ -10,7 +9,7 @@ import (
 
 func TestStarbaseTorpedoFiringRegardlessOfFacing(t *testing.T) {
 	// Set deterministic seed for reproducible tests
-	rand.Seed(42)
+
 
 	// Create minimal game state
 	gs := game.NewGameState()
@@ -86,7 +85,7 @@ func TestStarbaseTorpedoFiringRegardlessOfFacing(t *testing.T) {
 
 func TestStarbaseDefenseWeaponLogicWithCloseEnemy(t *testing.T) {
 	// Set deterministic seed for reproducible tests
-	rand.Seed(42)
+
 
 	// Create minimal game state
 	gs := game.NewGameState()
@@ -138,7 +137,7 @@ func TestStarbaseDefenseWeaponLogicWithCloseEnemy(t *testing.T) {
 
 func TestStarbaseFiresAtMovingEnemyBehind(t *testing.T) {
 	// This test simulates a more realistic scenario where an enemy is orbiting behind the starbase
-	rand.Seed(42)
+
 
 	gs := game.NewGameState()
 	server := &Server{

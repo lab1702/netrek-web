@@ -15,6 +15,12 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
+const (
+	// WebSocket connection timeouts
+	wsReadTimeout  = 60 * time.Second // Read deadline for client messages
+	wsPingInterval = 54 * time.Second // Ping interval (must be less than wsReadTimeout)
+)
+
 // isValidOrigin checks if the origin is allowed to connect
 func isValidOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
@@ -650,9 +656,9 @@ func (c *Client) readPump() {
 	}()
 
 	c.conn.SetReadLimit(4096)
-	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	c.conn.SetReadDeadline(time.Now().Add(wsReadTimeout))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		c.conn.SetReadDeadline(time.Now().Add(wsReadTimeout))
 		return nil
 	})
 
@@ -688,7 +694,7 @@ func (c *Client) readPump() {
 
 // writePump sends messages to the client
 func (c *Client) writePump() {
-	ticker := time.NewTicker(54 * time.Second)
+	ticker := time.NewTicker(wsPingInterval)
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()

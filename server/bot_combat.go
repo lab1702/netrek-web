@@ -47,7 +47,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	closestTorpDist := threats.closestTorpDist
 
 	// Try to phaser any plasma in range before evading
-	if threats.closestPlasma < 999999.0 {
+	if threats.closestPlasma < MaxSearchDistance {
 		if s.tryPhaserNearbyPlasma(p) {
 			p.BotCooldown = 5 // Short cooldown after phasering plasma
 			// Continue with other combat logic, don't return
@@ -245,8 +245,8 @@ func (s *Server) defendWhileCarrying(p, enemy *game.Player) {
 // assessUniversalThreats evaluates all threats to the bot (for both combat and navigation)
 func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 	threat := CombatThreat{
-		closestTorpDist: 999999.0,
-		closestPlasma:   999999.0,
+		closestTorpDist: MaxSearchDistance,
+		closestPlasma:   MaxSearchDistance,
 		nearbyEnemies:   0,
 		requiresEvasion: false,
 		threatLevel:     0,
@@ -472,8 +472,8 @@ func (s *Server) assessAndActivateShields(p *game.Player, primaryTarget *game.Pl
 
 	// Initialize threat assessment
 	threatLevel := 0
-	closestTorpDist := 999999.0
-	closestEnemyDist := 999999.0
+	closestTorpDist := MaxSearchDistance
+	closestEnemyDist := MaxSearchDistance
 	immediateThreat := false
 
 	// Check all torpedo threats (skip friendly torpedoes)
