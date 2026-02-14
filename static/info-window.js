@@ -128,10 +128,15 @@ class InfoWindow {
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
         html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(player.killsStreak || 0))} / ${escapeHtml(Math.floor(player.kills))} / ${escapeHtml(player.deaths || 0)} / ${escapeHtml(kd)})</div>`;
 
+        const maxShields = getMaxShields(player.ship);
+        const maxDamage = getMaxDamage(player.ship);
+        const shieldPct = Math.round((player.shields / maxShields) * 100);
+        const damagePct = Math.round((player.damage / maxDamage) * 100);
+
         html += '<div style="margin-top: 4px;">';
         html += `Speed: ${escapeHtml(Math.round(player.speed))} `;
-        html += `Dam: ${escapeHtml(player.damage)}% `;
-        html += `Sh: ${escapeHtml(player.shields)}% `;
+        html += `Dam: ${escapeHtml(damagePct)}% `;
+        html += `Sh: ${escapeHtml(shieldPct)}% `;
         html += `Fuel: ${escapeHtml(player.fuel)}`;
         html += '</div>';
 
