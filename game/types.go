@@ -182,10 +182,10 @@ type ShipStats struct {
 	AccInt int // Acceleration integer (higher = faster acceleration)
 	DecInt int // Deceleration integer (higher = faster deceleration)
 	// Ship systems
-	RepairRate   int // Repair rate (damage points per tick when repairing)
-	FuelRecharge int // Fuel recharge rate (fuel points per tick)
-	WpnCool      int // Weapon cooling rate (temp units per tick)
-	EngCool      int // Engine cooling rate (temp units per tick)
+	RepairRate     int // Repair rate (damage points per tick when repairing)
+	FuelRecharge   int // Fuel recharge rate (fuel points per tick)
+	WpnCool        int // Weapon cooling rate (temp units per tick)
+	EngCool        int // Engine cooling rate (temp units per tick)
 	CloakCost      int // Fuel cost per tick when cloaked
 	ShieldFuelCost int // Fuel cost per tick when shields are up
 	DetCost        int // Fuel cost for detonating enemy torpedoes

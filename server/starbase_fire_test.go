@@ -162,10 +162,10 @@ func TestStarbaseFiresAtMovingEnemyBehind(t *testing.T) {
 	enemy.Status = game.StatusAlive
 	enemy.Team = game.TeamKli
 	enemy.Ship = game.ShipCruiser
-	enemy.X = 46000 // 4000 units west of starbase (behind from its perspective)
-	enemy.Y = 50000 // Same Y
-	enemy.Speed = 8 // Fast moving
-	enemy.Dir = 0   // Moving east toward starbase (cos(0)=1 → positive X)
+	enemy.X = 46000  // 4000 units west of starbase (behind from its perspective)
+	enemy.Y = 50000  // Same Y
+	enemy.Speed = 8  // Fast moving
+	enemy.Dir = 0    // Moving east toward starbase (cos(0)=1 → positive X)
 	enemy.Armies = 5 // High-value target
 
 	enemyDist := game.Distance(starbase.X, starbase.Y, enemy.X, enemy.Y)

@@ -764,7 +764,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 	s.starbaseDefensivePatrol(p)
 }
 
-// starbaseDefensiveCombat handles combat for starbases - conservative and defensive
+// starbaseDefensiveCombat handles combat for starbases - aggressive defense
 func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dist float64) {
 	// Always shields up in combat
 	p.Shields_up = true
@@ -776,37 +776,34 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 	s.tryPhaserNearbyPlasma(p)
 
 	// Fire weapons regardless of facing - starbases can fire in any direction
-	// Fire torpedoes at long range - use ship-specific range to prevent fuse expiry
 	shipStats := game.ShipData[p.Ship]
 	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
 	canReach := s.canTorpReachTarget(p, enemy)
-	if canReach && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
+
+	// Torpedoes at long range
+	if canReach && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
-		p.BotCooldown = 8 // Faster firing rate for better offense
+		p.BotCooldown = 4
 		return
 	}
 
-	// Fire phasers at medium range or to finish enemies
-	// Use canonical phaser range formula for consistency
-	sbPhaserRange := float64(game.PhaserDist * game.ShipData[p.Ship].PhaserDamage / 100)
-	if dist < sbPhaserRange && p.Fuel > 2000 && p.WTemp < 700 {
-		enemyDamageRatio := float64(enemy.Damage) / float64(game.ShipData[enemy.Ship].MaxDamage)
-		if enemyDamageRatio > 0.6 || dist < 4000 {
-			s.fireBotPhaser(p, enemy)
-			p.BotCooldown = 10 // Faster firing rate
-			return
-		}
+	// Phasers at medium range - fire at any target, not just damaged ones
+	sbPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	if dist < sbPhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
+		s.fireBotPhaser(p, enemy)
+		p.BotCooldown = 5
+		return
 	}
 
-	// Use plasma for area denial
-	if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > game.StarbasePlasmaMinRange && p.Fuel > 4000 {
+	// Plasma for area denial
+	if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > 1000 && p.Fuel > 3000 {
 		s.fireBotPlasma(p, enemy)
-		p.BotCooldown = 20 // Slightly faster plasma cycling
+		p.BotCooldown = 12
 		return
 	}
 
-	// No weapon fired - set a basic cooldown
-	p.BotCooldown = 5
+	// No weapon fired - short cooldown to re-evaluate quickly
+	p.BotCooldown = 2
 }
 
 // starbaseDefensivePatrol makes starbase patrol defensively near friendly territory

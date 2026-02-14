@@ -616,14 +616,14 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 
 	// Starbase weapon usage for planet defense - no facing restrictions needed
 
-	// More aggressive torpedo usage than normal starbase combat
+	// Aggressive torpedo usage - starbases should be dangerous
 	// Torpedoes can be fired in any direction regardless of ship facing
 	// Use velocity-adjusted range to prevent fuse expiry
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
 	canReach := s.canTorpReachTarget(p, enemy)
-	if canReach && enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < shipStats.MaxWpnTemp/2 {
+	if canReach && enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
-		p.BotCooldown = 6 // Faster than normal starbase firing
+		p.BotCooldown = 3
 		return
 	}
 
@@ -633,22 +633,22 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	sbPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
 	if enemyDist < sbPhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotPhaser(p, enemy)
-		p.BotCooldown = 8
+		p.BotCooldown = 5
 		return
 	}
 
-	// Wider plasma usage window for area denial
-	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < game.StarbasePlasmaMaxRange && enemyDist > 1500 && p.Fuel > 3500 {
+	// Plasma for area denial - wide firing window
+	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < game.StarbasePlasmaMaxRange && enemyDist > 1000 && p.Fuel > 3000 {
 		s.fireBotPlasma(p, enemy)
-		p.BotCooldown = 18
+		p.BotCooldown = 12
 		return
 	}
 
 	// Close-range torpedo fallback - fires when other conditions prevent it, but still
 	// validates the torpedo can reach the intercept point before fuse expires
-	if canReach && enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 2000 && p.WTemp < shipStats.MaxWpnTemp-100 {
+	if canReach && enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 1000 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
-		p.BotCooldown = 10
+		p.BotCooldown = 5
 		return
 	}
 }

@@ -144,13 +144,13 @@ type Server struct {
 	nextPlasmaID           int  // Monotonically increasing plasma ID
 	galaxyReset            bool // Track if galaxy has been reset (true = already reset/empty)
 	done                   chan struct{}
-	activeConns            atomic.Int32           // Atomic connection counter for race-free limit enforcement
-	playerGrid             *SpatialGrid           // Spatial index for efficient collision detection
-	pendingSuggestions     []targetSuggestion     // Buffered target suggestions applied after UpdateBots
-	cachedTeamPlanets      map[int]int            // Cached planet counts per team
-	cachedTeamPlanetsFrame int64                  // Frame when cache was last computed
-	cachedThreats          map[int]CombatThreat   // Per-bot threat cache
-	cachedThreatsFrame     int64                  // Frame when threat cache was last valid
+	activeConns            atomic.Int32         // Atomic connection counter for race-free limit enforcement
+	playerGrid             *SpatialGrid         // Spatial index for efficient collision detection
+	pendingSuggestions     []targetSuggestion   // Buffered target suggestions applied after UpdateBots
+	cachedTeamPlanets      map[int]int          // Cached planet counts per team
+	cachedTeamPlanetsFrame int64                // Frame when cache was last computed
+	cachedThreats          map[int]CombatThreat // Per-bot threat cache
+	cachedThreatsFrame     int64                // Frame when threat cache was last valid
 }
 
 // NewServer creates a new game server

@@ -582,4 +582,3 @@ func TestTournamentTimeoutThreeWayTie(t *testing.T) {
 		t.Error("Expected victory broadcast message")
 	}
 }
-
