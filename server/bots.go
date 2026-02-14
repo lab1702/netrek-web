@@ -80,8 +80,12 @@ func (s *Server) UpdateBots() {
 		}
 
 		// Assess shields every tick before any other logic
-		// This ensures bots respond quickly to threats
-		s.assessAndActivateShields(p, nil)
+		// This ensures bots respond quickly to threats.
+		// Starbases are excluded — their specialized AI manages shields
+		// directly to avoid conflicting decisions that cause toggling.
+		if p.Ship != game.ShipStarbase {
+			s.assessAndActivateShields(p, nil)
+		}
 
 		// Reduce cooldown
 		if p.BotCooldown > 0 {
@@ -699,7 +703,9 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 			} else if isSafe && (isCorePlanet || teamOwnership < 0.4) {
 				// Stay at core planets or if team doesn't control much territory
 				p.DesSpeed = 0
-				p.Shields_up = enemyDist < 15000
+				// Use proper threat assessment instead of a generous distance check
+				// to avoid shields staying up when no real threat exists
+				s.assessAndActivateShields(p, nil)
 				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 15
 				return
@@ -752,7 +758,8 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				p.Orbiting = corePlanet.ID
 				corePlanet.Info |= p.Team // Update planet info
 				p.DesSpeed = 0
-				p.Shields_up = enemyDist < game.StarbaseEnemyDetectRange
+				// Use proper threat assessment for shield decisions
+				s.assessAndActivateShields(p, nil)
 				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 20
 				return
