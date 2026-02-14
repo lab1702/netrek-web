@@ -151,6 +151,8 @@ type Server struct {
 	cachedTeamPlanetsFrame int64                // Frame when cache was last computed
 	cachedThreats          map[int]CombatThreat // Per-bot threat cache
 	cachedThreatsFrame     int64                // Frame when threat cache was last valid
+	cachedIsolation        map[int]bool         // Per-player isolation cache (no same-team ally within 5000)
+	cachedIsolationFrame   int64                // Frame when isolation cache was last computed
 }
 
 // NewServer creates a new game server

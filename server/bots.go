@@ -366,7 +366,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				if targetPlanet.Owner == p.Team {
 					// Friendly planet - beam up armies (leave at least 1 for defense)
 					// Requires 2 kills to pick up armies in classic Netrek
-					if targetPlanet.Armies > 1 && p.Armies < s.getBotArmyCapacity(p) && p.KillsStreak >= game.ArmyKillRequirement {
+					if targetPlanet.Armies > 1 && p.Armies < game.ShipData[p.Ship].MaxArmies && p.KillsStreak >= game.ArmyKillRequirement {
 						p.Bombing = false // Stop bombing if planet is now friendly
 						p.Beaming = true
 						p.BeamingUp = true
@@ -523,7 +523,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 		behavior := s.selectBotBehavior(p)
 
 		switch behavior {
-		case "hunter":
+		case BotRoleHunter:
 			// Aggressive enemy hunting - but retreat if heavily damaged
 			if target := s.selectBestCombatTarget(p); target != nil {
 				dist := game.Distance(p.X, p.Y, target.X, target.Y)
@@ -537,7 +537,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				return
 			}
 
-		case "defender":
+		case BotRoleDefender:
 			// Defend friendly planets
 			if planet := s.findPlanetToDefend(p); planet != nil {
 				dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
@@ -561,7 +561,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				return
 			}
 
-		case "raider":
+		case BotRoleRaider:
 			// Hit and run tactics on enemy infrastructure
 			if planet := s.findPlanetToRaid(p); planet != nil {
 				dist := game.Distance(p.X, p.Y, planet.X, planet.Y)

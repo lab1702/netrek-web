@@ -54,3 +54,23 @@ func (s *Server) CoordinateTeamAttack(p *game.Player, target *game.Player) int {
 func (s *Server) DetonatePassingTorpedoes(p *game.Player) {
 	s.detonatePassingTorpedoes(p)
 }
+
+// SelectBotBehavior exposes the private selectBotBehavior for testing
+func (s *Server) SelectBotBehavior(p *game.Player) string {
+	return s.selectBotBehavior(p)
+}
+
+// BroadcastTargetToAllies exposes the private broadcastTargetToAllies for testing
+func (s *Server) BroadcastTargetToAllies(p *game.Player, target *game.Player, targetValue float64) {
+	s.broadcastTargetToAllies(p, target, targetValue)
+}
+
+// GetPendingSuggestions returns the current pending suggestions for testing
+func (s *Server) GetPendingSuggestions() []targetSuggestion {
+	return s.pendingSuggestions
+}
+
+// IsPlayerIsolated exposes the private isPlayerIsolated for testing
+func (s *Server) IsPlayerIsolated(playerID int) bool {
+	return s.isPlayerIsolated(playerID)
+}

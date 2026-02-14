@@ -62,24 +62,6 @@ func (s *Server) canTorpReachTarget(p *game.Player, target *game.Player) bool {
 	return solution.TimeToIntercept <= maxFuseTicks
 }
 
-// getBotArmyCapacity returns army carrying capacity
-func (s *Server) getBotArmyCapacity(p *game.Player) int {
-	switch p.Ship {
-	case game.ShipAssault:
-		if p.Kills > 3 {
-			return 6
-		}
-		return int(p.Kills) * 3
-	case game.ShipStarbase:
-		return 25
-	default:
-		if p.Kills > 2 {
-			return 4
-		}
-		return int(p.Kills) * 2
-	}
-}
-
 // findNearestEnemy finds the closest enemy player
 func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
 	var nearest *game.Player
@@ -150,61 +132,7 @@ func (s *Server) isCorePlanet(planet *game.Planet, team int) bool {
 	homeX := float64(game.TeamHomeX[team])
 	homeY := float64(game.TeamHomeY[team])
 	dist := game.Distance(planet.X, planet.Y, homeX, homeY)
-	return dist < 25000 // Within 25k of home
-}
-
-// findNearbyAlly finds the nearest allied bot for coordination
-func (s *Server) findNearbyAlly(p *game.Player, maxDist float64) *game.Player {
-	var nearest *game.Player
-	minDist := maxDist
-
-	for i := range s.gameState.Players {
-		other := s.gameState.Players[i]
-		if other.Status == game.StatusAlive && other.Team == p.Team &&
-			i != p.ID && other.IsBot {
-			dist := game.Distance(p.X, p.Y, other.X, other.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = other
-			}
-		}
-	}
-
-	return nearest
-}
-
-// shouldFocusFire determines if bots should focus fire on a target
-func (s *Server) shouldFocusFire(p, ally, target *game.Player) bool {
-	targetStats := game.ShipData[target.Ship]
-	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
-
-	// Focus fire on damaged enemies (lower threshold for better coordination)
-	if targetDamageRatio > 0.4 {
-		return true
-	}
-
-	// Focus fire on carriers
-	if target.Armies > 0 {
-		return true
-	}
-
-	// Focus fire on high-value targets
-	if target.Kills > 3 { // Lower threshold
-		return true
-	}
-
-	// Focus on isolated targets
-	isolated := true
-	for _, enemy := range s.gameState.Players {
-		if enemy.Status == game.StatusAlive && enemy.Team == target.Team && enemy.ID != target.ID {
-			if game.Distance(target.X, target.Y, enemy.X, enemy.Y) < 5000 {
-				isolated = false
-				break
-			}
-		}
-	}
-
-	return isolated
+	return dist < CorePlanetRadius
 }
 
 // selectBotShipType chooses appropriate ship type based on team composition
@@ -275,20 +203,20 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 	if controlRatio < 0.2 {
 		// Losing badly - focus on defense and raids
 		if defenders < 2 {
-			return "defender"
+			return BotRoleDefender
 		}
-		return "raider"
+		return BotRoleRaider
 	} else if controlRatio > 0.6 {
 		// Winning - aggressive hunting
-		return "hunter"
+		return BotRoleHunter
 	} else {
 		// Balanced - mixed strategy
 		if hunters > defenders+1 {
-			return "defender"
+			return BotRoleDefender
 		} else if p.KillsStreak >= game.ArmyKillRequirement {
-			return "raider"
+			return BotRoleRaider
 		}
-		return "hunter"
+		return BotRoleHunter
 	}
 }
 
@@ -296,7 +224,6 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 	var bestTarget *game.Player
 	bestScore := WorstScore
-	var currentTargetScore float64
 
 	// Check if we have a current target lock
 	if p.BotTarget >= 0 && p.BotTargetLockTime > 0 {
@@ -309,11 +236,9 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 			if currentTarget.Status == game.StatusAlive && currentTarget.Team != p.Team {
 				dist := game.Distance(p.X, p.Y, currentTarget.X, currentTarget.Y)
 				if dist < 30000 { // Extended range for target persistence
-					// Calculate current target's score with persistence bonus
-					currentTargetScore = s.calculateTargetScore(p, currentTarget, dist)
-					currentTargetScore += 3000 // Persistence bonus to prevent thrashing
+					// Persistence bonus prevents target thrashing
+					bestScore = s.calculateTargetScore(p, currentTarget, dist) + TargetPersistenceBonus
 					bestTarget = currentTarget
-					bestScore = currentTargetScore
 				}
 			}
 		}
@@ -376,56 +301,71 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 	return bestTarget
 }
 
+// isPlayerIsolated returns true if the player has no same-team allies within 5000 units.
+// Results are cached per game frame to avoid redundant O(players²) scanning.
+func (s *Server) isPlayerIsolated(playerID int) bool {
+	if s.cachedIsolationFrame != s.gameState.Frame {
+		s.cachedIsolation = make(map[int]bool, len(s.gameState.Players))
+		s.cachedIsolationFrame = s.gameState.Frame
+		for i, player := range s.gameState.Players {
+			if player.Status != game.StatusAlive {
+				continue
+			}
+			isolated := true
+			for j, other := range s.gameState.Players {
+				if j == i || other.Status != game.StatusAlive || other.Team != player.Team {
+					continue
+				}
+				if game.Distance(player.X, player.Y, other.X, other.Y) < IsolationRange {
+					isolated = false
+					break
+				}
+			}
+			s.cachedIsolation[i] = isolated
+		}
+	}
+	return s.cachedIsolation[playerID]
+}
+
 // calculateTargetScore calculates the value score for a potential target
 func (s *Server) calculateTargetScore(p *game.Player, target *game.Player, dist float64) float64 {
-	// Multi-factor scoring
-	score := 20000.0 / dist
+	score := TargetDistanceFactor / dist
 
-	// Target prioritization
 	targetStats := game.ShipData[target.Ship]
 	damageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 
 	// Prefer damaged enemies (higher bonus for nearly dead targets)
 	if damageRatio > 0.8 {
-		score += 8000 // Almost dead - high priority
+		score += TargetCriticalDmgBonus
 	} else if damageRatio > 0.5 {
-		score += damageRatio * 5000
+		score += damageRatio * TargetHighDmgMult
 	} else {
-		score += damageRatio * 3000
+		score += damageRatio * TargetLowDmgMult
 	}
 
 	// High priority: carriers
 	if target.Armies > 0 {
-		score += 10000 + float64(target.Armies)*1500
+		score += TargetCarrierBonus + float64(target.Armies)*TargetCarrierPerArmy
 	}
 
 	// Prefer enemies we can catch
 	speedDiff := float64(game.ShipData[p.Ship].MaxSpeed - targetStats.MaxSpeed)
 	if speedDiff > 0 {
-		score += speedDiff * 300
+		score += speedDiff * TargetSpeedBonus
 	}
 
 	// Avoid cloaked ships unless close
 	if target.Cloaked {
-		if dist > 2000 {
-			score -= 6000
+		if dist > TargetCloakDetectRange {
+			score -= TargetCloakedPenalty
 		} else {
-			score += 2000 // Decloak them
+			score += TargetDecloakBonus
 		}
 	}
 
-	// Prefer isolated enemies
-	isolated := true
-	for _, ally := range s.gameState.Players {
-		if ally.Status == game.StatusAlive && ally.Team == target.Team && ally.ID != target.ID {
-			if game.Distance(target.X, target.Y, ally.X, ally.Y) < 5000 {
-				isolated = false
-				break
-			}
-		}
-	}
-	if isolated {
-		score += 2000
+	// Prefer isolated enemies (uses per-frame cache to avoid O(players) per candidate)
+	if s.isPlayerIsolated(target.ID) {
+		score += TargetIsolatedBonus
 	}
 
 	return score

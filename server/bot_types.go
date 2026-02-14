@@ -16,6 +16,13 @@ const (
 	PlanetBombRange              = 2000.0  // Range at which enemies can bomb planets effectively
 )
 
+// Bot behavior roles returned by selectBotBehavior
+const (
+	BotRoleHunter   = "hunter"
+	BotRoleDefender = "defender"
+	BotRoleRaider   = "raider"
+)
+
 // BotNames for generating random bot names
 var BotNames = []string{
 	"HAL-9000", "R2-D2", "C-3PO", "Data", "Bishop", "T-800",

@@ -59,6 +59,24 @@ const (
 	SepClusterMult         = 1.3 // Multiplier when 2+ allies are nearby
 	SepMagnitudeCap        = 3.0 // Maximum magnitude scale to prevent erratic scattering
 
+	// Target Scoring Weights (used by calculateTargetScore)
+	TargetDistanceFactor   = 20000.0 // Numerator for distance-based scoring (score = factor/dist)
+	TargetCriticalDmgBonus = 8000.0  // Bonus for nearly dead targets (>80% damage)
+	TargetHighDmgMult      = 5000.0  // Multiplier for heavily damaged targets (>50%)
+	TargetLowDmgMult       = 3000.0  // Multiplier for lightly damaged targets
+	TargetCarrierBonus     = 10000.0 // Base bonus for army carriers
+	TargetCarrierPerArmy   = 1500.0  // Additional bonus per army carried
+	TargetSpeedBonus       = 300.0   // Bonus per warp of speed advantage
+	TargetCloakedPenalty   = 6000.0  // Penalty for cloaked targets beyond close range
+	TargetDecloakBonus     = 2000.0  // Bonus for cloaked targets within close range
+	TargetIsolatedBonus    = 2000.0  // Bonus for targets with no nearby allies
+	TargetPersistenceBonus = 3000.0  // Bonus for keeping current target (prevents thrashing)
+	TargetCloakDetectRange = 2000.0  // Range within which cloaked ships are worth attacking
+	IsolationRange         = 5000.0  // Range to check for nearby allies when determining isolation
+
+	// Planet Strategy Thresholds
+	CorePlanetRadius = 25000.0 // Distance from team home to consider a planet "core"
+
 	// Sentinel Values
 	MaxSearchDistance = 999999.0  // Sentinel for "no target found" in nearest-object searches
 	WorstScore        = -999999.0 // Sentinel for "no candidate scored" in best-candidate searches
