@@ -34,3 +34,23 @@ func (s *Server) SelectBestCombatTarget(p *game.Player) *game.Player {
 func (s *Server) CalculateTargetScore(p, target *game.Player, dist float64) float64 {
 	return s.calculateTargetScore(p, target, dist)
 }
+
+// SelectCombatManeuver exposes the private selectCombatManeuver for testing
+func (s *Server) SelectCombatManeuver(p, target *game.Player, dist float64, interceptDir float64) CombatManeuver {
+	return s.selectCombatManeuver(p, target, dist, interceptDir)
+}
+
+// IsTorpedoThreatening exposes the private isTorpedoThreatening for testing
+func (s *Server) IsTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
+	return s.isTorpedoThreatening(p, torp)
+}
+
+// CoordinateTeamAttack exposes the private coordinateTeamAttack for testing
+func (s *Server) CoordinateTeamAttack(p *game.Player, target *game.Player) int {
+	return s.coordinateTeamAttack(p, target)
+}
+
+// DetonatePassingTorpedoes exposes the private detonatePassingTorpedoes for testing
+func (s *Server) DetonatePassingTorpedoes(p *game.Player) {
+	s.detonatePassingTorpedoes(p)
+}

@@ -16,7 +16,7 @@ func (s *Server) getVelocityAdjustedTorpRange(p *game.Player, target *game.Playe
 
 	// Calculate target's speed as a fraction of maximum possible speed
 	targetSpeed := target.Speed
-	maxPossibleSpeed := 12.0 // Scout's max speed (highest in game)
+	maxPossibleSpeed := float64(game.ShipData[game.ShipScout].MaxSpeed)
 	speedRatio := targetSpeed / maxPossibleSpeed
 
 	// Reduce firing range for faster targets to ensure torpedo hits before fuse expiry
@@ -431,29 +431,27 @@ func (s *Server) calculateTargetScore(p *game.Player, target *game.Player, dist 
 	return score
 }
 
-// coordinateTeamAttack checks if multiple allies are attacking the same target and coordinates timing
+// coordinateTeamAttack checks if multiple allies are attacking the same target
+// and returns the maximum ally cooldown so all bots fire together (volley fire).
 func (s *Server) coordinateTeamAttack(p *game.Player, target *game.Player) int {
-	attackingAllies := 0
-	totalCooldown := 0
+	maxCooldown := 0
+	found := false
 
-	// Count allies attacking the same target
 	for _, ally := range s.gameState.Players {
 		if ally.Status == game.StatusAlive && ally.Team == p.Team && ally.ID != p.ID && ally.IsBot {
-			// Check if ally is targeting the same enemy
 			if ally.BotTarget == target.ID {
-				attackingAllies++
-				totalCooldown += ally.BotCooldown
+				found = true
+				if ally.BotCooldown > maxCooldown {
+					maxCooldown = ally.BotCooldown
+				}
 			}
 		}
 	}
 
-	// If multiple allies are attacking, synchronize cooldowns for volley fire
-	if attackingAllies > 0 {
-		// Average cooldown for synchronized firing
-		return totalCooldown / (attackingAllies + 1)
+	if !found {
+		return -1 // No coordination needed
 	}
-
-	return -1 // No coordination needed
+	return maxCooldown
 }
 
 // targetSuggestion records a deferred target suggestion from one bot to another.

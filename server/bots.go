@@ -795,7 +795,7 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 	}
 
 	// Phasers at medium range - fire at any target, not just damaged ones
-	sbPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	sbPhaserRange := game.PhaserRange(shipStats)
 	if dist < sbPhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 5

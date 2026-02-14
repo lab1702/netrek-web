@@ -137,7 +137,7 @@ func TestWeaponDirectionIndependence(t *testing.T) {
 				// Phaser should hit regardless of ship direction if target is in range
 				dist := game.Distance(shooter.X, shooter.Y, target.X, target.Y)
 				shipStats := game.ShipData[shooter.Ship]
-				phaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+				phaserRange := game.PhaserRange(shipStats)
 
 				if dist <= phaserRange {
 					if target.Damage <= initialDamage {

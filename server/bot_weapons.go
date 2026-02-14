@@ -106,8 +106,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		return
 	}
 
-	// Calculate phaser range using original formula: PHASEDIST * phaserdamage / 100
-	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	myPhaserRange := game.PhaserRange(shipStats)
 
 	// Range sanity check — don't fire if target is beyond phaser range
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
@@ -220,7 +219,7 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 
 	// Calculate phaser range using original formula
-	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	myPhaserRange := game.PhaserRange(shipStats)
 
 	if dist > myPhaserRange {
 		return false
@@ -296,7 +295,7 @@ func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 	}
 
 	shipStats := game.ShipData[p.Ship]
-	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	myPhaserRange := game.PhaserRange(shipStats)
 
 	// Check fuel and temperature
 	phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
@@ -315,10 +314,8 @@ func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 		}
 
 		// Skip friendly plasma
-		if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-			if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.Team == p.Team {
-				continue
-			}
+		if plasma.Team == p.Team {
+			continue
 		}
 
 		dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
@@ -479,7 +476,7 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 
 	// Opportunistic phaser usage - prioritize planet protection over fuel conservation
 	// Phasers can be fired in any direction regardless of ship facing
-	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	myPhaserRange := game.PhaserRange(shipStats)
 	if !firedWeapon && enemyDist < myPhaserRange && p.Fuel > 1000 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		// Fire phasers more liberally when defending planets
 		s.fireBotPhaser(p, enemy)
@@ -517,7 +514,7 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	// Aggressive phaser usage for planet defense
 	// Phasers can be fired in any direction regardless of ship facing
 	// Use the canonical phaser range formula for consistency
-	sbPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+	sbPhaserRange := game.PhaserRange(shipStats)
 	if enemyDist < sbPhaserRange && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotPhaser(p, enemy)
 		p.BotCooldown = 5

@@ -172,7 +172,7 @@ func TestBotShieldAssessment(t *testing.T) {
 
 				// Position enemy within 80% of phaser range
 				enemyStats := game.ShipData[enemy.Ship]
-				phaserRange := float64(game.PhaserDist) * float64(enemyStats.PhaserDamage) / 100.0
+				phaserRange := game.PhaserRange(enemyStats)
 				distance := phaserRange * PhaserRangeFactor * 0.9 // Within 80% range
 
 				enemy.X = bot.X + distance

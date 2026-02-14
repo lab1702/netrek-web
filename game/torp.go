@@ -56,3 +56,9 @@ func EffectiveTorpRangeForShip(shipType ShipType, shipStats ShipStats) int {
 	}
 	return EffectiveTorpRange(shipStats, safetyMargin)
 }
+
+// PhaserRange returns the effective phaser range for a ship.
+// Formula from original Netrek: PHASEDIST * phaserdamage / 100
+func PhaserRange(stats ShipStats) float64 {
+	return float64(PhaserDist) * float64(stats.PhaserDamage) / 100.0
+}

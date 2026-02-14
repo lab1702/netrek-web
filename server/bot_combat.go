@@ -62,28 +62,15 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		p.DesSpeed = s.getEvasionSpeed(p, threats)
 	} else {
 		// Combat maneuvering based on range and ship matchup
-		combatManeuver := s.selectCombatManeuver(p, target, dist)
+		combatManeuver := s.selectCombatManeuver(p, target, dist, interceptDir)
 
-		// Apply separation adjustment if allies are too close
-		if separationVector.magnitude > 0 {
-			// Blend the combat direction with separation vector
-			// Much higher weight for separation to prevent bunching
-			separationWeight := math.Min(separationVector.magnitude/300.0, 0.75) // Increased max weight to 0.75
-			combatWeight := 1.0 - separationWeight
+		// Blend combat direction with separation vector (higher weight to prevent bunching)
+		p.DesDir = blendWithSeparation(combatManeuver.direction, separationVector, 300.0, 0.75)
 
-			// Combine directions using weighted average
-			desiredX := combatWeight*math.Cos(combatManeuver.direction) + separationWeight*separationVector.x
-			desiredY := combatWeight*math.Sin(combatManeuver.direction) + separationWeight*separationVector.y
-			p.DesDir = math.Atan2(desiredY, desiredX)
-
-			// Also reduce speed when too close to allies for better separation
-			if separationVector.magnitude > 2.0 {
-				p.DesSpeed = combatManeuver.speed * 0.7 // Slow down to separate better
-			} else {
-				p.DesSpeed = combatManeuver.speed
-			}
+		// Reduce speed when too close to allies for better separation
+		if separationVector.magnitude > 2.0 {
+			p.DesSpeed = combatManeuver.speed * 0.7
 		} else {
-			p.DesDir = combatManeuver.direction
 			p.DesSpeed = combatManeuver.speed
 		}
 	}
@@ -121,7 +108,11 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Weapon usage - no facing restrictions needed
+	// Weapon usage — no facing restrictions needed.
+	// NOTE: fuel/temp/count checks below intentionally duplicate guards inside
+	// fireBotTorpedo/fireBotPhaser. The caller checks use strategic thresholds
+	// (e.g. reserve torp slots for spreads, higher fuel buffers) and control the
+	// firedTorps/firedPhaser flags that sequence weapon priority.
 
 	// Enhanced torpedo firing with prediction and spread patterns
 	// Torpedoes can be fired in any direction regardless of ship facing
@@ -173,7 +164,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Phasers can be fired in any direction regardless of ship facing
 	firedPhaser := false
 	if !firedTorps {
-		myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+		myPhaserRange := game.PhaserRange(shipStats)
 		if dist < myPhaserRange {
 			phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
 			if p.Fuel >= phaserCost && p.WTemp < shipStats.MaxWpnTemp-100 { // Match human firing threshold
@@ -389,7 +380,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 
 			// Shield scoring: enemy proximity and phaser range
 			enemyStats := game.ShipData[enemy.Ship]
-			phaserRange := float64(game.PhaserDist) * float64(enemyStats.PhaserDamage) / 100.0
+			phaserRange := game.PhaserRange(enemyStats)
 			if dist < phaserRange {
 				threat.shieldThreatLevel += ThreatLevelMedium
 				if dist < phaserRange*PhaserRangeFactor {
@@ -464,8 +455,8 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 		angleDiff = 2*math.Pi - angleDiff
 	}
 
-	// If torpedo is heading somewhat towards us, it's a threat
-	if angleDiff < math.Pi/2.5 && dist < 4000 { // Within ~72 degrees and closer range
+	// If torpedo is heading towards us, it's a threat
+	if angleDiff < math.Pi/4 && dist < 4000 { // Within 45 degrees and closer range
 		return true
 	}
 
@@ -478,7 +469,7 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 }
 
 // selectCombatManeuver chooses the best combat maneuver based on situation
-func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) CombatManeuver {
+func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64, interceptDir float64) CombatManeuver {
 	// Validate target is still alive before computing maneuvers
 	if target.Status != game.StatusAlive {
 		// Target is dead — just maintain current heading
@@ -492,17 +483,21 @@ func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) Comb
 	shipStats := game.ShipData[p.Ship]
 	targetStats := game.ShipData[target.Ship]
 
-	// Default to intercept
+	// Default to intercept (reuse caller's pre-computed intercept direction)
 	maneuver := CombatManeuver{
-		direction: s.calculateEnhancedInterceptCourse(p, target),
+		direction: interceptDir,
 		speed:     s.getOptimalCombatSpeed(p, dist),
 		maneuver:  "intercept",
 	}
 
 	// Analyze ship matchup
 	speedAdvantage := float64(shipStats.MaxSpeed - targetStats.MaxSpeed)
-	// Use max speed as proxy for maneuverability (scouts turn better than battleships)
-	maneuverAdvantage := speedAdvantage
+
+	// Compare effective turn rates at current speeds.
+	// Netrek turn rate = TurnRate >> speed, so faster ships turn slower.
+	myTurnRate := shipStats.TurnRate >> uint(math.Max(p.Speed, 1))
+	targetTurnRate := targetStats.TurnRate >> uint(math.Max(target.Speed, 1))
+	maneuverAdvantage := float64(myTurnRate - targetTurnRate)
 
 	if dist < 3000 {
 		// Close range - use angular velocity matching for dogfight
@@ -526,7 +521,7 @@ func (s *Server) selectCombatManeuver(p, target *game.Player, dist float64) Comb
 		// Long range - use speed to close or maintain
 		if speedAdvantage < 0 && target.Speed > float64(targetStats.MaxSpeed)*0.5 {
 			// They're faster and closing - angle for better position
-			offsetAngle := s.calculateEnhancedInterceptCourse(p, target) + math.Pi/8
+			offsetAngle := interceptDir + math.Pi/8
 			maneuver.direction = offsetAngle
 			maneuver.speed = float64(shipStats.MaxSpeed)
 			maneuver.maneuver = "offset-approach"
