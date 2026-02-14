@@ -7,6 +7,10 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
+// planetPos is a lightweight position used by pre-filtered planet lists
+// to avoid passing full *game.Planet through clearance checks.
+type planetPos struct{ x, y float64 }
+
 // calculateEnhancedInterceptCourse calculates intercept with acceleration prediction
 func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float64 {
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
@@ -50,14 +54,6 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 	predictX := target.X + futureSpeed*math.Cos(target.Dir)*timeToIntercept*20
 	predictY := target.Y + futureSpeed*math.Sin(target.Dir)*timeToIntercept*20
 
-	// Check if target is likely to turn (near planets or walls)
-	if s.isNearObstacle(target) {
-		// Predict turn away from obstacle
-		turnPrediction := s.predictTurnDirection(target)
-		predictX += math.Cos(turnPrediction) * 500
-		predictY += math.Sin(turnPrediction) * 500
-	}
-
 	return math.Atan2(predictY-p.Y, predictX-p.X)
 }
 
@@ -65,6 +61,15 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, threats CombatThreat) float64 {
 	bestDir := p.Dir
 	bestScore := WorstScore
+
+	// Pre-compute nearby planets once (within 12k of player) to avoid
+	// scanning all 40 planets in every calculateClearance call (~25 calls).
+	var nearbyPlanets []planetPos
+	for _, planet := range s.gameState.Planets {
+		if game.Distance(p.X, p.Y, planet.X, planet.Y) < 12000 {
+			nearbyPlanets = append(nearbyPlanets, planetPos{x: planet.X, y: planet.Y})
+		}
+	}
 
 	// Test different dodge angles
 	for delta := 0.0; delta < math.Pi; delta += math.Pi / 12 {
@@ -93,8 +98,8 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 			}
 			score -= angleDiff * 100
 
-			// Check wall proximity
-			clearance := s.calculateClearance(p, testDir)
+			// Check wall and planet proximity using pre-filtered planets
+			clearance := calculateClearanceWithPlanets(p, testDir, nearbyPlanets)
 			if clearance < 3000 {
 				score -= (3000 - clearance) * 2
 			}
@@ -112,7 +117,7 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 // calculateTorpedoDanger estimates torpedo danger in a direction
 func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 	danger := 0.0
-	speed := float64(game.ShipData[p.Ship].MaxSpeed) * 20
+	speed := p.Speed * 20 // Use actual current speed, not max
 
 	for _, torp := range s.gameState.Torps {
 		if torp.Owner == p.ID || torp.Team == p.Team || torp.Status != game.TorpMove {
@@ -139,7 +144,7 @@ func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 // calculatePlasmaDanger estimates plasma danger in a direction (mirrors calculateTorpedoDanger)
 func (s *Server) calculatePlasmaDanger(p *game.Player, dir float64) float64 {
 	danger := 0.0
-	speed := float64(game.ShipData[p.Ship].MaxSpeed) * 20
+	speed := p.Speed * 20 // Use actual current speed, not max
 
 	for _, plasma := range s.gameState.Plasmas {
 		if plasma.Owner == p.ID || plasma.Team == p.Team || plasma.Status != game.TorpMove {
@@ -168,6 +173,8 @@ func (s *Server) getOptimalSpeed(p *game.Player, dist float64) float64 {
 		return 2
 	}
 
+	// Deceleration factors match ship DecInt values from game/types.go.
+	// Starbase is handled by the early return above.
 	var decelerationFactor float64
 	switch p.Ship {
 	case game.ShipScout:
@@ -176,12 +183,8 @@ func (s *Server) getOptimalSpeed(p *game.Player, dist float64) float64 {
 		decelerationFactor = 300
 	case game.ShipBattleship:
 		decelerationFactor = 180
-	case game.ShipAssault:
+	case game.ShipAssault, game.ShipCruiser:
 		decelerationFactor = 200
-	case game.ShipCruiser:
-		decelerationFactor = 200
-	case game.ShipStarbase:
-		decelerationFactor = 150
 	default:
 		decelerationFactor = 200
 	}
@@ -232,44 +235,9 @@ func (s *Server) getEvasionSpeed(p *game.Player, threats CombatThreat) float64 {
 	return s.getOptimalCombatSpeed(p, 3000)
 }
 
-// isNearObstacle checks if player is near walls or planets
-func (s *Server) isNearObstacle(p *game.Player) bool {
-	// Check walls
-	if p.X < 5000 || p.X > game.GalaxyWidth-5000 ||
-		p.Y < 5000 || p.Y > game.GalaxyHeight-5000 {
-		return true
-	}
-
-	// Check planets
-	for _, planet := range s.gameState.Planets {
-		if game.Distance(p.X, p.Y, planet.X, planet.Y) < 3000 {
-			return true
-		}
-	}
-
-	return false
-}
-
-// predictTurnDirection predicts which way a player will turn to avoid obstacles
-func (s *Server) predictTurnDirection(p *game.Player) float64 {
-	bestDir := p.Dir
-	bestClearance := 0.0
-
-	// Test various turn angles
-	for angle := -math.Pi / 2; angle <= math.Pi/2; angle += math.Pi / 8 {
-		testDir := p.Dir + angle
-		clearance := s.calculateClearance(p, testDir)
-		if clearance > bestClearance {
-			bestClearance = clearance
-			bestDir = testDir
-		}
-	}
-
-	return bestDir
-}
-
-// calculateClearance calculates how much clear space in a direction
-func (s *Server) calculateClearance(p *game.Player, dir float64) float64 {
+// calculateClearanceWithPlanets calculates how much clear space in a direction,
+// using a pre-filtered list of nearby planet positions to avoid scanning all 40 planets.
+func calculateClearanceWithPlanets(p *game.Player, dir float64, nearbyPlanets []planetPos) float64 {
 	testDist := 5000.0
 	testX := p.X + math.Cos(dir)*testDist
 	testY := p.Y + math.Sin(dir)*testDist
@@ -280,8 +248,8 @@ func (s *Server) calculateClearance(p *game.Player, dir float64) float64 {
 	clearance = math.Min(clearance, game.GalaxyHeight-testY)
 
 	// Check planets - treat planet surface as wall (discourage suicide dives)
-	for _, planet := range s.gameState.Planets {
-		planetDist := game.Distance(testX, testY, planet.X, planet.Y)
+	for _, np := range nearbyPlanets {
+		planetDist := game.Distance(testX, testY, np.x, np.y)
 		// Treat anything within 2000 units of planet surface as blocked
 		planetClearance := planetDist - 2000
 		if planetClearance < 0 {
@@ -314,15 +282,7 @@ func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desired
 
 	// No immediate threat - apply desired navigation with separation
 	separationVector := s.calculateSeparationVector(p)
-	if separationVector.magnitude > 0 {
-		// Blend desired direction with separation
-		weight := math.Min(separationVector.magnitude/300.0, 0.5)
-		navX := math.Cos(desiredDir)*(1.0-weight) + separationVector.x*weight
-		navY := math.Sin(desiredDir)*(1.0-weight) + separationVector.y*weight
-		p.DesDir = math.Atan2(navY, navX)
-	} else {
-		p.DesDir = desiredDir
-	}
+	p.DesDir = blendWithSeparation(desiredDir, separationVector, 300.0, 0.5)
 
 	// Apply desired speed
 	p.DesSpeed = desiredSpeed
@@ -339,15 +299,23 @@ func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desired
 	}
 }
 
+// blendWithSeparation blends a desired direction with a separation vector.
+// divisor controls how quickly separation kicks in (lower = stronger).
+// maxWeight caps the separation influence (e.g. 0.5 = 50% max).
+// Returns the blended direction, or baseDir unchanged if separation has no magnitude.
+func blendWithSeparation(baseDir float64, sep SeparationVector, divisor, maxWeight float64) float64 {
+	if sep.magnitude <= 0 {
+		return baseDir
+	}
+	weight := math.Min(sep.magnitude/divisor, maxWeight)
+	navX := math.Cos(baseDir)*(1.0-weight) + sep.x*weight
+	navY := math.Sin(baseDir)*(1.0-weight) + sep.y*weight
+	return math.Atan2(navY, navX)
+}
+
 // calculateSeparationVector calculates a vector to maintain safe distance from allies
 func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 	separationVec := SeparationVector{x: 0, y: 0, magnitude: 0}
-
-	// Increased distances for better separation
-	// We want bots to maintain much larger distances to prevent bunching
-	minSafeDistance := 4000.0  // Increased from 1500 to 4000
-	idealDistance := 2500.0    // Ideal spacing between bots
-	criticalDistance := 1200.0 // Emergency separation distance (increased from 800)
 
 	nearbyAllies := 0
 	totalRepelX := 0.0
@@ -367,7 +335,7 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 		dist := game.Distance(p.X, p.Y, ally.X, ally.Y)
 
 		// Consider all allies within extended range for separation
-		if dist < minSafeDistance && dist > 0 {
+		if dist < SepMinSafeDistance && dist > 0 {
 			nearbyAllies++
 
 			// Normalized vector away from ally
@@ -381,22 +349,22 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 				dy /= norm
 			}
 
-			// Much stronger repulsion forces
+			// Repulsion strength based on distance zone
 			var strength float64
-			if dist < criticalDistance {
+			if dist < SepCriticalDistance {
 				// Emergency separation - extremely strong repulsion
-				strength = 5.0 * (criticalDistance - dist) / criticalDistance
-			} else if dist < idealDistance {
+				strength = SepCriticalStrength * (SepCriticalDistance - dist) / SepCriticalDistance
+			} else if dist < SepIdealDistance {
 				// Strong separation to maintain ideal distance
-				strength = 2.0 * (idealDistance - dist) / idealDistance
+				strength = SepIdealStrength * (SepIdealDistance - dist) / SepIdealDistance
 			} else {
 				// Moderate separation for distances beyond ideal
-				strength = 0.8 * (minSafeDistance - dist) / minSafeDistance
+				strength = SepModerateStrength * (SepMinSafeDistance - dist) / SepMinSafeDistance
 			}
 
 			// Extra repulsion if both bots are moving toward the same target
 			if p.BotTarget >= 0 && ally.BotTarget == p.BotTarget {
-				strength *= 1.8 // Much stronger separation when targeting same enemy
+				strength *= SepSameTargetMult
 			}
 
 			// Weight more heavily if ally is damaged (more likely to explode)
@@ -404,16 +372,15 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 				allyShipStats := game.ShipData[ally.Ship]
 				damageRatio := float64(ally.Damage) / float64(allyShipStats.MaxDamage)
 				if damageRatio > 0.5 {
-					strength *= 2.0 // Doubled from 1.5
+					strength *= SepDamagedAllyHighMult
 				} else if damageRatio > 0.3 {
-					strength *= 1.5
+					strength *= SepDamagedAllyLowMult
 				}
 			}
 
 			// Extra force when multiple allies are nearby (breaks up clusters of 3+)
-			// Uses nearbyAllies count instead of O(n) inner loop
 			if nearbyAllies >= 2 {
-				strength *= 1.3
+				strength *= SepClusterMult
 			}
 
 			totalRepelX += dx * strength
@@ -424,8 +391,7 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 	// Calculate final separation vector with stronger magnitude
 	if nearbyAllies > 0 {
 		// Scale up the magnitude for more aggressive separation
-		// Cap at 3.0 to prevent erratic scattering with many nearby allies
-		magnitudeScale := math.Min(1.0+float64(nearbyAllies)*0.3, 3.0)
+		magnitudeScale := math.Min(1.0+float64(nearbyAllies)*0.3, SepMagnitudeCap)
 		separationVec.x = totalRepelX * magnitudeScale
 		separationVec.y = totalRepelY * magnitudeScale
 		separationVec.magnitude = math.Sqrt(separationVec.x*separationVec.x + separationVec.y*separationVec.y)
@@ -474,17 +440,12 @@ func (s *Server) moveToSafeArea(p *game.Player) {
 
 		if dist > 1000 {
 			// Move towards safe area
-			p.DesDir = math.Atan2(dy, dx)
+			baseDir := math.Atan2(dy, dx)
 			p.DesSpeed = float64(game.ShipData[p.Ship].MaxSpeed) * 0.5 // Move at half speed to conserve fuel
 
 			// Apply separation to avoid bunching
 			separationVector := s.calculateSeparationVector(p)
-			if separationVector.magnitude > 0 {
-				weight := math.Min(separationVector.magnitude/300.0, 0.5)
-				navX := math.Cos(p.DesDir)*(1.0-weight) + separationVector.x*weight
-				navY := math.Sin(p.DesDir)*(1.0-weight) + separationVector.y*weight
-				p.DesDir = math.Atan2(navY, navX)
-			}
+			p.DesDir = blendWithSeparation(baseDir, separationVector, 300.0, 0.5)
 		} else {
 			// At safe area - orbit slowly
 			p.DesSpeed = 2.0
@@ -577,16 +538,9 @@ func (s *Server) executePatrol(p *game.Player) {
 		baseDir := math.Atan2(dy, dx)
 
 		// Apply separation during patrol to spread bots across the map
+		// Stronger weight (200 divisor, 0.6 max) during patrol for better spread
 		separationVector := s.calculateSeparationVector(p)
-		if separationVector.magnitude > 0 {
-			// Stronger weight during patrol to ensure better spread
-			weight := math.Min(separationVector.magnitude/200.0, 0.6) // Much stronger for patrol
-			navX := math.Cos(baseDir)*(1.0-weight) + separationVector.x*weight
-			navY := math.Sin(baseDir)*(1.0-weight) + separationVector.y*weight
-			p.DesDir = math.Atan2(navY, navX)
-		} else {
-			p.DesDir = baseDir
-		}
+		p.DesDir = blendWithSeparation(baseDir, separationVector, 200.0, 0.6)
 		p.DesSpeed = float64(shipStats.MaxSpeed) * 0.8 // Sustainable cruise speed
 	}
 }

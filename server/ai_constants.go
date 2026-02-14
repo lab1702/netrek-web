@@ -43,6 +43,22 @@ const (
 	BroadcastTargetMinValue = 15000.0 // Minimum target score to broadcast to allies
 	BroadcastTargetRange    = 15000.0 // Maximum distance to broadcast target suggestions
 
+	// Ally Separation Thresholds
+	// These control how bots maintain distance from teammates
+	SepMinSafeDistance  = 4000.0 // Maximum range to consider allies for separation
+	SepIdealDistance    = 2500.0 // Ideal spacing between bots
+	SepCriticalDistance = 1200.0 // Emergency separation distance
+
+	// Ally Separation Strength Multipliers
+	SepCriticalStrength    = 5.0 // Repulsion strength at critical distance
+	SepIdealStrength       = 2.0 // Repulsion strength within ideal distance
+	SepModerateStrength    = 0.8 // Repulsion strength beyond ideal distance
+	SepSameTargetMult      = 1.8 // Extra repulsion when targeting same enemy
+	SepDamagedAllyHighMult = 2.0 // Multiplier for heavily damaged allies (>50%)
+	SepDamagedAllyLowMult  = 1.5 // Multiplier for moderately damaged allies (>30%)
+	SepClusterMult         = 1.3 // Multiplier when 2+ allies are nearby
+	SepMagnitudeCap        = 3.0 // Maximum magnitude scale to prevent erratic scattering
+
 	// Sentinel Values
 	MaxSearchDistance = 999999.0  // Sentinel for "no target found" in nearest-object searches
 	WorstScore        = -999999.0 // Sentinel for "no candidate scored" in best-candidate searches
