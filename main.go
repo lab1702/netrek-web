@@ -80,13 +80,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Signal game server to stop background goroutines
-	gameServer.Shutdown()
-
-	// Shutdown the HTTP server gracefully
+	// Shutdown the HTTP server first to stop accepting new connections
+	// and drain existing ones before stopping the game loop.
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
+
+	// Signal game server to stop background goroutines
+	gameServer.Shutdown()
 
 	log.Println("Server stopped")
 }

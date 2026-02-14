@@ -302,6 +302,7 @@ function formatTeamNames(names) {
 // Track render loop and initialization state to prevent accumulation on reconnect
 let renderIntervalId = null;
 let gameInitialized = false;
+let inputHandlersRegistered = false; // Prevent duplicate event listener registration
 let savedCredentials = null; // { name, team, ship } saved on first connect for reconnect
 let reconnectDelay = 1000; // Exponential backoff delay for reconnection
 let reconnectAttempts = 0;
@@ -398,26 +399,41 @@ async function init() {
 
     // Resize canvases
     resizeCanvases();
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(resizeCanvases, 100);
-    });
 
-    // Set up input handlers
-    setupInputHandlers();
-    
-    // Set up message input handlers
-    const messageInput = document.getElementById('message-text');
-    if (messageInput) {
-        messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+    // Register event listeners only once to prevent accumulation on re-init
+    if (!inputHandlersRegistered) {
+        inputHandlersRegistered = true;
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(resizeCanvases, 100);
+        });
+
+        // Set up input handlers
+        setupInputHandlers();
+
+        // Set up message input handlers
+        const messageInput = document.getElementById('message-text');
+        if (messageInput) {
+            messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendChatMessage();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideMessageInput();
+                }
+            });
+        }
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            // Prevent Firefox Quick Find when pressing / for slash commands
+            if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
                 e.preventDefault();
-                sendChatMessage();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                hideMessageInput();
             }
+            handleKeyPress(e.key);
         });
     }
     
@@ -601,16 +617,6 @@ function setupInputHandlers() {
     canvases.galactic.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         return false;
-    });
-    
-    // Keyboard
-    document.addEventListener('keydown', (e) => {
-        // Prevent Firefox Quick Find when pressing / for slash commands
-        if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            e.preventDefault();
-        }
-
-        handleKeyPress(e.key);
     });
 }
 
@@ -807,8 +813,8 @@ function handleKeyPress(key) {
                         mouseX = controls.galacticMouseX / scale;
                         mouseY = controls.galacticMouseY / scale;
                     } else {
-                        // Mouse is on tactical map
-                        const scale = canvases.tactical.width / 40000;
+                        // Mouse is on tactical map - use same scale as rendering
+                        const scale = TACTICAL_SCALE;
                         const centerX = canvases.tactical.width / 2;
                         const centerY = canvases.tactical.height / 2;
                         mouseX = myPlayer.x + (controls.mouseX - centerX) / scale;

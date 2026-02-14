@@ -92,18 +92,44 @@ func TestBotPlanetDefense(t *testing.T) {
 	bomber.Y = 50500
 	enemyDist := game.Distance(defender.X, defender.Y, bomber.X, bomber.Y)
 
-	// Make sure bot is facing the enemy and has resources
+	// Make sure bot has resources to fire
 	defender.Dir = game.NormalizeAngle(enemy.Dir)
-	defender.Fuel = 3000
+	defender.Fuel = 5000
 	defender.WTemp = 0
+	defender.NumTorps = 0
+
+	torpsBefore := len(server.gameState.Torps)
+	fuelBefore := defender.Fuel
 
 	// Test aggressive weapon logic
 	server.planetDefenseWeaponLogic(defender, bomber, enemyDist)
 
-	// Since we don't have a way to easily verify torpedo firing without complex state,
-	// let's at least verify the function doesn't crash and basic conditions work
+	// Verify that a weapon was actually fired (torpedo or phaser)
+	torpsAfter := len(server.gameState.Torps)
+	fuelAfter := defender.Fuel
 
-	t.Logf("Test completed successfully - defender bot detected threat and activated defense")
+	if torpsAfter <= torpsBefore && fuelAfter >= fuelBefore {
+		t.Error("Expected planetDefenseWeaponLogic to fire a weapon (torpedo or phaser), but no weapon was fired")
+	}
+
+	if torpsAfter > torpsBefore {
+		// Torpedo was fired - verify it belongs to the defender
+		newTorp := server.gameState.Torps[torpsAfter-1]
+		if newTorp.Owner != defender.ID {
+			t.Errorf("Expected torpedo owner to be %d, got %d", defender.ID, newTorp.Owner)
+		}
+		if newTorp.Team != defender.Team {
+			t.Errorf("Expected torpedo team to be %d, got %d", defender.Team, newTorp.Team)
+		}
+		if newTorp.Status != game.TorpMove {
+			t.Errorf("Expected torpedo status TorpMove, got %d", newTorp.Status)
+		}
+	}
+
+	// Verify BotCooldown was set (weapon logic always sets a cooldown)
+	if defender.BotCooldown <= 0 {
+		t.Error("Expected BotCooldown to be set after firing weapon")
+	}
 }
 
 func TestBotDefensePersistence(t *testing.T) {

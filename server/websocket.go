@@ -111,6 +111,7 @@ type ServerMessage struct {
 type Client struct {
 	ID       int
 	playerID atomic.Int32 // Use atomic to avoid data race between gameLoop and handlers
+	quitting atomic.Bool  // Set on quit to prevent re-login on the same connection
 	conn     *websocket.Conn
 	send     chan ServerMessage
 	server   *Server
@@ -143,12 +144,13 @@ type Server struct {
 	nextPlasmaID           int  // Monotonically increasing plasma ID
 	galaxyReset            bool // Track if galaxy has been reset (true = already reset/empty)
 	done                   chan struct{}
-	playerGrid             *SpatialGrid       // Spatial index for efficient collision detection
-	pendingSuggestions     []targetSuggestion // Buffered target suggestions applied after UpdateBots
-	cachedTeamPlanets      map[int]int           // Cached planet counts per team
-	cachedTeamPlanetsFrame int64                 // Frame when cache was last computed
-	cachedThreats          map[int]CombatThreat  // Per-bot threat cache
-	cachedThreatsFrame     int64                 // Frame when threat cache was last valid
+	activeConns            atomic.Int32           // Atomic connection counter for race-free limit enforcement
+	playerGrid             *SpatialGrid           // Spatial index for efficient collision detection
+	pendingSuggestions     []targetSuggestion     // Buffered target suggestions applied after UpdateBots
+	cachedTeamPlanets      map[int]int            // Cached planet counts per team
+	cachedTeamPlanetsFrame int64                  // Frame when cache was last computed
+	cachedThreats          map[int]CombatThreat   // Per-bot threat cache
+	cachedThreatsFrame     int64                  // Frame when threat cache was last valid
 }
 
 // NewServer creates a new game server
@@ -194,6 +196,7 @@ func (s *Server) Run() {
 			if _, ok := s.clients[client.ID]; ok {
 				delete(s.clients, client.ID)
 				close(client.send)
+				s.activeConns.Add(-1) // Release the connection slot
 
 				// Immediately free the player slot on disconnect
 				if playerID >= 0 && playerID < game.MaxPlayers {
@@ -207,6 +210,7 @@ func (s *Server) Run() {
 						p.Name = ""
 						p.Connected = false
 						p.LastUpdate = time.Time{}
+						p.OwnerClientID = -1
 						needBroadcast = true
 					}
 					s.gameState.Mu.Unlock()
@@ -636,17 +640,18 @@ func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
 
 // HandleWebSocket handles WebSocket connections
 func (s *Server) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Reject new connections when at capacity to prevent memory exhaustion.
-	s.mu.RLock()
-	numClients := len(s.clients)
-	s.mu.RUnlock()
-	if numClients >= maxConnections {
+	// Atomically reserve a connection slot before upgrading to prevent
+	// the TOCTOU race where multiple concurrent requests could all pass
+	// a count check and exceed maxConnections.
+	if s.activeConns.Add(1) > int32(maxConnections) {
+		s.activeConns.Add(-1) // Release the slot we just took
 		http.Error(w, "Server full", http.StatusServiceUnavailable)
 		return
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		s.activeConns.Add(-1) // Release slot on upgrade failure
 		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}

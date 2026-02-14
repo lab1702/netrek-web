@@ -13,6 +13,16 @@ import (
 
 // handleLogin processes login requests
 func (c *Client) handleLogin(data json.RawMessage) {
+	// Reject login if this client has already quit (prevents slot hijacking
+	// during the explosion timer window before the connection is closed).
+	if c.quitting.Load() {
+		c.sendMsg(ServerMessage{
+			Type: MsgTypeError,
+			Data: "Connection closing after quit",
+		})
+		return
+	}
+
 	// Guard against double login: reject if client already has a valid player slot
 	if existingID := c.GetPlayerID(); existingID >= 0 && existingID < game.MaxPlayers {
 		c.sendMsg(ServerMessage{
@@ -240,6 +250,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	// Network
 	p.Connected = true
 	p.LastUpdate = time.Now()
+	p.OwnerClientID = c.ID // Track which client owns this slot
 
 	// Bot fields (ensure human player doesn't inherit bot state)
 	p.IsBot = false
@@ -332,6 +343,9 @@ func (c *Client) handleQuit(data json.RawMessage) {
 		},
 	}
 	teamCounts := c.server.computeTeamCounts()
+
+	// Mark client as quitting to prevent re-login on this connection.
+	c.quitting.Store(true)
 
 	// Clear playerID before releasing lock so the unregister handler won't
 	// try to free a slot that the game loop will handle via the explosion timer.

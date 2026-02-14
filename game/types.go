@@ -456,8 +456,9 @@ type Player struct {
 	AlertLevel string `json:"alertLevel"` // "green", "yellow", or "red"
 
 	// Network
-	Connected  bool      `json:"connected"`
-	LastUpdate time.Time `json:"-"`
+	Connected     bool      `json:"connected"`
+	LastUpdate    time.Time `json:"-"`
+	OwnerClientID int       `json:"-"` // Client ID that owns this slot (-1 if unowned/bot)
 
 	// Bot fields
 	IsBot               bool    `json:"isBot"`
@@ -593,6 +594,7 @@ func NewGameStateWithMode(inlMode bool) *GameState {
 			BotTargetLockTime:   0,
 			BotTargetValue:      0,
 			NextShipType:        -1, // No pending refit by default for fresh slots
+			OwnerClientID:       -1, // No owning client
 		}
 	}
 

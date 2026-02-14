@@ -133,7 +133,9 @@ func (c *Client) validPlayerID() bool {
 }
 
 // getAlivePlayer returns the player for this client if valid and alive.
-// Returns nil if player ID is invalid or player is not alive.
+// Returns nil if player ID is invalid, player is not alive, or the slot
+// is no longer owned by this client (prevents stale-slot mutations after
+// disconnect/reassignment).
 // Caller must hold gameState lock (read or write).
 func (c *Client) getAlivePlayer() *game.Player {
 	id := c.GetPlayerID()
@@ -144,18 +146,27 @@ func (c *Client) getAlivePlayer() *game.Player {
 	if p.Status != game.StatusAlive {
 		return nil
 	}
+	// Verify slot ownership: if the slot has an owner set (>= 0), it must
+	// match this client. Bots and unowned slots (OwnerClientID == -1) skip.
+	if p.OwnerClientID >= 0 && p.OwnerClientID != c.ID {
+		return nil
+	}
 	return p
 }
 
 // getPlayer returns the player for this client regardless of status.
-// Returns nil if player ID is invalid.
+// Returns nil if player ID is invalid or slot ownership doesn't match.
 // Caller must hold gameState lock (read or write).
 func (c *Client) getPlayer() *game.Player {
 	id := c.GetPlayerID()
 	if id < 0 || id >= game.MaxPlayers {
 		return nil
 	}
-	return c.server.gameState.Players[id]
+	p := c.server.gameState.Players[id]
+	if p.OwnerClientID >= 0 && p.OwnerClientID != c.ID {
+		return nil
+	}
+	return p
 }
 
 // sendMsg sends a message to this client's send channel without blocking.

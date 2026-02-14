@@ -223,7 +223,14 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	p.BotTarget = target.ID
+	// Update target tracking with lock timer to prevent target thrashing.
+	if p.BotTarget != target.ID {
+		p.BotTarget = target.ID
+		p.BotTargetLockTime = 30 // 3 seconds at 10Hz
+		p.BotTargetValue = 0     // Will be scored properly on next selectBestCombatTarget call
+	} else if p.BotTargetLockTime < 10 {
+		p.BotTargetLockTime = 10 // Refresh lock on same target
+	}
 }
 
 // defendWhileCarrying handles defensive behavior when carrying armies

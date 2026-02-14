@@ -148,8 +148,8 @@ func (s *Server) updateBotHard(p *game.Player) {
 	if p.Orbiting >= 0 && p.Orbiting < len(s.gameState.Planets) {
 		orbitPlanet := s.gameState.Planets[p.Orbiting]
 		if orbitPlanet.Owner == p.Team {
-			// Continue repairing if needed and safe
-			if (needRepair || needFuel) && enemyDist > 8000 {
+			// Continue repairing if needed and safe (must be well outside phaser range)
+			if (needRepair || needFuel) && enemyDist > RepairSafetyDistance {
 				p.DesSpeed = 0
 				p.Shields_up = false
 				// Activate repair mode if damaged over 50%
@@ -163,7 +163,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 	}
 
 	// Use repair mode when safe and over 50% damaged even without orbiting
-	if needRepair && enemyDist > 10000 && !p.Repairing && p.Speed < 2 {
+	if needRepair && enemyDist > RepairSafetyDistance && !p.Repairing && p.Speed < 2 {
 		// Safe to repair - activate repair mode
 		p.Repairing = true
 		p.RepairRequest = false
@@ -174,7 +174,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 	}
 
 	// Cancel repair mode if threatened
-	if p.Repairing && enemyDist < 8000 {
+	if p.Repairing && enemyDist < RepairSafetyDistance {
 		p.Repairing = false
 		p.RepairRequest = false
 	}
@@ -520,9 +520,15 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 		switch behavior {
 		case "hunter":
-			// Aggressive enemy hunting
+			// Aggressive enemy hunting - but retreat if heavily damaged
 			if target := s.selectBestCombatTarget(p); target != nil {
 				dist := game.Distance(p.X, p.Y, target.X, target.Y)
+				// Retreat if heavily damaged and outgunned
+				if criticalDamage && dist < 6000 {
+					// Disengage and seek repair instead of fighting to the death
+					s.moveToSafeArea(p)
+					return
+				}
 				s.engageCombat(p, target, dist)
 				return
 			}
@@ -765,6 +771,9 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 
 	// Stay put - starbases don't chase
 	p.DesSpeed = 0
+
+	// Priority: phaser incoming plasma torpedoes (devastating to starbases)
+	s.tryPhaserNearbyPlasma(p)
 
 	// Fire weapons regardless of facing - starbases can fire in any direction
 	// Fire torpedoes at long range - use ship-specific range to prevent fuse expiry
@@ -1073,6 +1082,9 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 	// Use comprehensive shield management for starbase defense
 	s.assessAndActivateShields(p, enemy)
 
+	// Priority: phaser incoming plasma torpedoes (devastating to starbases)
+	s.tryPhaserNearbyPlasma(p)
+
 	// Use starbase weapon logic - no need to turn to face threats
 	s.starbaseDefenseWeaponLogic(p, enemy, enemyDist)
 
@@ -1089,11 +1101,12 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 }
 
 // getThreatenedFriendlyPlanet scans for friendly planets under threat
-// Returns the most threatened planet, the closest enemy to it, and the distance
+// Returns the most threatened planet, the closest enemy to it, and the
+// distance from the bot (p) to that enemy (for weapon range / positioning).
 func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *game.Player, float64) {
 	var bestPlanet *game.Planet
 	var bestEnemy *game.Player
-	var bestEnemyDist float64 = MaxSearchDistance
+	var bestBotToEnemyDist float64 = MaxSearchDistance
 	bestThreatScore := 0.0
 
 	// Check each friendly planet within bot's scanning range
@@ -1111,7 +1124,7 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 
 		// Find the closest threatening enemy to this planet
 		var closestEnemy *game.Player
-		closestEnemyDist := MaxSearchDistance
+		closestEnemyToPlanetDist := MaxSearchDistance
 		threatScore := 0.0
 
 		for j := range s.gameState.Players {
@@ -1162,8 +1175,8 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 				threatScore += currentThreatScore
 
 				// Track closest threatening enemy to this planet
-				if enemyToPlanetDist < closestEnemyDist {
-					closestEnemyDist = enemyToPlanetDist
+				if enemyToPlanetDist < closestEnemyToPlanetDist {
+					closestEnemyToPlanetDist = enemyToPlanetDist
 					closestEnemy = enemy
 				}
 			}
@@ -1174,12 +1187,14 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 			bestThreatScore = threatScore
 			bestPlanet = planet
 			bestEnemy = closestEnemy
-			bestEnemyDist = closestEnemyDist
+			// Return bot-to-enemy distance so callers can use it for
+			// weapon range checks and positioning decisions.
+			bestBotToEnemyDist = game.Distance(p.X, p.Y, closestEnemy.X, closestEnemy.Y)
 		}
 	}
 
 	if bestPlanet != nil && bestEnemy != nil {
-		return bestPlanet, bestEnemy, bestEnemyDist
+		return bestPlanet, bestEnemy, bestBotToEnemyDist
 	}
 	return nil, nil, 0.0
 }
