@@ -429,9 +429,20 @@ func (s *Server) coordinateTeamAttack(p *game.Player, target *game.Player) int {
 	return -1 // No coordination needed
 }
 
-// broadcastTargetToAllies shares high-value target information with nearby allies.
-// Only suggests targets to allies that have no current target, to avoid overwriting
-// targeting decisions that other bots already made this tick.
+// targetSuggestion records a deferred target suggestion from one bot to another.
+// These are buffered during UpdateBots and applied after all bots have been processed,
+// preventing lower-index bots from overriding higher-index bots' targeting decisions.
+type targetSuggestion struct {
+	allyID     int
+	targetID   int
+	lockTime   int
+	value      float64
+}
+
+// broadcastTargetToAllies collects high-value target suggestions for nearby allies.
+// Suggestions are buffered in pendingSuggestions and applied after all bots are
+// processed (see ApplyPendingTargetSuggestions), so bot processing order does not
+// affect targeting decisions.
 func (s *Server) broadcastTargetToAllies(p *game.Player, target *game.Player, targetValue float64) {
 	// Only broadcast for high-value targets (carriers, heavily damaged ships)
 	if targetValue <= 15000 && target.Armies <= 0 {
@@ -450,9 +461,27 @@ func (s *Server) broadcastTargetToAllies(p *game.Player, target *game.Player, ta
 
 		// Only suggest to allies with no current target — never overwrite an existing lock
 		if ally.BotTarget < 0 {
-			ally.BotTarget = target.ID
-			ally.BotTargetLockTime = 20
-			ally.BotTargetValue = targetValue
+			s.pendingSuggestions = append(s.pendingSuggestions, targetSuggestion{
+				allyID:   ally.ID,
+				targetID: target.ID,
+				lockTime: 20,
+				value:    targetValue,
+			})
 		}
 	}
+}
+
+// ApplyPendingTargetSuggestions applies buffered target suggestions after all bots
+// have been processed, so processing order does not affect targeting decisions.
+func (s *Server) ApplyPendingTargetSuggestions() {
+	for _, suggestion := range s.pendingSuggestions {
+		ally := s.gameState.Players[suggestion.allyID]
+		// Re-check that ally still has no target (another suggestion may have set one)
+		if ally.Status == game.StatusAlive && ally.IsBot && ally.BotTarget < 0 {
+			ally.BotTarget = suggestion.targetID
+			ally.BotTargetLockTime = suggestion.lockTime
+			ally.BotTargetValue = suggestion.value
+		}
+	}
+	s.pendingSuggestions = s.pendingSuggestions[:0]
 }

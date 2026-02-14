@@ -137,9 +137,10 @@ type Server struct {
 	nextID       int
 	nextTorpID   int  // Monotonically increasing torpedo ID
 	nextPlasmaID int  // Monotonically increasing plasma ID
-	galaxyReset  bool // Track if galaxy has been reset (true = already reset/empty)
-	done         chan struct{}
-	playerGrid   *SpatialGrid // Spatial index for efficient collision detection
+	galaxyReset        bool // Track if galaxy has been reset (true = already reset/empty)
+	done               chan struct{}
+	playerGrid         *SpatialGrid      // Spatial index for efficient collision detection
+	pendingSuggestions []targetSuggestion // Buffered target suggestions applied after UpdateBots
 }
 
 // NewServer creates a new game server
@@ -523,6 +524,9 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 
 	// Update bot AI
 	s.UpdateBots()
+	// Apply buffered target suggestions after all bots have been processed,
+	// so processing order does not affect targeting decisions.
+	s.ApplyPendingTargetSuggestions()
 
 	// Check tournament mode
 	s.checkTournamentMode()

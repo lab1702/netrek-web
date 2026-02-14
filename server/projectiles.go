@@ -34,6 +34,13 @@ func (s *Server) updateTorpedoes() {
 			continue
 		}
 
+		// Move torpedo before decrementing fuse so projectiles travel
+		// the full number of ticks their fuse allows (fixes off-by-one
+		// where fuse was decremented before movement, causing torpedoes
+		// to travel one tick short of their configured range).
+		torp.X += torp.Speed * math.Cos(torp.Dir)
+		torp.Y += torp.Speed * math.Sin(torp.Dir)
+
 		// Decrement fuse every tick (now running at 10 ticks/sec)
 		torp.Fuse--
 		if torp.Fuse <= 0 {
@@ -46,10 +53,6 @@ func (s *Server) updateTorpedoes() {
 			}
 			continue
 		}
-
-		// Move torpedo
-		torp.X += torp.Speed * math.Cos(torp.Dir)
-		torp.Y += torp.Speed * math.Sin(torp.Dir)
 
 		// Check if torpedo went out of bounds
 		if torp.X < 0 || torp.X > game.GalaxyWidth || torp.Y < 0 || torp.Y > game.GalaxyHeight {
@@ -119,6 +122,11 @@ func (s *Server) updatePlasmas() {
 			}
 			continue
 		}
+		// Move plasma before decrementing fuse so projectiles travel
+		// the full number of ticks their fuse allows (same fix as torpedoes).
+		plasma.X += plasma.Speed * math.Cos(plasma.Dir)
+		plasma.Y += plasma.Speed * math.Sin(plasma.Dir)
+
 		// Decrement fuse every tick (now running at 10 ticks/sec)
 		plasma.Fuse--
 		if plasma.Fuse <= 0 {
@@ -131,10 +139,6 @@ func (s *Server) updatePlasmas() {
 			}
 			continue
 		}
-
-		// Move plasma
-		plasma.X += plasma.Speed * math.Cos(plasma.Dir)
-		plasma.Y += plasma.Speed * math.Sin(plasma.Dir)
 
 		// Check if plasma went out of bounds
 		if plasma.X < 0 || plasma.X > game.GalaxyWidth || plasma.Y < 0 || plasma.Y > game.GalaxyHeight {
@@ -204,9 +208,10 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 		target.ExplodeTimer = game.ExplodeTimerFrames
 		target.KilledBy = torp.Owner
 		target.WhyDead = game.KillTorp
-		target.Bombing = false // Stop bombing when destroyed
-		target.Beaming = false // Stop beaming when destroyed
-		target.Orbiting = -1   // Break orbit when destroyed
+		target.Bombing = false   // Stop bombing when destroyed
+		target.Beaming = false   // Stop beaming when destroyed
+		target.BeamingUp = false // Clear beam direction
+		target.Orbiting = -1     // Break orbit when destroyed
 		// Clear lock-on when destroyed
 		target.LockType = "none"
 		target.LockTarget = -1
@@ -243,10 +248,11 @@ func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targe
 		target.Status = game.StatusExplode
 		target.ExplodeTimer = game.ExplodeTimerFrames
 		target.KilledBy = plasma.Owner
-		target.WhyDead = game.KillTorp // Using torp constant for now
-		target.Bombing = false         // Stop bombing when destroyed
-		target.Beaming = false         // Stop beaming when destroyed
-		target.Orbiting = -1           // Break orbit when destroyed
+		target.WhyDead = game.KillTorp   // Using torp constant for now
+		target.Bombing = false           // Stop bombing when destroyed
+		target.Beaming = false           // Stop beaming when destroyed
+		target.BeamingUp = false         // Clear beam direction
+		target.Orbiting = -1             // Break orbit when destroyed
 		// Clear lock-on when destroyed
 		target.LockType = "none"
 		target.LockTarget = -1

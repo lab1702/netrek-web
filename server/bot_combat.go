@@ -265,28 +265,28 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 				threat.requiresEvasion = true
 				threat.threatLevel += 4
 
-				// Increase threat level based on proximity
+				// Increase threat level based on proximity — always applied
+			// regardless of planet proximity (fixes bug where open-space
+			// torpedo threats were zeroed by the planet multiplier).
 				baseThreatIncrease := 0
 				if dist < 2000 {
 					baseThreatIncrease = 3
 				} else if dist < 4000 {
 					baseThreatIncrease = 1
 				}
+				threat.threatLevel += baseThreatIncrease
 
-				// Check if we're near a planet - torpedoes are more dangerous in planet areas
-				planetProximityBonus := 0.0
+				// Additional bonus when near a planet — torpedoes are more
+				// dangerous in contested planet areas
 				for _, planet := range s.gameState.Planets {
 					pDistToPlanet := game.Distance(p.X, p.Y, planet.X, planet.Y)
 					torpDistToPlanet := game.Distance(torp.X, torp.Y, planet.X, planet.Y)
 
-					// If both bot and torp are near same planet, increase danger
 					if pDistToPlanet < 10000 && torpDistToPlanet < 10000 {
-						planetProximityBonus = 1.5
+						threat.threatLevel += baseThreatIncrease // Double the proximity bonus near planets
 						break
 					}
 				}
-
-				threat.threatLevel += int(float64(baseThreatIncrease) * planetProximityBonus)
 			}
 		}
 	}

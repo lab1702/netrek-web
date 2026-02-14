@@ -191,8 +191,10 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		hitTarget.ExplodeTimer = game.ExplodeTimerFrames
 		hitTarget.KilledBy = p.ID
 		hitTarget.WhyDead = game.KillPhaser
-		hitTarget.Bombing = false // Stop bombing when destroyed
-		hitTarget.Orbiting = -1   // Break orbit when destroyed
+		hitTarget.Bombing = false   // Stop bombing when destroyed
+		hitTarget.Beaming = false   // Stop beaming when destroyed
+		hitTarget.BeamingUp = false // Clear beam direction
+		hitTarget.Orbiting = -1     // Break orbit when destroyed
 		// Clear lock-on when destroyed
 		hitTarget.LockType = "none"
 		hitTarget.LockTarget = -1
