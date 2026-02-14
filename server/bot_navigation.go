@@ -7,52 +7,6 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
-// calculateInterceptCourse calculates the intercept course to hit a moving target
-// Based on borgmove.c calc_icept_course function
-func (s *Server) calculateInterceptCourse(p, target *game.Player) float64 {
-	dist := game.Distance(p.X, p.Y, target.X, target.Y)
-
-	// If target is far, cloaked, or slow, just aim directly
-	if dist > 20000 || target.Cloaked || target.Speed < 1 || p.DesSpeed < 1 {
-		return math.Atan2(target.Y-p.Y, target.X-p.X)
-	}
-
-	// Calculate intercept using relative velocity
-	vxa := target.X - p.X
-	vya := target.Y - p.Y
-	l := math.Hypot(vxa, vya)
-
-	if l > 0 {
-		vxa /= l
-		vya /= l
-	}
-
-	// Target velocity components
-	vxs := target.Speed * math.Cos(target.Dir) * 20 // 20 units per tick
-	vys := target.Speed * math.Sin(target.Dir) * 20
-
-	// Dot product for parallel component
-	dp := vxs*vxa + vys*vya
-	dx := vxs - dp*vxa
-	dy := vys - dp*vya
-
-	// Calculate intercept
-	l = math.Hypot(dx, dy)
-	mySpeed := p.DesSpeed * 20
-	l = mySpeed*mySpeed - l*l
-
-	if l < 0 {
-		// Can't intercept, aim directly
-		return math.Atan2(target.Y-p.Y, target.X-p.X)
-	}
-
-	l = math.Sqrt(l)
-	vxt := l*vxa + dx
-	vyt := l*vya + dy
-
-	return math.Atan2(vyt, vxt)
-}
-
 // calculateEnhancedInterceptCourse calculates intercept with acceleration prediction
 func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float64 {
 	dist := game.Distance(p.X, p.Y, target.X, target.Y)
@@ -153,58 +107,6 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 	}
 
 	return bestDir
-}
-
-// calculateDamageAtDirection estimates damage if moving in a direction
-func (s *Server) calculateDamageAtDirection(p *game.Player, dir, speed float64) int {
-	totalDamage := 0
-	px, py := p.X, p.Y
-
-	// Simulate movement
-	dx := speed * math.Cos(dir) * 20
-	dy := speed * math.Sin(dir) * 20
-
-	// Check collision with torpedoes over next few ticks (skip friendly)
-	for _, torp := range s.gameState.Torps {
-		if torp.Owner == p.ID || torp.Team == p.Team {
-			continue
-		}
-
-		tx, ty := torp.X, torp.Y
-		tdx := torp.Speed * math.Cos(torp.Dir)
-		tdy := torp.Speed * math.Sin(torp.Dir)
-
-		// Simulate next 5 ticks
-		for tick := 0; tick < 5; tick++ {
-			mx := px + dx*float64(tick)
-			my := py + dy*float64(tick)
-			ttx := tx + tdx*float64(tick)
-			tty := ty + tdy*float64(tick)
-
-			dist := game.Distance(mx, my, ttx, tty)
-			if dist < 500 {
-				totalDamage += torp.Damage
-			}
-		}
-	}
-
-	// Check wall proximity — normalize direction to [0, 2*PI] for correct quadrant checks
-	if px < 3500 || px > game.GalaxyWidth-3500 ||
-		py < 3500 || py > game.GalaxyHeight-3500 {
-		normDir := math.Mod(dir, 2*math.Pi)
-		if normDir < 0 {
-			normDir += 2 * math.Pi
-		}
-		// Near wall, penalize directions toward wall
-		if (px < 3500 && normDir > math.Pi/2 && normDir < 3*math.Pi/2) ||
-			(px > game.GalaxyWidth-3500 && (normDir < math.Pi/2 || normDir > 3*math.Pi/2)) ||
-			(py < 3500 && normDir > math.Pi) ||
-			(py > game.GalaxyHeight-3500 && normDir < math.Pi) {
-			totalDamage += 60
-		}
-	}
-
-	return totalDamage
 }
 
 // calculateTorpedoDanger estimates torpedo danger in a direction

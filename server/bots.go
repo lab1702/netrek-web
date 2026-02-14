@@ -269,9 +269,6 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if targetPlanet != nil {
 				dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
 
-				// Check for defenders around the target planet
-				_ = s.detectPlanetDefenders(targetPlanet, p.Team) // Just detect, handled in navigation section
-
 				if dist < OrbitDistance {
 					// At planet
 					if p.Orbiting != targetPlanet.ID {

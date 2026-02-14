@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
@@ -68,21 +69,11 @@ func TestPlayerSlotFormatting(t *testing.T) {
 			}
 
 			// Also check that the slot part specifically has the zero padding
-			if !containsString(result, tt.expectedSlot) {
+			if !strings.Contains(result, tt.expectedSlot) {
 				t.Errorf("Expected slot format %q not found in result %q", tt.expectedSlot, result)
 			}
 		})
 	}
-}
-
-// Helper function to check if a string contains a substring
-func containsString(str, substr string) bool {
-	for i := 0; i <= len(str)-len(substr); i++ {
-		if str[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 // TestSanitizeName tests player name sanitization

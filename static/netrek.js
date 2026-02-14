@@ -362,7 +362,7 @@ async function init() {
             await window.shipRenderer.init();
             // Ship renderer initialized
         } catch (err) {
-            // Failed to initialize ship renderer
+            console.warn('Failed to initialize ship renderer:', err);
             // Continue without ship bitmaps
         }
     }
@@ -523,7 +523,7 @@ function setupInputHandlers() {
                         data: { target: -1, dir: dir }
                     });
                 } catch (err) {
-                    // Error firing phaser
+                    console.warn('Error firing phaser:', err);
                 }
                 break;
                 
@@ -1536,8 +1536,9 @@ function renderTactical() {
         const screenX = centerX + dx;
         const screenY = centerY + dy;
         
-        if (screenX < 0 || screenX > width || screenY < 0 || screenY > height) continue;
-        
+        // Allow margin for explosion effects (radius 12)
+        if (screenX < -12 || screenX > width + 12 || screenY < -12 || screenY > height + 12) continue;
+
         // Show explosion effect only when torpedo hits something (status = 3)
         // Do not show explosion when torpedo simply expires (fuse = 1)
         if (torp.status === 3) {

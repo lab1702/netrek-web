@@ -51,14 +51,7 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		}
 		// Charge for shields (from original Netrek daemon.c)
 		if p.Shields_up {
-			switch p.Ship {
-			case game.ShipScout:
-				fuelUsage += 2
-			case game.ShipDestroyer, game.ShipCruiser, game.ShipBattleship, game.ShipAssault:
-				fuelUsage += 3
-			case game.ShipStarbase:
-				fuelUsage += 6
-			}
+			fuelUsage += game.ShipData[p.Ship].ShieldFuelCost
 		}
 
 		// Engine temperature increases with speed (from original daemon.c)

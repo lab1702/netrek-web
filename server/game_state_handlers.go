@@ -3,10 +3,12 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/lab1702/netrek-web/game"
 	"log"
+	"math"
 	"math/rand"
 	"time"
+
+	"github.com/lab1702/netrek-web/game"
 )
 
 // handleLogin processes login requests
@@ -176,8 +178,8 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	// Add random offset between -5000 and +5000 (from original: random() % 10000 - 5000)
 	offsetX := float64(rand.Intn(10000) - 5000)
 	offsetY := float64(rand.Intn(10000) - 5000)
-	p.X = homeX + offsetX
-	p.Y = homeY + offsetY
+	p.X = math.Max(0, math.Min(game.GalaxyWidth, homeX+offsetX))
+	p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
 
 	// Movement
 	p.Dir = 0
@@ -348,10 +350,10 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	// Broadcast pre-captured team counts to all clients
 	c.server.broadcastTeamCountsData(teamCounts)
 
-	// Close the connection after a short delay to allow the explosion to be seen
+	// Close the connection after explosion finishes plus a small buffer
 	go func() {
 		select {
-		case <-time.After(1 * time.Second):
+		case <-time.After(time.Duration(game.ExplodeTimerFrames)*game.UpdateInterval + 200*time.Millisecond):
 			c.conn.Close()
 		case <-c.server.done:
 			c.conn.Close()

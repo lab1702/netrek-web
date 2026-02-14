@@ -84,8 +84,8 @@ class ShipRenderer {
         
         // Final fallback to old system
         if (!shipData) {
-            const bitmaps = window.allShipBitmaps || window.shipBitmaps;
-            shipData = bitmaps.federation ? bitmaps.federation[shipType] : null;
+            const bitmaps = window.shipBitmaps;
+            shipData = bitmaps && bitmaps.federation ? bitmaps.federation[shipType] : null;
         }
         
         if (!shipData || !shipData[view] || shipData[view].length === 0) {

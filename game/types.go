@@ -17,9 +17,6 @@ const (
 	GalaxyWidth  = 100000
 	GalaxyHeight = 100000
 
-	// Movement constants
-	WARP1 = 60 // Units per tick at warp 1 (from original Netrek)
-
 	// Distance constants
 	ExplosionDist = 350
 	DamageDist    = 2000
@@ -99,7 +96,7 @@ const (
 	StatusAlive   = 2
 	StatusExplode = 3
 	StatusDead    = 4
-	StatusObserve = 6
+	StatusObserve = 5
 )
 
 // Projectile Status (Torpedo and Plasma)
@@ -189,8 +186,9 @@ type ShipStats struct {
 	FuelRecharge int // Fuel recharge rate (fuel points per tick)
 	WpnCool      int // Weapon cooling rate (temp units per tick)
 	EngCool      int // Engine cooling rate (temp units per tick)
-	CloakCost    int // Fuel cost per tick when cloaked
-	DetCost      int // Fuel cost for detonating enemy torpedoes
+	CloakCost      int // Fuel cost per tick when cloaked
+	ShieldFuelCost int // Fuel cost per tick when shields are up
+	DetCost        int // Fuel cost for detonating enemy torpedoes
 }
 
 var ShipData = map[ShipType]ShipStats{
@@ -221,6 +219,7 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        2,
 		EngCool:        5,
 		CloakCost:      17,
+		ShieldFuelCost: 2,
 		DetCost:        100,
 	},
 	ShipDestroyer: {
@@ -254,6 +253,7 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        2,
 		EngCool:        5,
 		CloakCost:      21,
+		ShieldFuelCost: 3,
 		DetCost:        100,
 	},
 	ShipCruiser: {
@@ -287,6 +287,7 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        2,
 		EngCool:        5,
 		CloakCost:      26,
+		ShieldFuelCost: 3,
 		DetCost:        100,
 	},
 	ShipBattleship: {
@@ -320,6 +321,7 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        2,
 		EngCool:        5,
 		CloakCost:      30,
+		ShieldFuelCost: 3,
 		DetCost:        100,
 	},
 	ShipAssault: {
@@ -349,6 +351,7 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        2,
 		EngCool:        7,
 		CloakCost:      17,
+		ShieldFuelCost: 3,
 		DetCost:        100,
 	},
 	ShipStarbase: {
@@ -382,6 +385,7 @@ var ShipData = map[ShipType]ShipStats{
 		WpnCool:        3,
 		EngCool:        5,
 		CloakCost:      75,
+		ShieldFuelCost: 6,
 		DetCost:        100,
 	},
 }

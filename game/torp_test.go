@@ -64,19 +64,19 @@ func TestEffectiveTorpRange(t *testing.T) {
 			name:         "Scout with default safety",
 			shipType:     ShipScout,
 			safetyMargin: DefaultTorpSafety,
-			expected:     int(5120 * DefaultTorpSafety), // Now 0.70: 3584
+			expected:     int(5120 * DefaultTorpSafety), // 3584
 		},
 		{
 			name:         "Cruiser with default safety",
 			shipType:     ShipCruiser,
 			safetyMargin: DefaultTorpSafety,
-			expected:     int(9600 * DefaultTorpSafety), // Now 0.70: 6720
+			expected:     int(9600 * DefaultTorpSafety), // 6720
 		},
 		{
 			name:         "Starbase with default safety",
 			shipType:     ShipStarbase,
 			safetyMargin: DefaultTorpSafety,
-			expected:     int(8400 * DefaultTorpSafety), // Now 0.70: 5880
+			expected:     int(8400 * DefaultTorpSafety), // 5880
 		},
 		{
 			name:         "Scout with custom safety",
@@ -106,12 +106,12 @@ func TestEffectiveTorpRangeDefault(t *testing.T) {
 		{
 			name:     "Scout",
 			shipType: ShipScout,
-			expected: int(5120 * DefaultTorpSafety), // With new 0.70 default: 3584
+			expected: int(5120 * DefaultTorpSafety), // 3584
 		},
 		{
 			name:     "Cruiser",
 			shipType: ShipCruiser,
-			expected: int(9600 * DefaultTorpSafety), // With new 0.70 default: 6720
+			expected: int(9600 * DefaultTorpSafety), // 6720
 		},
 	}
 

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -396,10 +397,10 @@ func TestAnnounceVictoryMultiTeamTimeout(t *testing.T) {
 		if !ok {
 			t.Error("Expected message text to be a string")
 		} else {
-			if !containsInner(messageText, "Federation & Romulan") {
+			if !strings.Contains(messageText, "Federation & Romulan") {
 				t.Errorf("Message should contain 'Federation & Romulan', got: %s", messageText)
 			}
-			if !containsInner(messageText, "share victory") {
+			if !strings.Contains(messageText, "share victory") {
 				t.Errorf("Message should contain 'share victory', got: %s", messageText)
 			}
 		}

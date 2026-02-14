@@ -30,11 +30,6 @@ func (s *Server) FireEnhancedTorpedo(shooter, target *game.Player) {
 	s.fireEnhancedTorpedo(shooter, target)
 }
 
-// CalculateInterceptCourse exposes the private calculateInterceptCourse method for testing
-func (s *Server) CalculateInterceptCourse(shooter, target *game.Player) float64 {
-	return s.calculateInterceptCourse(shooter, target)
-}
-
 // CalculateEnhancedInterceptCourse exposes the private calculateEnhancedInterceptCourse method for testing
 func (s *Server) CalculateEnhancedInterceptCourse(shooter, target *game.Player) float64 {
 	return s.calculateEnhancedInterceptCourse(shooter, target)

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/lab1702/netrek-web/game"
@@ -165,7 +166,7 @@ func (s *Server) updatePlayerOrbit(p *game.Player) {
 
 	// Orbit mechanics matching original Netrek
 	if p.Orbiting >= len(s.gameState.Planets) {
-		fmt.Printf("ERROR: Player %s orbiting invalid planet %d\n", p.Name, p.Orbiting)
+		log.Printf("ERROR: Player %s orbiting invalid planet %d", p.Name, p.Orbiting)
 		p.Orbiting = -1
 		return
 	}

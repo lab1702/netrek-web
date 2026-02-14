@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
@@ -401,13 +402,13 @@ func TestTournamentTimeoutCoVictory(t *testing.T) {
 		if !ok {
 			t.Error("Expected message text to be a string")
 		} else {
-			if !contains(messageText, "Federation") {
+			if !strings.Contains(messageText, "Federation") {
 				t.Errorf("Message should contain 'Federation', got: %s", messageText)
 			}
-			if !contains(messageText, "Romulan") {
+			if !strings.Contains(messageText, "Romulan") {
 				t.Errorf("Message should contain 'Romulan', got: %s", messageText)
 			}
-			if !contains(messageText, "share victory") {
+			if !strings.Contains(messageText, "share victory") {
 				t.Errorf("Message should indicate shared victory, got: %s", messageText)
 			}
 		}
@@ -483,10 +484,10 @@ func TestTournamentTimeoutSingleWinnerUnchanged(t *testing.T) {
 		if !ok {
 			t.Error("Expected message text to be a string")
 		} else {
-			if !contains(messageText, "Federation") {
+			if !strings.Contains(messageText, "Federation") {
 				t.Errorf("Message should contain 'Federation', got: %s", messageText)
 			}
-			if contains(messageText, "share") {
+			if strings.Contains(messageText, "share") {
 				t.Errorf("Message should not indicate shared victory for single winner, got: %s", messageText)
 			}
 		}
@@ -564,16 +565,16 @@ func TestTournamentTimeoutThreeWayTie(t *testing.T) {
 		if !ok {
 			t.Error("Expected message text to be a string")
 		} else {
-			if !contains(messageText, "Federation") {
+			if !strings.Contains(messageText, "Federation") {
 				t.Errorf("Message should contain 'Federation', got: %s", messageText)
 			}
-			if !contains(messageText, "Romulan") {
+			if !strings.Contains(messageText, "Romulan") {
 				t.Errorf("Message should contain 'Romulan', got: %s", messageText)
 			}
-			if !contains(messageText, "Klingon") {
+			if !strings.Contains(messageText, "Klingon") {
 				t.Errorf("Message should contain 'Klingon', got: %s", messageText)
 			}
-			if !contains(messageText, "share victory") {
+			if !strings.Contains(messageText, "share victory") {
 				t.Errorf("Message should indicate shared victory, got: %s", messageText)
 			}
 		}
@@ -582,18 +583,3 @@ func TestTournamentTimeoutThreeWayTie(t *testing.T) {
 	}
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			containsInner(s, substr)))
-}
-
-func containsInner(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
