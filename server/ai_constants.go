@@ -40,5 +40,5 @@ const (
 
 	// Sentinel Values
 	MaxSearchDistance = 999999.0  // Sentinel for "no target found" in nearest-object searches
-	WorstScore       = -999999.0 // Sentinel for "no candidate scored" in best-candidate searches
+	WorstScore        = -999999.0 // Sentinel for "no candidate scored" in best-candidate searches
 )

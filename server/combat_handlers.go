@@ -395,12 +395,8 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 		if torp.Status != game.TorpMove || torp.Owner == p.ID {
 			continue
 		}
-		// Only detonate enemy torpedoes (skip friendly)
-		if torp.Owner < 0 || torp.Owner >= game.MaxPlayers {
-			continue
-		}
-		torpOwner := c.server.gameState.Players[torp.Owner]
-		if torpOwner == nil || torpOwner.Team == p.Team {
+		// Only detonate enemy torpedoes using torp.Team directly
+		if torp.Team == p.Team {
 			continue
 		}
 		// Check if torpedo is within detonate range

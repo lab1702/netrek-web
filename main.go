@@ -87,5 +87,4 @@ func main() {
 	}
 
 	log.Println("Server stopped")
-	os.Exit(0)
 }

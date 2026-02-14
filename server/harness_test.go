@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -187,8 +188,13 @@ func runAccuracyTest(t *testing.T, iterations int, speed float64, pattern string
 		closestDists = append(closestDists, launch.ActualClosestDist)
 	}
 
+	// Guard against empty data (e.g., all torpedoes failed to fire)
+	if len(launchData) == 0 {
+		t.Fatal("No torpedoes were fired during test")
+	}
+
 	// Sort for median calculation
-	sortFloat64Slice(closestDists)
+	slices.Sort(closestDists)
 
 	metrics := AccuracyMetrics{
 		TotalShots:         len(launchData),
@@ -305,16 +311,4 @@ func saveBaselineResults(metrics AccuracyMetrics) {
 	fmt.Fprintf(file, "Max Closest Dist:    %.1f units\n", metrics.MaxClosestDist)
 
 	fmt.Printf("Baseline results saved to %s\n", filename)
-}
-
-// sortFloat64Slice sorts a float64 slice (simple bubble sort for small slices)
-func sortFloat64Slice(slice []float64) {
-	n := len(slice)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if slice[j] > slice[j+1] {
-				slice[j], slice[j+1] = slice[j+1], slice[j]
-			}
-		}
-	}
 }

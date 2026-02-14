@@ -162,7 +162,10 @@ function updateTeamDisplay(data) {
 // Fetch and display team populations  
 function updateTeamStats() {
     fetch('/api/teams')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
         .then(data => updateTeamDisplay(data))
         .catch(error => {
             console.error('Failed to fetch team stats:', error);
@@ -197,7 +200,7 @@ let gameState = {
     phasers: [], // Active phaser beams
     frame: 0,
     lastUpdate: 0,
-    networkDelay: 0,
+    updateInterval: 0,
     interpolation: true,
     quitRequested: false // Track if player has requested to quit
 };
@@ -215,8 +218,7 @@ let prevState = {
 
 let controls = {
     mouseX: 0,
-    mouseY: 0,
-    keys: {}
+    mouseY: 0
 };
 
 let canvases = {
@@ -375,7 +377,7 @@ async function init() {
         speed: document.getElementById('speed'),
         kdaStats: document.getElementById('kda-stats'),
         kdRatio: document.getElementById('kd-ratio'),
-        networkDelay: document.getElementById('network-delay'),
+        updateInterval: document.getElementById('network-delay'),
         compression: document.getElementById('compression-indicator'),
         armies: document.getElementById('armies'),
         status: document.getElementById('status'),
@@ -603,18 +605,12 @@ function setupInputHandlers() {
     
     // Keyboard
     document.addEventListener('keydown', (e) => {
-        controls.keys[e.key] = true;
-        
         // Prevent Firefox Quick Find when pressing / for slash commands
         if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
             e.preventDefault();
         }
-        
+
         handleKeyPress(e.key);
-    });
-    
-    document.addEventListener('keyup', (e) => {
-        controls.keys[e.key] = false;
     });
 }
 
@@ -1117,9 +1113,9 @@ function handleServerMessage(msg) {
             // Calculate network delay before updating lastUpdate
             const now = Date.now();
             if (gameState.lastUpdate) {
-                gameState.networkDelay = now - gameState.lastUpdate;
+                gameState.updateInterval = now - gameState.lastUpdate;
             } else {
-                gameState.networkDelay = 0;
+                gameState.updateInterval = 0;
             }
             
             gameState.frame = msg.data.frame;
@@ -1224,8 +1220,8 @@ function getInterpolatedPosition(current, previous, entityId) {
     
     const now = Date.now();
     const timeSinceUpdate = now - gameState.lastUpdate;
-    const updateInterval = 100; // 10 FPS = 100ms per frame
-    const t = Math.min(timeSinceUpdate / updateInterval, 1);
+    const expectedInterval = 100; // 10 FPS = 100ms per frame
+    const t = Math.min(timeSinceUpdate / expectedInterval, 1);
     
     // Find previous position
     const prev = Array.isArray(previous) ? previous[entityId] : previous;
@@ -2038,16 +2034,16 @@ function updateDashboard() {
     const player = gameState.players[gameState.myPlayerID];
     if (!player) return;
     
-    // Update network delay
-    const lag = gameState.networkDelay || 0;
-    if (dashboardEls.networkDelay) {
-        dashboardEls.networkDelay.textContent = `${lag}ms`;
+    // Update tick interval (time between game state updates; ~100ms is normal at 10 FPS)
+    const lag = gameState.updateInterval || 0;
+    if (dashboardEls.updateInterval) {
+        dashboardEls.updateInterval.textContent = `${lag}ms`;
         if (lag < 150) {
-            dashboardEls.networkDelay.style.color = '#0f0';  // Green
+            dashboardEls.updateInterval.style.color = '#0f0';  // Green
         } else if (lag < 200) {
-            dashboardEls.networkDelay.style.color = '#ff0';  // Yellow
+            dashboardEls.updateInterval.style.color = '#ff0';  // Yellow
         } else {
-            dashboardEls.networkDelay.style.color = '#f00';  // Red
+            dashboardEls.updateInterval.style.color = '#f00';  // Red
         }
     }
 

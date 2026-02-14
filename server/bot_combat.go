@@ -268,8 +268,8 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 				threat.threatLevel += 4
 
 				// Increase threat level based on proximity — always applied
-			// regardless of planet proximity (fixes bug where open-space
-			// torpedo threats were zeroed by the planet multiplier).
+				// regardless of planet proximity (fixes bug where open-space
+				// torpedo threats were zeroed by the planet multiplier).
 				baseThreatIncrease := 0
 				if dist < 2000 {
 					baseThreatIncrease = 3
@@ -602,14 +602,16 @@ func (s *Server) shouldUseCloaking(p, target *game.Player, dist float64) bool {
 		return false
 	}
 
-	// Cloak for ambush when approaching
-	if dist > 3000 && dist < 7000 && p.Damage < 20 {
+	shipStats := game.ShipData[p.Ship]
+	damageRatio := float64(p.Damage) / float64(shipStats.MaxDamage)
+
+	// Cloak for ambush when approaching (only if lightly damaged)
+	if dist > 3000 && dist < 7000 && damageRatio < 0.2 {
 		return true
 	}
 
 	// Cloak to escape when damaged
-	shipStats := game.ShipData[p.Ship]
-	if p.Damage > shipStats.MaxDamage/2 && dist > 2000 {
+	if damageRatio > 0.5 && dist > 2000 {
 		return true
 	}
 

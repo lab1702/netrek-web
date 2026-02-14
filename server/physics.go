@@ -330,9 +330,8 @@ func (s *Server) updateTractorBeams() {
 						cosTheta := dx / dist
 						sinTheta := dy / dist
 
-						// Force of tractor is WARP1 * tractstr (from original code)
-						// WARP1 = 20 in original Netrek
-						halfforce := 20.0 * float64(shipStats.TractorStr)
+						// Force of tractor is TractorForceWarp * tractstr (from original code)
+						halfforce := float64(game.TractorForceWarp) * float64(shipStats.TractorStr)
 
 						// Direction: 1 for tractor, -1 for pressor
 						dir := 1.0

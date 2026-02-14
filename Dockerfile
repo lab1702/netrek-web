@@ -22,9 +22,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o netrek-web .
 # Final stage
 FROM alpine:3.21
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
-
 # Create non-root user
 RUN addgroup -S netrek && adduser -S netrek -G netrek
 

@@ -36,9 +36,8 @@ func (s *Server) AddBot(team, ship int) {
 		return // No free slots
 	}
 
-	// Initialize bot player
+	// Initialize bot player (p.ID is already set by NewGameState)
 	p := s.gameState.Players[botID]
-	p.ID = botID
 	p.Name = fmt.Sprintf("[BOT] %s", BotNames[rand.Intn(len(BotNames))])
 	p.Team = team
 	p.Ship = game.ShipType(ship)

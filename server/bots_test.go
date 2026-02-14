@@ -9,7 +9,6 @@ import (
 func TestBotPlanetDefense(t *testing.T) {
 	// Set deterministic seed for reproducible tests
 
-
 	// Create minimal game state
 	gs := game.NewGameState()
 	server := &Server{
@@ -109,7 +108,6 @@ func TestBotPlanetDefense(t *testing.T) {
 
 func TestBotDefensePersistence(t *testing.T) {
 
-
 	gs := game.NewGameState()
 	server := &Server{
 		gameState: gs,
@@ -154,7 +152,6 @@ func TestBotDefensePersistence(t *testing.T) {
 }
 
 func TestStarbaseDefense(t *testing.T) {
-
 
 	gs := game.NewGameState()
 	server := &Server{

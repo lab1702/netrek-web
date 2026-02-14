@@ -10,7 +10,6 @@ import (
 func TestStarbaseTorpedoFiringRegardlessOfFacing(t *testing.T) {
 	// Set deterministic seed for reproducible tests
 
-
 	// Create minimal game state
 	gs := game.NewGameState()
 	server := &Server{
@@ -86,7 +85,6 @@ func TestStarbaseTorpedoFiringRegardlessOfFacing(t *testing.T) {
 func TestStarbaseDefenseWeaponLogicWithCloseEnemy(t *testing.T) {
 	// Set deterministic seed for reproducible tests
 
-
 	// Create minimal game state
 	gs := game.NewGameState()
 	server := &Server{
@@ -137,7 +135,6 @@ func TestStarbaseDefenseWeaponLogicWithCloseEnemy(t *testing.T) {
 
 func TestStarbaseFiresAtMovingEnemyBehind(t *testing.T) {
 	// This test simulates a more realistic scenario where an enemy is orbiting behind the starbase
-
 
 	gs := game.NewGameState()
 	server := &Server{

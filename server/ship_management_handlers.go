@@ -48,6 +48,8 @@ func (c *Client) handleRepair(data json.RawMessage) {
 		// Cancel any locks, beaming, bombing
 		p.Bombing = false
 		p.Beaming = false
+		p.Tractoring = -1
+		p.Pressoring = -1
 	} else if p.RepairRequest {
 		// Cancel repair request
 		p.RepairRequest = false
@@ -56,7 +58,7 @@ func (c *Client) handleRepair(data json.RawMessage) {
 		case c.server.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
-				"text": fmt.Sprintf("%s canceled repair request", p.Name),
+				"text": fmt.Sprintf("%s canceled repair request", formatPlayerName(p)),
 				"type": "info",
 			},
 		}:

@@ -141,6 +141,11 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 		c.server.gameState.Mu.RUnlock()
 		return
 	}
+	// Don't deliver messages to disconnected or free players
+	if !targetPlayer.Connected || targetPlayer.Status == game.StatusFree {
+		c.server.gameState.Mu.RUnlock()
+		return
+	}
 	senderName := formatPlayerName(p)
 	targetName := formatPlayerName(targetPlayer)
 	c.server.gameState.Mu.RUnlock()

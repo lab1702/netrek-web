@@ -440,10 +440,10 @@ func (s *Server) coordinateTeamAttack(p *game.Player, target *game.Player) int {
 // These are buffered during UpdateBots and applied after all bots have been processed,
 // preventing lower-index bots from overriding higher-index bots' targeting decisions.
 type targetSuggestion struct {
-	allyID     int
-	targetID   int
-	lockTime   int
-	value      float64
+	allyID   int
+	targetID int
+	lockTime int
+	value    float64
 }
 
 // broadcastTargetToAllies collects high-value target suggestions for nearby allies.

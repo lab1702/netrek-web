@@ -50,8 +50,9 @@ const (
 	FractionScale = 1000 // Scale factor for fractional accumulators (turn rate, acceleration)
 
 	// Tractor/Pressor beam constants (from original Netrek daemon.c)
-	TractorFuelCost = 20 // Fuel cost per tick when using tractor/pressor
-	TractorHeatCost = 5  // Engine heat added per tick when using tractor/pressor
+	TractorForceWarp = 20 // Tractor force = TractorForceWarp * TractorStr (WARP1 in original)
+	TractorFuelCost  = 20 // Fuel cost per tick when using tractor/pressor
+	TractorHeatCost  = 5  // Engine heat added per tick when using tractor/pressor
 
 	// Alert level range constants (from original Netrek)
 	AlertYellowRange = 14285 // YRANGE = GWIDTH/7 = 100000/7

@@ -103,8 +103,8 @@ type ClientMessage struct {
 
 // ServerMessage represents a message from server to client
 type ServerMessage struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
+	Type string `json:"type"`
+	Data any    `json:"data"`
 }
 
 // Client represents a connected player
@@ -132,21 +132,21 @@ func (c *Client) SetPlayerID(id int) {
 
 // Server manages the game and client connections
 type Server struct {
-	mu           sync.RWMutex
-	clients      map[int]*Client
-	register     chan *Client
-	unregister   chan *Client
-	broadcast    chan ServerMessage
-	gameState    *game.GameState
-	nextID       int
-	nextTorpID   int  // Monotonically increasing torpedo ID
-	nextPlasmaID int  // Monotonically increasing plasma ID
-	galaxyReset        bool // Track if galaxy has been reset (true = already reset/empty)
-	done               chan struct{}
-	playerGrid         *SpatialGrid      // Spatial index for efficient collision detection
+	mu                     sync.RWMutex
+	clients                map[int]*Client
+	register               chan *Client
+	unregister             chan *Client
+	broadcast              chan ServerMessage
+	gameState              *game.GameState
+	nextID                 int
+	nextTorpID             int  // Monotonically increasing torpedo ID
+	nextPlasmaID           int  // Monotonically increasing plasma ID
+	galaxyReset            bool // Track if galaxy has been reset (true = already reset/empty)
+	done                   chan struct{}
+	playerGrid             *SpatialGrid       // Spatial index for efficient collision detection
 	pendingSuggestions     []targetSuggestion // Buffered target suggestions applied after UpdateBots
-	cachedTeamPlanets      map[int]int         // Cached planet counts per team
-	cachedTeamPlanetsFrame int64                // Frame when cache was last computed
+	cachedTeamPlanets      map[int]int        // Cached planet counts per team
+	cachedTeamPlanetsFrame int64              // Frame when cache was last computed
 }
 
 // NewServer creates a new game server
