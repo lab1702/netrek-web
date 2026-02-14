@@ -1963,12 +1963,9 @@ function renderGalactic() {
             const color = teamColors[team] || '#fff';
 
             // Average position of alive players on this team
-            // Skip cloaked enemies to avoid leaking their positions
-            const isMyTeam = myPlayer && team === myPlayer.team;
             let px = 0, py = 0, pCount = 0;
             for (const player of gameState.players) {
                 if (player && player.status === 2 && player.team === team) {
-                    if (!isMyTeam && player.cloaked) continue;
                     px += player.x;
                     py += player.y;
                     pCount++;
