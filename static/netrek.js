@@ -632,6 +632,7 @@ function handleKeyPress(key) {
     // Handle help window toggle first (works even when dead)
     if (key === '?') {
         const helpWindow = dashboardEls.helpWindow;
+        if (!helpWindow) return;
         if (helpWindow.style.display === 'block') {
             helpWindow.style.display = 'none';
         } else {
@@ -1621,8 +1622,9 @@ function renderTactical() {
                 const startY = centerY + (player.y - myPlayer.y) * scale;
                 const endX = centerX + (target.x - myPlayer.x) * scale;
                 const endY = centerY + (target.y - myPlayer.y) * scale;
-                
+
                 // Draw tractor beam (blue)
+                ctx.save();
                 ctx.strokeStyle = '#00f';
                 ctx.globalAlpha = 0.6;
                 ctx.lineWidth = 2;
@@ -1631,11 +1633,10 @@ function renderTactical() {
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.globalAlpha = 1;
+                ctx.restore();
             }
         }
-        
+
         // Draw pressor beam
         if (player.pressoring >= 0 && player.pressoring < gameState.players.length) {
             const target = gameState.players[player.pressoring];
@@ -1644,8 +1645,9 @@ function renderTactical() {
                 const startY = centerY + (player.y - myPlayer.y) * scale;
                 const endX = centerX + (target.x - myPlayer.x) * scale;
                 const endY = centerY + (target.y - myPlayer.y) * scale;
-                
+
                 // Draw pressor beam (orange)
+                ctx.save();
                 ctx.strokeStyle = '#f80';
                 ctx.globalAlpha = 0.6;
                 ctx.lineWidth = 2;
@@ -1654,8 +1656,7 @@ function renderTactical() {
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.globalAlpha = 1;
+                ctx.restore();
             }
         }
     }
