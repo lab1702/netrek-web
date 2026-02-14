@@ -105,7 +105,10 @@ func (s *Server) UpdateBots() {
 
 // updateBotHard implements hard difficulty AI with different behaviors for tournament/non-tournament modes
 func (s *Server) updateBotHard(p *game.Player) {
+	// Always check for incoming plasma even during cooldown — plasma torpedoes
+	// deal massive damage and must be phasered immediately regardless of other actions.
 	if p.BotCooldown > 0 {
+		s.tryPhaserNearbyPlasma(p)
 		return
 	}
 
@@ -769,7 +772,8 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 	// Fire torpedoes at long range - use ship-specific range to prevent fuse expiry
 	shipStats := game.ShipData[p.Ship]
 	effectiveTorpRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
-	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
+	canReach := s.canTorpReachTarget(p, enemy)
+	if canReach && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 3000 && p.WTemp < 600 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 8 // Faster firing rate for better offense
 		return

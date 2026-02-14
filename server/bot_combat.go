@@ -128,11 +128,15 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Use velocity-adjusted range to prevent fuse expiry on fast targets
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, target)
 
+	// Verify the torpedo can actually reach the intercept point before fuse expires.
+	// This prevents firing at targets moving away where the intercept point is beyond range.
+	canReachTarget := s.canTorpReachTarget(p, target)
+
 	// Check for burst fire opportunity on vulnerable targets
 	targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
 	burstFireMode := targetDamageRatio > 0.7 && dist < effectiveTorpRange*0.6 // Burst when target is heavily damaged and in close range
 	firedTorps := false
-	if dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
+	if canReachTarget && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-2 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		if burstFireMode && p.NumTorps < game.MaxTorps-6 && p.Fuel > 2500 {
 			// Burst fire mode - rapid successive torpedoes for kill securing
 			s.fireTorpedoSpread(p, target, 4) // Fire 4-torpedo burst
@@ -153,7 +157,7 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	}
 
 	// Fire when enemy is running away - only if we didn't already fire torpedoes above
-	if !firedTorps && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-3 && p.Fuel > 1000 {
+	if !firedTorps && canReachTarget && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-3 && p.Fuel > 1000 {
 		targetAngleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
 		targetRunAngle := math.Abs(target.Dir - targetAngleToUs)
 		if targetRunAngle > math.Pi {

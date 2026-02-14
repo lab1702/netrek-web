@@ -8,7 +8,8 @@ import (
 )
 
 // getVelocityAdjustedTorpRange calculates torpedo range adjusted for target velocity
-// to prevent fuse expiry on fast-moving targets
+// to prevent fuse expiry on fast-moving targets.
+// This is used for pattern selection (close/mid/long range decisions).
 func (s *Server) getVelocityAdjustedTorpRange(p *game.Player, target *game.Player) float64 {
 	shipStats := game.ShipData[p.Ship]
 	baseRange := float64(game.EffectiveTorpRangeForShip(p.Ship, shipStats))
@@ -29,6 +30,36 @@ func (s *Server) getVelocityAdjustedTorpRange(p *game.Player, target *game.Playe
 
 	// For slower targets, use full effective range
 	return baseRange
+}
+
+// canTorpReachTarget checks whether a torpedo can reach the intercept point
+// before its fuse expires. This accounts for target movement direction and speed,
+// preventing bots from firing torpedoes that will expire en route.
+func (s *Server) canTorpReachTarget(p *game.Player, target *game.Player) bool {
+	shipStats := game.ShipData[p.Ship]
+	projSpeed := float64(shipStats.TorpSpeed * game.TorpUnitFactor)
+
+	shooterPos := Point2D{X: p.X, Y: p.Y}
+	targetPos := Point2D{X: target.X, Y: target.Y}
+	targetVel := s.targetVelocity(target)
+
+	solution, ok := InterceptDirection(shooterPos, targetPos, targetVel, projSpeed)
+	if !ok {
+		// No intercept solution — target is moving too fast to catch.
+		// Only allow firing at very close range for area denial.
+		dist := game.Distance(p.X, p.Y, target.X, target.Y)
+		maxRange := float64(game.MaxTorpRange(shipStats))
+		return dist < maxRange*0.3
+	}
+
+	// Check if the torpedo fuse allows reaching the intercept point
+	safetyMargin, exists := game.ShipSafetyFactor[p.Ship]
+	if !exists {
+		safetyMargin = game.DefaultTorpSafety
+	}
+	maxFuseTicks := float64(shipStats.TorpFuse) * safetyMargin
+
+	return solution.TimeToIntercept <= maxFuseTicks
 }
 
 // getBotArmyCapacity returns army carrying capacity

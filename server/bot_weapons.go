@@ -109,6 +109,12 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	// Calculate phaser range using original formula: PHASEDIST * phaserdamage / 100
 	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
 
+	// Range sanity check — don't fire if target is beyond phaser range
+	dist := game.Distance(p.X, p.Y, target.X, target.Y)
+	if dist > myPhaserRange {
+		return
+	}
+
 	// Bot aims directly at target
 	course := math.Atan2(target.Y-p.Y, target.X-p.X)
 
@@ -576,7 +582,8 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 	// Torpedoes can be fired in any direction regardless of ship facing
 	// Use velocity-adjusted range to prevent fuse expiry on fast targets
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
-	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
+	canReach := s.canTorpReachTarget(p, enemy)
+	if canReach && enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 1500 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 4 // Faster firing rate for planet defense
 		firedWeapon = true
@@ -612,7 +619,8 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	// Torpedoes can be fired in any direction regardless of ship facing
 	// Use velocity-adjusted range to prevent fuse expiry
 	effectiveTorpRange := s.getVelocityAdjustedTorpRange(p, enemy)
-	if enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < shipStats.MaxWpnTemp/2 {
+	canReach := s.canTorpReachTarget(p, enemy)
+	if canReach && enemyDist < effectiveTorpRange && p.NumTorps < game.MaxTorps-1 && p.Fuel > 2500 && p.WTemp < shipStats.MaxWpnTemp/2 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 6 // Faster than normal starbase firing
 		return
@@ -635,8 +643,9 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 		return
 	}
 
-	// Unconditional close-range torpedo fallback - fires even when other conditions prevent it
-	if enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 2000 && p.WTemp < shipStats.MaxWpnTemp-100 {
+	// Close-range torpedo fallback - fires when other conditions prevent it, but still
+	// validates the torpedo can reach the intercept point before fuse expires
+	if canReach && enemyDist < game.StarbaseTorpRange && p.NumTorps < game.MaxTorps && p.Fuel > 2000 && p.WTemp < shipStats.MaxWpnTemp-100 {
 		s.fireBotTorpedoWithLead(p, enemy)
 		p.BotCooldown = 10
 		return
