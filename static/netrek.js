@@ -1043,7 +1043,7 @@ function openWebSocket(name, team, ship) {
         reconnectDelay = Math.min(reconnectDelay * 2, 30000); // Exponential backoff, max 30s
         reconnectAttempts++;
         setTimeout(() => {
-            if (ws === thisWs && savedCredentials) {
+            if (ws === thisWs && savedCredentials && !gameState.quitRequested) {
                 addMessage(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`, 'info', null, null, 'messages-server');
                 reconnect();
             }
@@ -1067,9 +1067,25 @@ function handleServerMessage(msg) {
             
         case 'update':
             // Store previous positions for interpolation (only fields needed)
-            prevState.players = gameState.players.map(p => p ? {x: p.x, y: p.y, dir: p.dir} : null);
-            prevState.torps = gameState.torps.map(t => t ? {x: t.x, y: t.y} : null);
-            prevState.plasmas = gameState.plasmas.map(p => p ? {x: p.x, y: p.y} : null);
+            // Copy previous positions in-place to avoid allocating new arrays/objects every tick
+            for (let pi = 0; pi < gameState.players.length; pi++) {
+                const p = gameState.players[pi];
+                if (!prevState.players[pi]) prevState.players[pi] = {x: 0, y: 0, dir: 0};
+                if (p) { prevState.players[pi].x = p.x; prevState.players[pi].y = p.y; prevState.players[pi].dir = p.dir; }
+            }
+            prevState.players.length = gameState.players.length;
+            for (let ti = 0; ti < gameState.torps.length; ti++) {
+                const t = gameState.torps[ti];
+                if (!prevState.torps[ti]) prevState.torps[ti] = {x: 0, y: 0};
+                if (t) { prevState.torps[ti].x = t.x; prevState.torps[ti].y = t.y; }
+            }
+            prevState.torps.length = gameState.torps.length;
+            for (let qi = 0; qi < gameState.plasmas.length; qi++) {
+                const q = gameState.plasmas[qi];
+                if (!prevState.plasmas[qi]) prevState.plasmas[qi] = {x: 0, y: 0};
+                if (q) { prevState.plasmas[qi].x = q.x; prevState.plasmas[qi].y = q.y; }
+            }
+            prevState.plasmas.length = gameState.plasmas.length;
             
             // Calculate network delay before updating lastUpdate
             const now = Date.now();

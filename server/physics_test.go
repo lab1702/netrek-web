@@ -605,8 +605,8 @@ func TestAutoOrbitOnLockOn(t *testing.T) {
 	p.Y = planet.Y
 	p.Dir = 0
 	p.DesDir = 0
-	p.Speed = 3 // Slow enough (< 4)
-	p.DesSpeed = 3
+	p.Speed = float64(game.ORBSPEED) // At orbit speed
+	p.DesSpeed = float64(game.ORBSPEED)
 	p.Orbiting = -1
 
 	// This should trigger auto-orbit

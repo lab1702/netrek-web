@@ -73,13 +73,32 @@ func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
 	return nearest
 }
 
-// countTeamPlanets counts planets owned by each team
+// teamPlanetCounts is a reusable buffer for countTeamPlanets to avoid allocations.
+// Indexed by team flag values (0=None, 1=Fed, 2=Rom, 4=Kli, 8=Ori).
+// Max team flag is 8 (Ori), so we need 9 entries.
+var teamPlanetCounts [9]int
+
+// countTeamPlanets counts planets owned by each team.
+// Returns a map for API compatibility. Uses a fixed-size array internally
+// to avoid map allocation on every call (called multiple times per bot per tick).
 func (s *Server) countTeamPlanets() map[int]int {
-	counts := make(map[int]int)
-	for _, planet := range s.gameState.Planets {
-		counts[planet.Owner]++
+	// Clear the buffer
+	for i := range teamPlanetCounts {
+		teamPlanetCounts[i] = 0
 	}
-	return counts
+	for _, planet := range s.gameState.Planets {
+		if planet.Owner >= 0 && planet.Owner < len(teamPlanetCounts) {
+			teamPlanetCounts[planet.Owner]++
+		}
+	}
+	// Return as map for compatibility with callers
+	return map[int]int{
+		game.TeamNone: teamPlanetCounts[game.TeamNone],
+		game.TeamFed:  teamPlanetCounts[game.TeamFed],
+		game.TeamRom:  teamPlanetCounts[game.TeamRom],
+		game.TeamKli:  teamPlanetCounts[game.TeamKli],
+		game.TeamOri:  teamPlanetCounts[game.TeamOri],
+	}
 }
 
 // countPlanetsForTeam counts how many planets a team owns
@@ -229,7 +248,9 @@ func (s *Server) selectBotBehavior(p *game.Player) string {
 	defenders := 0
 	for _, other := range s.gameState.Players {
 		if other.Status == game.StatusAlive && other.Team == p.Team && other.IsBot {
-			if other.BotTarget >= 0 {
+			if other.BotDefenseTarget >= 0 {
+				defenders++
+			} else if other.BotTarget >= 0 {
 				hunters++
 			}
 		}

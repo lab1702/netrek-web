@@ -2,10 +2,15 @@ package server
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/lab1702/netrek-web/game"
 )
+
+// resetPending guards against concurrent resetGame goroutines.
+// Only one reset goroutine can be active at a time.
+var resetPending atomic.Bool
 
 // teamIndexToFlag converts a team array index (0-3) to a team flag (TeamFed, TeamRom, etc.)
 func teamIndexToFlag(index int) int {
@@ -257,9 +262,8 @@ func (s *Server) announceVictory() {
 		}
 	}
 
-	// Broadcast victory message
-	select {
-	case s.broadcast <- ServerMessage{
+	// Broadcast victory message — use blocking send for critical game event
+	s.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
 			"text":     message,
@@ -267,12 +271,15 @@ func (s *Server) announceVictory() {
 			"winner":   s.gameState.Winner,
 			"win_type": s.gameState.WinType,
 		},
-	}:
-	default:
 	}
 
-	// Schedule game reset after 10 seconds, respecting server shutdown
+	// Schedule game reset after 10 seconds, respecting server shutdown.
+	// Guard with atomic bool to prevent concurrent reset goroutines.
+	if !resetPending.CompareAndSwap(false, true) {
+		return // Reset already scheduled
+	}
 	go func() {
+		defer resetPending.Store(false)
 		select {
 		case <-time.After(10 * time.Second):
 			s.resetGame()

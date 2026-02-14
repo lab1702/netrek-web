@@ -39,3 +39,13 @@ func (s *Server) CalculateInterceptCourse(shooter, target *game.Player) float64 
 func (s *Server) CalculateEnhancedInterceptCourse(shooter, target *game.Player) float64 {
 	return s.calculateEnhancedInterceptCourse(shooter, target)
 }
+
+// SelectBestCombatTarget exposes the private selectBestCombatTarget method for testing
+func (s *Server) SelectBestCombatTarget(p *game.Player) *game.Player {
+	return s.selectBestCombatTarget(p)
+}
+
+// CalculateTargetScore exposes the private calculateTargetScore method for testing
+func (s *Server) CalculateTargetScore(p, target *game.Player, dist float64) float64 {
+	return s.calculateTargetScore(p, target, dist)
+}

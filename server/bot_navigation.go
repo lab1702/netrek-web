@@ -73,8 +73,9 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 	}
 
 	// Enhanced prediction including acceleration
-	torpSpeed := float64(game.ShipData[p.Ship].TorpSpeed) * 20
-	timeToIntercept := dist / torpSpeed
+	// Use ship speed (not torpedo speed) since this is for navigation intercept
+	mySpeed := math.Max(p.DesSpeed, 2) * 20 // Convert to units/tick, minimum warp 2
+	timeToIntercept := dist / mySpeed
 
 	// Predict future position with acceleration
 	futureSpeed := target.Speed + targetAccel*timeToIntercept*0.5
@@ -120,11 +121,9 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 			torpDanger := s.calculateTorpedoDanger(p, testDir)
 			score -= torpDanger * 10
 
-			// Avoid plasma
-			if threats.closestPlasma < 5000 {
-				plasmaDanger := 5000 - threats.closestPlasma
-				score -= plasmaDanger
-			}
+			// Avoid plasma — directional check like torpedoes
+			plasmaDanger := s.calculatePlasmaDanger(p, testDir)
+			score -= plasmaDanger * 10
 
 			// Prefer directions that maintain some angle to target
 			angleDiff := math.Abs(game.NormalizeAngle(testDir) - game.NormalizeAngle(wantedDir))
@@ -182,14 +181,18 @@ func (s *Server) calculateDamageAtDirection(p *game.Player, dir, speed float64) 
 		}
 	}
 
-	// Check wall proximity
+	// Check wall proximity — normalize direction to [0, 2*PI] for correct quadrant checks
 	if px < 3500 || px > game.GalaxyWidth-3500 ||
 		py < 3500 || py > game.GalaxyHeight-3500 {
+		normDir := math.Mod(dir, 2*math.Pi)
+		if normDir < 0 {
+			normDir += 2 * math.Pi
+		}
 		// Near wall, penalize directions toward wall
-		if (px < 3500 && dir > math.Pi/2 && dir < 3*math.Pi/2) ||
-			(px > game.GalaxyWidth-3500 && (dir < math.Pi/2 || dir > 3*math.Pi/2)) ||
-			(py < 3500 && dir > math.Pi) ||
-			(py > game.GalaxyHeight-3500 && dir < math.Pi) {
+		if (px < 3500 && normDir > math.Pi/2 && normDir < 3*math.Pi/2) ||
+			(px > game.GalaxyWidth-3500 && (normDir < math.Pi/2 || normDir > 3*math.Pi/2)) ||
+			(py < 3500 && normDir > math.Pi) ||
+			(py > game.GalaxyHeight-3500 && normDir < math.Pi) {
 			totalDamage += 60
 		}
 	}
@@ -217,6 +220,32 @@ func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 			dist := game.Distance(myX, myY, torpX, torpY)
 			if dist < 700 {
 				danger += (700 - dist) / 100
+			}
+		}
+	}
+
+	return danger
+}
+
+// calculatePlasmaDanger estimates plasma danger in a direction (mirrors calculateTorpedoDanger)
+func (s *Server) calculatePlasmaDanger(p *game.Player, dir float64) float64 {
+	danger := 0.0
+	speed := float64(game.ShipData[p.Ship].MaxSpeed) * 20
+
+	for _, plasma := range s.gameState.Plasmas {
+		if plasma.Owner == p.ID || plasma.Team == p.Team || plasma.Status != game.TorpMove {
+			continue
+		}
+
+		for t := 0.0; t < 3.0; t += 0.5 {
+			myX := p.X + speed*math.Cos(dir)*t
+			myY := p.Y + speed*math.Sin(dir)*t
+			plasmaX := plasma.X + plasma.Speed*math.Cos(plasma.Dir)*t
+			plasmaY := plasma.Y + plasma.Speed*math.Sin(plasma.Dir)*t
+
+			dist := game.Distance(myX, myY, plasmaX, plasmaY)
+			if dist < 1000 {
+				danger += (1000 - dist) / 100
 			}
 		}
 	}
@@ -473,17 +502,10 @@ func (s *Server) calculateSeparationVector(p *game.Player) SeparationVector {
 				}
 			}
 
-			// If ally is also very close to another ally, increase separation
-			// This helps break up clusters of 3+ bots
-			for j, other := range s.gameState.Players {
-				if j != i && j != p.ID && other.Status == game.StatusAlive &&
-					other.Team == p.Team && other.Orbiting < 0 {
-					otherDist := game.Distance(ally.X, ally.Y, other.X, other.Y)
-					if otherDist < idealDistance {
-						strength *= 1.3 // Extra force to break up clusters
-						break
-					}
-				}
+			// Extra force when multiple allies are nearby (breaks up clusters of 3+)
+			// Uses nearbyAllies count instead of O(n) inner loop
+			if nearbyAllies >= 2 {
+				strength *= 1.3
 			}
 
 			totalRepelX += dx * strength

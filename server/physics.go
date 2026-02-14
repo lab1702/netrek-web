@@ -83,7 +83,10 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 		// Ship-specific acceleration/deceleration using fractional accumulator
 		// Based on original Netrek's acceleration system
 		if actualDesSpeed > p.Speed {
-			// Accelerating
+			// Accelerating — reset accumulator if we were previously decelerating
+			if p.AccFrac < 0 {
+				p.AccFrac = 0
+			}
 			p.AccFrac += shipStats.AccInt
 			// Each FractionScale units of accumulator = 1 speed unit change
 			if p.AccFrac >= game.FractionScale {
@@ -92,14 +95,21 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 				p.AccFrac = p.AccFrac % game.FractionScale
 			}
 		} else if actualDesSpeed < p.Speed {
-			// Decelerating
-			p.AccFrac += shipStats.DecInt
-			// Each FractionScale units of accumulator = 1 speed unit change
-			if p.AccFrac >= game.FractionScale {
-				speedDec := p.AccFrac / game.FractionScale
-				p.Speed = math.Max(p.Speed-float64(speedDec), actualDesSpeed)
-				p.AccFrac = p.AccFrac % game.FractionScale
+			// Decelerating — reset accumulator if we were previously accelerating
+			// Use negative sign convention to detect direction change
+			if p.AccFrac > 0 {
+				p.AccFrac = 0
 			}
+			p.AccFrac -= shipStats.DecInt
+			// Each FractionScale units of accumulator = 1 speed unit change
+			if p.AccFrac <= -game.FractionScale {
+				speedDec := (-p.AccFrac) / game.FractionScale
+				p.Speed = math.Max(p.Speed-float64(speedDec), actualDesSpeed)
+				p.AccFrac = -((-p.AccFrac) % game.FractionScale)
+			}
+		} else {
+			// At desired speed — reset accumulator
+			p.AccFrac = 0
 		}
 	}
 
@@ -195,9 +205,9 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 			targetY = planet.Y
 			validTarget = true
 
-			// Auto-orbit when close to locked planet
+			// Auto-orbit when close to locked planet (use ORBSPEED for consistency with manual orbit)
 			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < 3000 && p.Speed < 4 {
+			if dist < 3000 && p.Speed <= float64(game.ORBSPEED) {
 				// Close enough and slow enough to orbit
 				p.Orbiting = p.LockTarget
 				p.Speed = 0
@@ -227,10 +237,11 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 			} else {
 				// Approaching planet - slow down based on distance
 				maxSpeed := float64(game.ShipData[p.Ship].MaxSpeed)
-				// Slow down from max speed to 3 as we approach from 5000 to 3000 units
+				orbSpeed := float64(game.ORBSPEED)
+				// Slow down from max speed to ORBSPEED as we approach from 5000 to 3000 units
 				speedRatio := (dist - 3000) / 2000 // 0 to 1 as we get closer
-				p.DesSpeed = 3 + (maxSpeed-3)*speedRatio
-				p.DesSpeed = math.Max(3, math.Min(maxSpeed, p.DesSpeed))
+				p.DesSpeed = orbSpeed + (maxSpeed-orbSpeed)*speedRatio
+				p.DesSpeed = math.Max(orbSpeed, math.Min(maxSpeed, p.DesSpeed))
 			}
 		}
 	}

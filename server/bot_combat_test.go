@@ -56,44 +56,48 @@ func TestBotCombatImprovements(t *testing.T) {
 	// Damage enemy to test burst fire mode
 	enemy.Damage = game.ShipData[enemy.Ship].MaxDamage * 3 / 4 // 75% damaged
 
-	// Run a few ticks to let bots acquire target
-	for i := 0; i < 10; i++ {
-		server.UpdateBots()
+	// Test 1: Target selection - test selectBestCombatTarget directly
+	// This avoids dependence on the full bot pipeline (planet defense, repair, etc.)
+	target := server.SelectBestCombatTarget(bot1)
+	if target == nil {
+		t.Errorf("Bot1 selectBestCombatTarget returned nil, expected damaged enemy")
+	} else if target.ID != enemy.ID {
+		t.Errorf("Bot1 selectBestCombatTarget chose player %d, expected %d (damaged enemy)", target.ID, enemy.ID)
 	}
 
-	// Test 1: Target persistence - both bots should lock onto the same damaged enemy
-	if bot1.BotTarget != enemy.ID {
-		t.Errorf("Bot1 failed to target damaged enemy")
-	}
+	// Test 2: Target persistence - bot1 should have a lock after selecting
 	if bot1.BotTargetLockTime <= 0 {
-		t.Errorf("Bot1 has no target lock time")
+		t.Errorf("Bot1 has no target lock time after selecting target")
 	}
 
-	// Test 2: Team coordination - nearby bot should also target the same enemy
-	if bot2.BotTarget != enemy.ID {
-		t.Logf("Bot2 target: %d, expected: %d (team coordination may not have triggered yet)", bot2.BotTarget, enemy.ID)
+	// Test 3: Team coordination - bot2 should also select the same target
+	target2 := server.SelectBestCombatTarget(bot2)
+	if target2 == nil {
+		t.Errorf("Bot2 selectBestCombatTarget returned nil, expected damaged enemy")
+	} else if target2.ID != enemy.ID {
+		t.Errorf("Bot2 selectBestCombatTarget chose player %d, expected %d", target2.ID, enemy.ID)
 	}
 
-	// Test 3: Aggressive engagement - bots should fire weapons with lower cooldowns
-	initialTorps := len(server.gameState.Torps)
-	for i := 0; i < 5; i++ {
-		server.UpdateBots()
+	// Test 4: Target scoring prioritizes damaged enemies
+	score := server.CalculateTargetScore(bot1, enemy, 3000)
+	if score <= 0 {
+		t.Errorf("Target score for damaged enemy should be positive, got %f", score)
 	}
 
-	// Check if torpedoes were fired (with improved firing rates)
-	newTorps := len(server.gameState.Torps)
-	if newTorps <= initialTorps {
-		t.Logf("Warning: No torpedoes fired after 5 ticks (may be due to cooldown)")
-	}
+	// Verify damage bonus is applied
+	undamagedEnemy := gs.Players[3]
+	undamagedEnemy.Status = game.StatusAlive
+	undamagedEnemy.Team = game.TeamRom
+	undamagedEnemy.Ship = game.ShipCruiser
+	undamagedEnemy.Connected = true
+	undamagedEnemy.X, undamagedEnemy.Y = 53000, 50000 // Same distance
+	undamagedEnemy.Damage = 0
 
-	// Test 4: Burst fire mode on vulnerable target
-	// The damaged enemy should trigger burst fire behavior
-	if enemy.Damage > game.ShipData[enemy.Ship].MaxDamage*3/4 {
-		// Enemy is heavily damaged, bots should use burst fire
-		t.Logf("Enemy is vulnerable (75%% damaged), burst fire mode should be active")
+	damagedScore := server.CalculateTargetScore(bot1, enemy, 3000)
+	undamagedScore := server.CalculateTargetScore(bot1, undamagedEnemy, 3000)
+	if damagedScore <= undamagedScore {
+		t.Errorf("Damaged enemy score (%f) should exceed undamaged score (%f)", damagedScore, undamagedScore)
 	}
-
-	t.Logf("Combat improvements test completed - bots showed improved combat behavior")
 }
 
 func TestBotTargetPersistence(t *testing.T) {
@@ -135,32 +139,33 @@ func TestBotTargetPersistence(t *testing.T) {
 	enemy1.X, enemy1.Y = 55000, 50000 // Closer
 	enemy2.X, enemy2.Y = 58000, 50000 // Farther
 
-	// Let bot acquire initial target
-	for i := 0; i < 10; i++ {
-		server.UpdateBots()
-	}
-
-	initialTarget := bot.BotTarget
-	if initialTarget < 0 {
+	// Let bot acquire initial target via direct call
+	target := server.SelectBestCombatTarget(bot)
+	if target == nil {
 		t.Fatal("Bot failed to acquire initial target")
 	}
+	initialTarget := bot.BotTarget
+	initialLockTime := bot.BotTargetLockTime
 
-	// Move the other enemy slightly closer
+	if initialLockTime <= 0 {
+		t.Errorf("Bot should have positive lock time after target acquisition, got %d", initialLockTime)
+	}
+
+	// Move the other enemy slightly closer (but not dramatically better)
 	if initialTarget == enemy1.ID {
-		enemy2.X = 54000 // Make enemy2 closer
+		enemy2.X = 54000 // Make enemy2 slightly closer
 	} else {
-		enemy1.X = 54000 // Make enemy1 closer
+		enemy1.X = 54000 // Make enemy1 slightly closer
 	}
 
-	// Run more ticks
-	for i := 0; i < 10; i++ {
-		server.UpdateBots()
+	// Re-select target — persistence should prevent switching for marginal improvement
+	target2 := server.SelectBestCombatTarget(bot)
+	if target2 == nil {
+		t.Fatal("Bot lost target on re-selection")
 	}
 
-	// Check if bot maintained target lock (shouldn't switch for small advantage)
-	if bot.BotTarget != initialTarget && bot.BotTargetLockTime > 0 {
-		t.Logf("Bot switched targets despite having lock (persistence working but threshold may be too low)")
+	if bot.BotTarget != initialTarget {
+		t.Errorf("Bot switched targets from %d to %d despite having lock (lock time: %d); persistence should prevent switching for marginal improvement",
+			initialTarget, bot.BotTarget, bot.BotTargetLockTime)
 	}
-
-	t.Logf("Target persistence test completed - bot maintains target lock appropriately")
 }
