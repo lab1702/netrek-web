@@ -99,50 +99,6 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 	return math.Atan2(predictY-p.Y, predictX-p.X)
 }
 
-// getBestDodgeDirection calculates the best direction to dodge torpedoes
-// Based on borgmove.c get_best_dir function
-func (s *Server) getBestDodgeDirection(p *game.Player, wantedDir float64) float64 {
-	shipStats := game.ShipData[p.Ship]
-	bestDir := p.Dir
-	bestDamage := 999999
-
-	// Test different dodge angles
-	for delta := 0.0; delta < math.Pi/2; delta += math.Pi / 16 {
-		for sign := -1; sign <= 1; sign += 2 {
-			if delta == 0 && sign == -1 {
-				continue
-			}
-
-			testDir := wantedDir + float64(sign)*delta
-			damage := s.calculateDamageAtDirection(p, testDir, p.DesSpeed)
-
-			if damage < bestDamage {
-				bestDamage = damage
-				bestDir = testDir
-			}
-
-			// Also test with speed changes
-			if p.DesSpeed < float64(shipStats.MaxSpeed) {
-				damage = s.calculateDamageAtDirection(p, testDir, p.DesSpeed+1)
-				if damage < bestDamage {
-					bestDamage = damage
-					bestDir = testDir
-				}
-			}
-
-			if p.DesSpeed > 2 {
-				damage = s.calculateDamageAtDirection(p, testDir, p.DesSpeed-1)
-				if damage < bestDamage {
-					bestDamage = damage
-					bestDir = testDir
-				}
-			}
-		}
-	}
-
-	return bestDir
-}
-
 // getAdvancedDodgeDirection calculates optimal dodge considering multiple threats
 func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, threats CombatThreat) float64 {
 	bestDir := p.Dir

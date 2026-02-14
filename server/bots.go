@@ -14,6 +14,15 @@ func (s *Server) AddBot(team, ship int) {
 	s.gameState.Mu.Lock()
 	defer s.gameState.Mu.Unlock()
 
+	// Enforce one starbase per team (checked atomically under lock)
+	if game.ShipType(ship) == game.ShipStarbase {
+		for _, p := range s.gameState.Players {
+			if p.Connected && p.Ship == game.ShipStarbase && p.Team == team && p.Status != game.StatusFree {
+				return // Team already has a starbase
+			}
+		}
+	}
+
 	// Find a free player slot
 	var botID = -1
 	for i := 0; i < game.MaxPlayers; i++ {

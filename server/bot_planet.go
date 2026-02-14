@@ -235,42 +235,6 @@ func (s *Server) isPlanetOnFrontline(planet *game.Planet, team int) bool {
 	return hasEnemyNearby && hasFriendlyNearby
 }
 
-// findNearestFriendlyPlanet finds the closest friendly planet
-func (s *Server) findNearestFriendlyPlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	minDist := 999999.0
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet.Owner == p.Team {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
-}
-
-// findNearestEnemyPlanet finds the closest enemy planet
-func (s *Server) findNearestEnemyPlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	minDist := 999999.0
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet.Owner != p.Team && planet.Owner != 0 {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
-}
-
 // findNearestNeutralPlanet finds the closest neutral planet
 func (s *Server) findNearestNeutralPlanet(p *game.Player) *game.Planet {
 	var nearest *game.Planet

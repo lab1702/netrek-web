@@ -181,28 +181,14 @@ class InfoWindow {
         this.element.innerHTML = html;
     }
     
-    // Get team color
+    // Get team color (uses canonical TEAM_COLORS from netrek.js)
     getTeamColor(team) {
-        const colors = {
-            1: '#ff0',  // Fed
-            2: '#f00',  // Rom
-            4: '#0f0',  // Kli
-            8: '#0ff',  // Ori
-            0: '#888'   // Nobody
-        };
-        return colors[team] || '#fff';
+        return (window.TEAM_COLORS && window.TEAM_COLORS[team]) || '#fff';
     }
-    
-    // Get team name
+
+    // Get team name (uses canonical TEAM_LETTERS from netrek.js)
     getTeamName(team) {
-        const names = {
-            1: 'F',  // Fed
-            2: 'R',  // Rom
-            4: 'K',  // Kli
-            8: 'O',  // Ori
-            0: 'I'   // Independent
-        };
-        return names[team] || '?';
+        return (window.TEAM_LETTERS && window.TEAM_LETTERS[team]) || '?';
     }
     
     // Update the info window with current game state
@@ -257,7 +243,7 @@ class InfoWindow {
                 html += '</div>';
 
                 // Army count
-                html += `<div style="margin-top: 4px;">Armies: ${updatedTarget.armies || 0}</div>`;
+                html += `<div style="margin-top: 4px;">Armies: ${escapeHtml(updatedTarget.armies || 0)}</div>`;
 
                 // Resources and info
                 let resources = [];
@@ -299,7 +285,7 @@ class InfoWindow {
             html += `${escapeHtml(updatedTarget.name)} (${escapeHtml(updatedTarget.rank) || 'Ensign'})`;
             html += '</div>';
             const kd = updatedTarget.deaths > 0 ? (updatedTarget.kills / updatedTarget.deaths).toFixed(2) : Math.floor(updatedTarget.kills).toFixed(1);
-            html += `<div>${shipName} (${Math.floor(updatedTarget.killsStreak || 0)} / ${Math.floor(updatedTarget.kills)} / ${updatedTarget.deaths || 0} / ${kd})</div>`;
+            html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(updatedTarget.killsStreak || 0))} / ${escapeHtml(Math.floor(updatedTarget.kills))} / ${escapeHtml(updatedTarget.deaths || 0)} / ${escapeHtml(kd)})</div>`;
             
             // Show detailed stats for all players (teammates, enemies, and self)
             // Stats
@@ -316,7 +302,7 @@ class InfoWindow {
             if (updatedTarget.cloaked) status.push('Cloak');
             if (updatedTarget.wtemp > 50) status.push('W-Temp');
             if (updatedTarget.etemp > 50) status.push('E-Temp');
-            if (updatedTarget.armies > 0) status.push(`${updatedTarget.armies} armies`);
+            if (updatedTarget.armies > 0) status.push(`${escapeHtml(updatedTarget.armies)} armies`);
             
             if (status.length > 0) {
                 html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;

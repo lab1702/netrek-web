@@ -211,7 +211,8 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 		target.LockType = "none"
 		target.LockTarget = -1
 		target.Deaths++ // Increment death count
-		if torp.Owner >= 0 && torp.Owner < game.MaxPlayers && s.gameState.Players[torp.Owner] != nil {
+		if torp.Owner >= 0 && torp.Owner < game.MaxPlayers && s.gameState.Players[torp.Owner] != nil &&
+			s.gameState.Players[torp.Owner].Status == game.StatusAlive {
 			s.gameState.Players[torp.Owner].Kills += 1
 			s.gameState.Players[torp.Owner].KillsStreak += 1
 
@@ -250,7 +251,8 @@ func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targe
 		target.LockType = "none"
 		target.LockTarget = -1
 		target.Deaths++ // Increment death count
-		if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers && s.gameState.Players[plasma.Owner] != nil {
+		if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers && s.gameState.Players[plasma.Owner] != nil &&
+			s.gameState.Players[plasma.Owner].Status == game.StatusAlive {
 			s.gameState.Players[plasma.Owner].Kills += 1
 			s.gameState.Players[plasma.Owner].KillsStreak += 1
 

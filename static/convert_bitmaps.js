@@ -110,9 +110,9 @@ function convertBitmapToImageData(bitmap, color = '#ffffff') {
     let r, g, b;
     if (color.startsWith('#')) {
         const hex = color.slice(1);
-        r = parseInt(hex.substr(0, 2), 16);
-        g = parseInt(hex.substr(2, 2), 16);
-        b = parseInt(hex.substr(4, 2), 16);
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
     } else {
         r = g = b = 255;
     }

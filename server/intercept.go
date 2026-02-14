@@ -162,8 +162,9 @@ func InterceptDirectionSimple(shooterPos, targetPos Point2D, targetVel Vector2D,
 	return solution.Direction, true
 }
 
-// NormalizeAngle normalizes an angle to the range [-π, π]
-func NormalizeAngle(angle float64) float64 {
+// NormalizeAngleSigned normalizes an angle to the range [-π, π].
+// This differs from game.NormalizeAngle which normalizes to [0, 2π].
+func NormalizeAngleSigned(angle float64) float64 {
 	if math.IsNaN(angle) || math.IsInf(angle, 0) {
 		return 0
 	}
@@ -178,6 +179,6 @@ func NormalizeAngle(angle float64) float64 {
 
 // AngleDifference calculates the smallest angle difference between two angles
 func AngleDifference(a1, a2 float64) float64 {
-	diff := NormalizeAngle(a1 - a2)
+	diff := NormalizeAngleSigned(a1 - a2)
 	return math.Abs(diff)
 }

@@ -224,6 +224,7 @@ const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
 // Performance tracking
 let fps = 0;
 let frameCount = 0;
+let lastRenderTime = 0;
 let lastFpsUpdate = 0;
 
 // Player status constants (matching server-side types.go)
@@ -287,6 +288,8 @@ let renderIntervalId = null;
 let gameInitialized = false;
 let savedCredentials = null; // { name, team, ship } saved on first connect for reconnect
 let reconnectDelay = 1000; // Exponential backoff delay for reconnection
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 10;
 
 // Victory countdown functions
 function startVictoryCountdown() {
@@ -366,6 +369,11 @@ async function init() {
         kliPlanets: document.getElementById('kli-planets'),
         oriPlanets: document.getElementById('ori-planets'),
         indPlanets: document.getElementById('ind-planets'),
+        // Cached refs for hot-path DOM lookups (keypress, every tick)
+        messageInput: document.getElementById('message-input'),
+        helpWindow: document.getElementById('help-window'),
+        practicePanel: document.getElementById('practice-panel'),
+        playerList: document.getElementById('player-list'),
     };
 
     // Resize canvases
@@ -393,12 +401,20 @@ async function init() {
         });
     }
     
-    // Start render loop at 10 FPS to match server tick rate
-    // Clear any existing interval to prevent accumulation
+    // Start render loop using requestAnimationFrame with 10 FPS target
+    // This stops rendering in background tabs (saving CPU/battery) and syncs with vsync
     if (renderIntervalId !== null) {
-        clearInterval(renderIntervalId);
+        cancelAnimationFrame(renderIntervalId);
     }
-    renderIntervalId = setInterval(render, 100); // 100ms = 10 FPS
+    lastRenderTime = 0;
+    function renderLoop(timestamp) {
+        if (timestamp - lastRenderTime >= 95) { // ~10 FPS with slight tolerance
+            lastRenderTime = timestamp;
+            render();
+        }
+        renderIntervalId = requestAnimationFrame(renderLoop);
+    }
+    renderIntervalId = requestAnimationFrame(renderLoop);
 }
 
 function resizeCanvases() {
@@ -588,13 +604,13 @@ function handleKeyPress(key) {
     if (gameState.myPlayerID < 0) return;
     
     // Don't handle keys if typing a message
-    if (document.getElementById('message-input').style.display === 'block') {
+    if (dashboardEls.messageInput && dashboardEls.messageInput.style.display === 'block') {
         return;
     }
-    
+
     // Handle help window toggle first (works even when dead)
     if (key === '?') {
-        const helpWindow = document.getElementById('help-window');
+        const helpWindow = dashboardEls.helpWindow;
         if (helpWindow.style.display === 'block') {
             helpWindow.style.display = 'none';
         } else {
@@ -602,26 +618,26 @@ function handleKeyPress(key) {
         }
         return;
     }
-    
+
     // Handle escape key for closing windows
     if (key === 'Escape') {
         let windowClosed = false;
-        
+
         // Close help window if open
-        const helpWindow = document.getElementById('help-window');
-        if (helpWindow.style.display === 'block') {
+        const helpWindow = dashboardEls.helpWindow;
+        if (helpWindow && helpWindow.style.display === 'block') {
             helpWindow.style.display = 'none';
             windowClosed = true;
         }
-        
+
         // Close info window if open
         if (window.infoWindow && window.infoWindow.destroy) {
             window.infoWindow.destroy();
             windowClosed = true;
         }
-        
+
         // Close practice panel if open
-        const practicePanel = document.getElementById('practice-panel');
+        const practicePanel = dashboardEls.practicePanel;
         if (practicePanel && practicePanel.classList.contains('show')) {
             practicePanel.classList.remove('show');
             windowClosed = true;
@@ -952,6 +968,7 @@ function connect() {
 // Reconnect using saved credentials (does not re-read form or re-init)
 function reconnect() {
     if (!savedCredentials) return;
+    if (uiState.inOutfitScreen) return; // Don't auto-rejoin while on team selection
     openWebSocket(savedCredentials.name, savedCredentials.team, savedCredentials.ship);
 }
 
@@ -978,7 +995,9 @@ function openWebSocket(name, team, ship) {
     ws = new WebSocket(`${protocol}//${window.location.host}${wsPath}`);
 
     ws.onopen = () => {
-        // Connected to server
+        // Connected to server - reset backoff
+        reconnectDelay = 1000;
+        reconnectAttempts = 0;
         // Check if compression is enabled by examining the WebSocket extensions
         if (ws.extensions && ws.extensions.includes('permessage-deflate')) {
             wsCompressionActive = true;
@@ -1011,16 +1030,21 @@ function openWebSocket(name, team, ship) {
 
     // Capture the WebSocket instance for the closure to avoid stale reference
     const thisWs = ws;
-    reconnectDelay = 1000; // Reset backoff on new connection
+    reconnectAttempts = 0;
     ws.onclose = () => {
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
-        // Only reconnect if this is still the current WebSocket
+        // Only reconnect if this is still the current WebSocket and under retry limit
+        if (reconnectAttempts >= maxReconnectAttempts) {
+            addMessage('Reconnection failed after multiple attempts. Refresh to try again.', 'warning', null, null, 'messages-server');
+            return;
+        }
         const delay = reconnectDelay;
         reconnectDelay = Math.min(reconnectDelay * 2, 30000); // Exponential backoff, max 30s
+        reconnectAttempts++;
         setTimeout(() => {
             if (ws === thisWs && savedCredentials) {
-                addMessage('Attempting to reconnect...', 'info', null, null, 'messages-server');
+                addMessage(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`, 'info', null, null, 'messages-server');
                 reconnect();
             }
         }, delay);
@@ -1125,12 +1149,6 @@ function handleServerMessage(msg) {
             
             // Add message to appropriate panel
             addMessage(msg.data.text, msgType, fromPlayer, teamId, targetPanel);
-
-            // Play message sound for certain types
-            if (msgType === 'kill' || msgType === 'death') {
-            } else if (msgType === 'warning') {
-            } else if (msgType !== 'info') {
-            }
             break;
             
         case 'phaser':
@@ -1201,7 +1219,7 @@ function render() {
     
     renderTactical();
     renderGalactic();
-    // No longer calling requestAnimationFrame - using setInterval instead
+    // requestAnimationFrame loop continues in renderLoop()
 }
 
 function renderTactical() {
@@ -1376,80 +1394,8 @@ function renderTactical() {
         const hasInfo = gameState.tMode ? !!(planet.info & myPlayer.team) : true;
         
         // Use simplified planet renderer
-        if (window.planetRenderer) {
-            window.planetRenderer.drawTacticalPlanet(ctx, planet, screenX, screenY, hasInfo);
-        } else {
-            // Fallback to gradient rendering
-            const planetRadius = 20;
-            const gradient = ctx.createRadialGradient(
-                screenX - planetRadius/3, screenY - planetRadius/3, 0,
-                screenX, screenY, planetRadius
-            );
-            
-            // Show actual color only if we have info, otherwise show as unknown
-            if (hasInfo) {
-                const baseColor = teamColors[planet.owner];
-                if (baseColor) {
-                    // Owned planet - team colored
-                    if (baseColor === '#ffff00') { // Fed
-                        gradient.addColorStop(0, '#ffd');
-                        gradient.addColorStop(0.5, '#ff0');
-                        gradient.addColorStop(1, '#cc0');
-                    } else if (baseColor === '#ff0000') { // Rom
-                        gradient.addColorStop(0, '#fcc');
-                        gradient.addColorStop(0.5, '#f00');
-                        gradient.addColorStop(1, '#800');
-                    } else if (baseColor === '#00ff00') { // Kli
-                        gradient.addColorStop(0, '#cfc');
-                        gradient.addColorStop(0.5, '#0f0');
-                        gradient.addColorStop(1, '#080');
-                    } else if (baseColor === '#00ffff') { // Ori
-                        gradient.addColorStop(0, '#cff');
-                        gradient.addColorStop(0.5, '#0ff');
-                        gradient.addColorStop(1, '#088');
-                    }
-                } else {
-                    // Neutral planet - gray
-                    gradient.addColorStop(0, '#bbb');
-                    gradient.addColorStop(0.5, '#888');
-                    gradient.addColorStop(1, '#444');
-                }
-            } else {
-                // Unknown planet - darker gray
-                gradient.addColorStop(0, '#666');
-                gradient.addColorStop(0.5, '#444');
-                gradient.addColorStop(1, '#222');
-            }
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, planetRadius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Planet border
-            ctx.strokeStyle = hasInfo ? (teamColors[planet.owner] || '#666') : '#444';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, planetRadius, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.lineWidth = 1;
-            
-            // Planet name - always show the name
-            ctx.fillStyle = hasInfo ? (teamColors[planet.owner] || '#888') : '#666';
-            ctx.font = '10px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(planet.name, screenX, screenY + 30);
-        }
+        window.planetRenderer.drawTacticalPlanet(ctx, planet, screenX, screenY, hasInfo);
         
-        // Orbit indicator removed - no visual indication when orbiting
-        // if (myPlayer.orbiting === planet.id) {
-        //     ctx.strokeStyle = '#0f0';
-        //     ctx.setLineDash([2, 2]);
-        //     ctx.beginPath();
-        //     ctx.arc(screenX, screenY, 35, 0, Math.PI * 2);
-        //     ctx.stroke();
-        //     ctx.setLineDash([]);
-        // }
     }
     
     // Draw phaser beams
@@ -1484,15 +1430,22 @@ function renderTactical() {
         const gradient = ctx.createLinearGradient(fromX, fromY, toX, toY);
         let color = teamColors[fromPlayer.team] || '#fff';
         
-        // Expand 3-char hex color to 6-char format if needed (e.g. #fff -> #ffffff)
-        if (color.length === 4 && color[0] === '#') {
-            color = '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3];
+        // Parse hex color to RGB for rgba() gradient stops
+        let r = 0, g = 0, b = 0;
+        if (color.length === 4) {
+            r = parseInt(color[1] + color[1], 16);
+            g = parseInt(color[2] + color[2], 16);
+            b = parseInt(color[3] + color[3], 16);
+        } else if (color.length === 7) {
+            r = parseInt(color.substring(1, 3), 16);
+            g = parseInt(color.substring(3, 5), 16);
+            b = parseInt(color.substring(5, 7), 16);
         }
-        
-        gradient.addColorStop(0, color);
-        gradient.addColorStop(0.3, color + 'cc');
-        gradient.addColorStop(0.7, color + '66');
-        gradient.addColorStop(1, color + '00');
+
+        gradient.addColorStop(0, `rgba(${r},${g},${b},1)`);
+        gradient.addColorStop(0.3, `rgba(${r},${g},${b},0.8)`);
+        gradient.addColorStop(0.7, `rgba(${r},${g},${b},0.4)`);
+        gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
         
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 3 + phaser.life / 3;
@@ -1838,18 +1791,7 @@ function renderTactical() {
         }
         
         ctx.restore();
-        
-        // Draw ship type letters on the ship (commented out when using bitmaps)
-        // Uncomment if you want ship letters over the bitmaps
-        /*
-        ctx.fillStyle = teamColors[player.team] || '#fff';
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const shipType = shipNames[player.ship] || 'XX';
-        ctx.fillText(shipType, screenX, screenY);
-        */
-        
+
         // Player label below (team letter + slot number)
         const teamLetter = window.TEAM_LETTERS[player.team] || 'I';
         const playerLabel = teamLetter + i.toString().padStart(2, '0');
@@ -1860,10 +1802,7 @@ function renderTactical() {
         ctx.textBaseline = 'top';
         ctx.fillText(playerLabel, screenX, screenY + 12);
     }
-    
-    // Lock indicator removed
-    
-    // Crosshair and aiming line removed
+
     ctx.globalAlpha = 1;
 }
 
@@ -2222,7 +2161,7 @@ function updateAlertStatus() {
 let lastPlayerListSignature = '';
 
 function updatePlayerList() {
-    const list = document.getElementById('player-list');
+    const list = dashboardEls.playerList;
     if (!list) return;
 
     // Build a signature to skip DOM rebuild if nothing changed

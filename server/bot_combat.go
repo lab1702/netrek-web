@@ -248,33 +248,6 @@ func (s *Server) defendWhileCarrying(p, enemy *game.Player) {
 	}
 }
 
-// shouldDodge checks if the bot should dodge incoming threats
-func (s *Server) shouldDodge(p *game.Player) bool {
-	// Check for incoming torpedoes
-	for _, torp := range s.gameState.Torps {
-		if torp.Owner == p.ID {
-			continue
-		}
-
-		// Check if torpedo is heading toward us
-		dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
-		if dist < 3000 {
-			// Check angle to see if it's heading our way
-			dx := p.X - torp.X
-			dy := p.Y - torp.Y
-			angleToUs := math.Atan2(dy, dx)
-			angleDiff := math.Abs(angleToUs - torp.Dir)
-			if angleDiff > math.Pi {
-				angleDiff = 2*math.Pi - angleDiff
-			}
-			if angleDiff < math.Pi/6 { // Within 30 degrees
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // assessUniversalThreats evaluates all threats to the bot (for both combat and navigation)
 func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 	threat := CombatThreat{
@@ -426,80 +399,6 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 	}
 
 	return false
-}
-
-// assessCombatThreats evaluates all threats to the bot
-func (s *Server) assessCombatThreats(p *game.Player) CombatThreat {
-	threat := CombatThreat{
-		closestTorpDist: 999999.0,
-		closestPlasma:   999999.0,
-		nearbyEnemies:   0,
-		requiresEvasion: false,
-		threatLevel:     0,
-	}
-
-	// Check torpedoes
-	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Status == game.TorpMove {
-			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
-			if dist < threat.closestTorpDist {
-				threat.closestTorpDist = dist
-			}
-
-			// Check if heading toward us
-			if dist < 3000 {
-				dx := p.X - torp.X
-				dy := p.Y - torp.Y
-				angleToUs := math.Atan2(dy, dx)
-				angleDiff := math.Abs(angleToUs - torp.Dir)
-				if angleDiff > math.Pi {
-					angleDiff = 2*math.Pi - angleDiff
-				}
-				if angleDiff < math.Pi/4 {
-					threat.requiresEvasion = true
-					threat.threatLevel += 3
-				}
-			}
-		}
-	}
-
-	// Check plasma
-	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Status == game.TorpMove {
-			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
-			if dist < threat.closestPlasma {
-				threat.closestPlasma = dist
-			}
-			if dist < 4000 {
-				threat.requiresEvasion = true
-				threat.threatLevel += 5
-			}
-		}
-	}
-
-	// Check nearby enemies
-	for _, enemy := range s.gameState.Players {
-		if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
-			dist := game.Distance(p.X, p.Y, enemy.X, enemy.Y)
-			if dist < 5000 {
-				threat.nearbyEnemies++
-				threat.threatLevel++
-
-				// Check if enemy is facing us (potential phaser threat)
-				angleToUs := math.Atan2(p.Y-enemy.Y, p.X-enemy.X)
-				angleDiff := math.Abs(enemy.Dir - angleToUs)
-				if angleDiff > math.Pi {
-					angleDiff = 2*math.Pi - angleDiff
-				}
-				if dist < 2000 && angleDiff < math.Pi/6 {
-					threat.requiresEvasion = true
-					threat.threatLevel += 2
-				}
-			}
-		}
-	}
-
-	return threat
 }
 
 // selectCombatManeuver chooses the best combat maneuver based on situation
@@ -710,37 +609,4 @@ func (s *Server) shouldUseCloaking(p, target *game.Player, dist float64) bool {
 	}
 
 	return false
-}
-
-// shouldDodgeAdvanced checks if dodging is necessary with more sophisticated logic
-func (s *Server) shouldDodgeAdvanced(p *game.Player, desiredDir float64) bool {
-	// Check current damage at desired direction
-	damage := s.calculateDamageAtDirection(p, desiredDir, p.DesSpeed)
-	return damage > 0
-}
-
-// manageBotShields manages shields intelligently based on threats
-func (s *Server) manageBotShields(p *game.Player, enemyDist, torpDist float64) {
-	// Shield up if:
-	// - Torpedoes are close
-	// - Enemy is close and we're in combat
-	// - Taking damage
-	shouldShield := false
-
-	if torpDist < 2100 && p.Fuel > 1000 {
-		shouldShield = true
-	} else if enemyDist < 3500 && p.Fuel > 2000 {
-		shouldShield = true
-	} else if enemyDist < 6000 && p.Fuel > 5000 {
-		shouldShield = true
-	}
-
-	// Shield down if low on fuel
-	if p.Fuel < 1000 {
-		shouldShield = false
-	} else if p.Fuel < 2000 && enemyDist > 8000 {
-		shouldShield = false
-	}
-
-	p.Shields_up = shouldShield
 }

@@ -260,7 +260,7 @@ func TestInterceptDirectionSimple(t *testing.T) {
 
 // TestAngleUtilities tests the angle utility functions
 func TestAngleUtilities(t *testing.T) {
-	// Test NormalizeAngle
+	// Test NormalizeAngleSigned
 	testAngles := []struct {
 		input, expected float64
 	}{
@@ -274,9 +274,9 @@ func TestAngleUtilities(t *testing.T) {
 	}
 
 	for _, test := range testAngles {
-		result := NormalizeAngle(test.input)
+		result := NormalizeAngleSigned(test.input)
 		if math.Abs(result-test.expected) > 1e-10 {
-			t.Errorf("NormalizeAngle(%f): expected %f, got %f", test.input, test.expected, result)
+			t.Errorf("NormalizeAngleSigned(%f): expected %f, got %f", test.input, test.expected, result)
 		}
 	}
 

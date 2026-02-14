@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -394,8 +395,8 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 							target.LockType = "none"
 							target.LockTarget = -1
 
-							// Update kill statistics
-							if i >= 0 && i < game.MaxPlayers {
+							// Update kill statistics (only if exploding player is still in explode state)
+							if i >= 0 && i < game.MaxPlayers && p.Status == game.StatusExplode {
 								p.Kills++
 								p.KillsStreak++
 							}
@@ -610,7 +611,7 @@ func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
 		"teams": teamCounts,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // HandleWebSocket handles WebSocket connections
@@ -720,7 +721,7 @@ func (c *Client) handleMessage(msg ClientMessage) {
 	// Recover from any panic to prevent disconnection
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("PANIC in handleMessage for client %d, type %s: %v", c.ID, msg.Type, r)
+			log.Printf("PANIC in handleMessage for client %d, type %s: %v\n%s", c.ID, msg.Type, r, debug.Stack())
 		}
 	}()
 

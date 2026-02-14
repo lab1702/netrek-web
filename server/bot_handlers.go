@@ -204,16 +204,6 @@ func (c *Client) handleBotCommand(cmd string) {
 
 			// First pass: find minimum count for this team
 			for _, shipType := range allShipTypes {
-				// Skip starbase if team already has one
-				if shipType == int(game.ShipStarbase) {
-					c.server.gameState.Mu.RLock()
-					currentStarbaseCount := c.server.countStarbasesByTeam()
-					c.server.gameState.Mu.RUnlock()
-					if currentStarbaseCount[selectedTeam] >= 1 {
-						continue
-					}
-				}
-
 				count := teamShipCounts[selectedTeam][shipType]
 				if count < minShipCount {
 					minShipCount = count
@@ -222,16 +212,6 @@ func (c *Client) handleBotCommand(cmd string) {
 
 			// Second pass: collect all ship types with minimum count
 			for _, shipType := range allShipTypes {
-				// Skip starbase if team already has one
-				if shipType == int(game.ShipStarbase) {
-					c.server.gameState.Mu.RLock()
-					currentStarbaseCount := c.server.countStarbasesByTeam()
-					c.server.gameState.Mu.RUnlock()
-					if currentStarbaseCount[selectedTeam] >= 1 {
-						continue
-					}
-				}
-
 				if teamShipCounts[selectedTeam][shipType] == minShipCount {
 					candidateShips = append(candidateShips, shipType)
 				}

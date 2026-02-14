@@ -85,7 +85,8 @@ func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
 	p.WTemp += 50
 }
 
-// fireBotPhaser fires a phaser from a bot
+// fireBotPhaser fires a phaser from a bot using the same line-to-circle hit
+// detection algorithm as human phasers (combat_handlers.go handlePhaser).
 func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	// Can't fire while cloaked or repairing (same rules as human players)
 	if p.Cloaked || p.Repairing {
@@ -105,39 +106,102 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		return
 	}
 
-	dist := game.Distance(p.X, p.Y, target.X, target.Y)
-
 	// Calculate phaser range using original formula: PHASEDIST * phaserdamage / 100
 	myPhaserRange := float64(game.PhaserDist * shipStats.PhaserDamage / 100)
 
-	if dist > myPhaserRange {
+	// Bot aims directly at target
+	course := math.Atan2(target.Y-p.Y, target.X-p.X)
+
+	// Use the same line-to-circle algorithm as human phasers:
+	// (C, D) is a point on the phaser line, relative to the bot
+	C := math.Cos(course) * 10 * float64(game.PhaserDist)
+	D := math.Sin(course) * 10 * float64(game.PhaserDist)
+
+	var hitTarget *game.Player
+	var hitDist float64
+	rangeSq := myPhaserRange*myPhaserRange + 1
+
+	for _, enemy := range s.gameState.Players {
+		if enemy == nil || enemy.Status != game.StatusAlive || enemy.Team == p.Team {
+			continue
+		}
+
+		A := enemy.X - p.X
+		B := enemy.Y - p.Y
+
+		if math.Abs(A) >= myPhaserRange || math.Abs(B) >= myPhaserRange {
+			continue
+		}
+
+		thisRangeSq := A*A + B*B
+		if thisRangeSq >= rangeSq {
+			continue
+		}
+
+		// Calculate point on phaser line nearest to target
+		paramS := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
+		if paramS < 0 {
+			paramS = 0
+		}
+
+		E := C * paramS
+		F := D * paramS
+
+		dx := E - A
+		dy := F - B
+
+		if dx*dx+dy*dy <= float64(game.ZAPPLAYERDIST*game.ZAPPLAYERDIST) {
+			if hitTarget == nil || thisRangeSq < hitDist*hitDist {
+				hitTarget = enemy
+				hitDist = math.Sqrt(thisRangeSq)
+				rangeSq = thisRangeSq
+			}
+		}
+	}
+
+	// Consume fuel and increase weapon temp regardless of hit (same as human)
+	p.Fuel -= phaserCost
+	p.WTemp += 70
+
+	if hitTarget == nil {
+		// Miss — send phaser visual with no target
+		select {
+		case s.broadcast <- ServerMessage{
+			Type: "phaser",
+			Data: map[string]interface{}{
+				"from":  p.ID,
+				"to":    -1,
+				"dir":   course,
+				"range": myPhaserRange,
+			},
+		}:
+		default:
+		}
 		return
 	}
 
 	// Calculate damage based on distance using original formula
-	damage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
-
-	// Apply damage to shields first, then hull
-	game.ApplyDamageWithShields(target, int(damage))
+	damage := float64(shipStats.PhaserDamage) * (1.0 - hitDist/myPhaserRange)
+	game.ApplyDamageWithShields(hitTarget, int(damage))
 
 	// Check if target destroyed
-	targetStats := game.ShipData[target.Ship]
-	if target.Damage >= targetStats.MaxDamage {
-		target.Status = game.StatusExplode
-		target.ExplodeTimer = game.ExplodeTimerFrames
-		target.KilledBy = p.ID
-		target.WhyDead = game.KillPhaser
-		target.Bombing = false // Stop bombing when destroyed
-		target.Orbiting = -1   // Break orbit when destroyed
+	targetStats := game.ShipData[hitTarget.Ship]
+	if hitTarget.Damage >= targetStats.MaxDamage {
+		hitTarget.Status = game.StatusExplode
+		hitTarget.ExplodeTimer = game.ExplodeTimerFrames
+		hitTarget.KilledBy = p.ID
+		hitTarget.WhyDead = game.KillPhaser
+		hitTarget.Bombing = false // Stop bombing when destroyed
+		hitTarget.Orbiting = -1   // Break orbit when destroyed
 		// Clear lock-on when destroyed
-		target.LockType = "none"
-		target.LockTarget = -1
-		target.Deaths++ // Increment death count
+		hitTarget.LockType = "none"
+		hitTarget.LockTarget = -1
+		hitTarget.Deaths++ // Increment death count
 		p.Kills += 1
 		p.KillsStreak += 1
 
 		// Send death message
-		s.broadcastDeathMessage(target, p)
+		s.broadcastDeathMessage(hitTarget, p)
 	}
 
 	// Create phaser visual
@@ -145,15 +209,13 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	case s.broadcast <- ServerMessage{
 		Type: "phaser",
 		Data: map[string]interface{}{
-			"from": p.ID,
-			"to":   target.ID,
+			"from":  p.ID,
+			"to":    hitTarget.ID,
+			"range": myPhaserRange,
 		},
 	}:
 	default:
 	}
-
-	p.Fuel -= phaserCost
-	p.WTemp += 70
 }
 
 // fireBotPhaserAtPlasma fires a phaser at an incoming plasma torpedo to destroy it
