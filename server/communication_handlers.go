@@ -18,14 +18,14 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 		return
 	}
 
-	// Check for bot commands (before sanitization)
+	// Sanitize the message text to prevent XSS
+	msgData.Text = sanitizeText(msgData.Text)
+
+	// Check for bot commands (after sanitization)
 	if strings.HasPrefix(msgData.Text, "/") {
 		c.handleBotCommand(msgData.Text)
 		return
 	}
-
-	// Sanitize the message text to prevent XSS
-	msgData.Text = sanitizeText(msgData.Text)
 
 	playerID := c.GetPlayerID()
 	c.server.gameState.Mu.RLock()

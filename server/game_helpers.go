@@ -137,7 +137,7 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
 
 	// Random starting direction
-	p.Dir = float64(s.gameState.Frame%360) * 0.0174533 // Convert to radians
+	p.Dir = rand.Float64() * 2 * math.Pi
 	p.DesDir = p.Dir
 
 	// Start with green alert
@@ -251,7 +251,7 @@ type TeamCountData struct {
 func (s *Server) computeTeamCounts() TeamCountData {
 	counts := TeamCountData{}
 	for _, p := range s.gameState.Players {
-		if p.Status == game.StatusAlive && p.Connected {
+		if p.Status != game.StatusFree && p.Connected {
 			counts.Total++
 			switch p.Team {
 			case game.TeamFed:

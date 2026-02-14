@@ -147,7 +147,7 @@ function updateTeamDisplay(data) {
 
 // Fetch and display team populations  
 function updateTeamStats() {
-    fetch('api/teams')
+    fetch('/api/teams')
         .then(response => response.json())
         .then(data => updateTeamDisplay(data))
         .catch(error => {
@@ -292,12 +292,16 @@ let reconnectAttempts = 0;
 const maxReconnectAttempts = 10;
 
 // Victory countdown functions
+let victoryCountdownCompleted = false;
+
 function startVictoryCountdown() {
     stopVictoryCountdown();
+    victoryCountdownCompleted = false;
     victoryCountdown = 10;
     victoryTimerId = setInterval(() => {
         victoryCountdown--;
         if (victoryCountdown <= 0) {
+            victoryCountdownCompleted = true;
             stopVictoryCountdown();
         }
     }, 1000);
@@ -882,10 +886,8 @@ function showLoginScreenAfterReset() {
     if (myPlayer && myPlayer.team) {
         // Pre-select the radio button for current team
         const teamValue = myPlayer.team;
-        const teamRadio = document.querySelector(`input[name="team"][value="${teamValue}"]`);
-        if (teamRadio) {
-            teamRadio.checked = true;
-        }
+        const teamRadios = document.querySelectorAll('input[name="team"]');
+        teamRadios.forEach(r => { if (parseInt(r.value, 10) === teamValue) r.checked = true; });
         
         // Pre-select the radio button for current ship
         const shipValue = myPlayer.ship;
@@ -1022,7 +1024,6 @@ function openWebSocket(name, team, ship) {
 
     // Capture the WebSocket instance for the closure to avoid stale reference
     const thisWs = ws;
-    reconnectAttempts = 0;
     ws.onclose = () => {
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
@@ -1051,6 +1052,7 @@ function sendMessage(msg) {
 
 function handleServerMessage(msg) {
     if (!msg || !msg.type) return;
+    if (msg.type === 'update' && (!msg.data || typeof msg.data !== 'object')) return;
     switch(msg.type) {
         case 'login_success':
             gameState.myPlayerID = msg.data.player_id;
@@ -1215,10 +1217,11 @@ function render() {
     }
     
     // Handle victory countdown state transitions
-    if (gameState.gameOver && victoryTimerId === null) {
+    if (gameState.gameOver && victoryTimerId === null && !victoryCountdownCompleted) {
         startVictoryCountdown();
-    } else if (!gameState.gameOver && victoryTimerId !== null) {
+    } else if (!gameState.gameOver) {
         stopVictoryCountdown();
+        victoryCountdownCompleted = false;
     }
     
     renderTactical();
@@ -1346,11 +1349,6 @@ function renderTactical() {
     const rightEdge = (100000 - myPlayer.x) * scale + centerX;
     const topEdge = (0 - myPlayer.y) * scale + centerY;
     const bottomEdge = (100000 - myPlayer.y) * scale + centerY;
-    
-    // Debug: Log player position and edge calculations when near edge
-    if (myPlayer.x < 10000 || myPlayer.x > 90000 || myPlayer.y < 10000 || myPlayer.y > 90000) {
-        // Check player position
-    }
     
     // Draw edges if they're visible - check with some margin
     if (leftEdge >= -10 && leftEdge <= width + 10) {
@@ -1848,7 +1846,7 @@ function renderGalactic() {
             // Show actual color if we have info, otherwise gray
             ctx.fillStyle = hasInfo ? (teamColors[planet.owner] || '#888') : '#444';
             // Always show planet label
-            const label = planet.label || planet.name.substring(0, 3).toUpperCase();
+            const label = planet.label || (planet.name || '???').substring(0, 3).toUpperCase();
             ctx.fillText(label, x, y);
         }
     }
@@ -2455,7 +2453,9 @@ function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPan
         const fallback = document.getElementById('messages');
         if (fallback) {
             const div = document.createElement('div');
-            div.className = `message ${type}`;
+            const VALID_FALLBACK_TYPES = ['all', 'team', 'private', 'kill', 'warning', 'error', 'info', 'victory'];
+            const safeFallbackType = VALID_FALLBACK_TYPES.includes(type) ? type : '';
+            div.className = `message ${safeFallbackType}`;
             div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
             // Apply same color logic as main path
             let fallbackColor = '#888';
@@ -2474,7 +2474,9 @@ function addMessage(text, type = '', fromPlayer = null, teamId = null, targetPan
     }
 
     const div = document.createElement('div');
-    div.className = `message ${type}`;
+    const VALID_MSG_TYPES = ['all', 'team', 'private', 'kill', 'warning', 'error', 'info', 'victory'];
+    const safeType = VALID_MSG_TYPES.includes(type) ? type : '';
+    div.className = `message ${safeType}`;
     div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
 
     // Set color based on team or player

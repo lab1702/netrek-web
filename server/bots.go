@@ -892,6 +892,17 @@ func (s *Server) RemoveBot(botID int) {
 	p.IsBot = false
 	p.Name = ""
 
+	// Clear tractor/pressor references from other players targeting this bot
+	for j := 0; j < game.MaxPlayers; j++ {
+		other := s.gameState.Players[j]
+		if other.Tractoring == botID {
+			other.Tractoring = -1
+		}
+		if other.Pressoring == botID {
+			other.Pressoring = -1
+		}
+	}
+
 	// Bot leave messages are suppressed to reduce chat clutter
 }
 

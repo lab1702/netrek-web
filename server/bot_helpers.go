@@ -67,31 +67,21 @@ func (s *Server) findNearestEnemy(p *game.Player) *game.Player {
 	return nearest
 }
 
-// teamPlanetCounts is a reusable buffer for countTeamPlanets to avoid allocations.
-// Indexed by team flag values (0=None, 1=Fed, 2=Rom, 4=Kli, 8=Ori).
-// Max team flag is 8 (Ori), so we need 9 entries.
-var teamPlanetCounts [9]int
-
 // countTeamPlanets counts planets owned by each team.
-// Returns a map for API compatibility. Uses a fixed-size array internally
-// to avoid map allocation on every call (called multiple times per bot per tick).
+// Returns a map keyed by team flag. Must be called under gameState.Mu lock.
 func (s *Server) countTeamPlanets() map[int]int {
-	// Clear the buffer
-	for i := range teamPlanetCounts {
-		teamPlanetCounts[i] = 0
-	}
+	var counts [9]int // Indexed by team flag (0=None, 1=Fed, 2=Rom, 4=Kli, 8=Ori)
 	for _, planet := range s.gameState.Planets {
-		if planet.Owner >= 0 && planet.Owner < len(teamPlanetCounts) {
-			teamPlanetCounts[planet.Owner]++
+		if planet.Owner >= 0 && planet.Owner < len(counts) {
+			counts[planet.Owner]++
 		}
 	}
-	// Return as map for compatibility with callers
 	return map[int]int{
-		game.TeamNone: teamPlanetCounts[game.TeamNone],
-		game.TeamFed:  teamPlanetCounts[game.TeamFed],
-		game.TeamRom:  teamPlanetCounts[game.TeamRom],
-		game.TeamKli:  teamPlanetCounts[game.TeamKli],
-		game.TeamOri:  teamPlanetCounts[game.TeamOri],
+		game.TeamNone: counts[game.TeamNone],
+		game.TeamFed:  counts[game.TeamFed],
+		game.TeamRom:  counts[game.TeamRom],
+		game.TeamKli:  counts[game.TeamKli],
+		game.TeamOri:  counts[game.TeamOri],
 	}
 }
 

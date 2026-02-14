@@ -71,42 +71,26 @@ class InfoWindow {
         this.timeout = setTimeout(() => this.destroy(), this.keepInfoTime * 1000);
     }
     
-    // Show planet information
-    showPlanetInfo(planet, x, y) {
-        this.createWindow(x, y);
-        
-        // Store target info
-        this.currentTarget = planet;
-        this.targetType = 'planet';
-        this.windowX = x;
-        this.windowY = y;
-        
+    // Build planet info HTML
+    _buildPlanetHtml(planet) {
         let html = '';
-        
-        // Get my team
         const myPlayer = gameState.players[gameState.myPlayerID];
         const myTeam = myPlayer ? myPlayer.team : 1;
-        
-        // Check if we have info on this planet (scouted by our team)
-        // Only apply scouting rules in tournament mode
+
         if (!gameState.tMode || (planet.info && (planet.info & myTeam))) {
-            // Planet name and owner
             const ownerName = this.getTeamName(planet.owner);
             html += `<div style="color: ${this.getTeamColor(planet.owner)}; font-weight: bold;">`;
             html += `${escapeHtml(planet.name)} (${escapeHtml(ownerName)})`;
             html += '</div>';
 
-            // Army count
             html += `<div style="margin-top: 4px;">Armies: ${escapeHtml(planet.armies || 0)}</div>`;
 
-            // Resources and info
             let resources = [];
-            if (planet.flags & 16) resources.push('REPAIR');
-            if (planet.flags & 32) resources.push('FUEL');
-            if (planet.flags & 64) resources.push('AGRI');
-            if (planet.flags & 2048) resources.push('CORE');
+            if (planet.flags && (planet.flags & 16)) resources.push('REPAIR');
+            if (planet.flags && (planet.flags & 32)) resources.push('FUEL');
+            if (planet.flags && (planet.flags & 64)) resources.push('AGRI');
+            if (planet.flags && (planet.flags & 2048)) resources.push('CORE');
 
-            // Who has info on this planet
             let info = [];
             if (planet.info & 1) info.push('F');
             if (planet.info & 2) info.push('R');
@@ -122,31 +106,18 @@ class InfoWindow {
             html += info.join('');
             html += '</div>';
         } else {
-            // No info on this planet - show name but indicate it's unscouted
             html += `<div style="color: #888; font-weight: bold;">${escapeHtml(planet.name)} (Unscouted)</div>`;
             html += '<div style="margin-top: 4px; color: #666;">Orbit to reveal owner and armies</div>';
         }
-
-        this.element.innerHTML = html;
+        return html;
     }
-    
-    // Show player information
-    showPlayerInfo(player, x, y, playerIndex = -1) {
-        this.createWindow(x, y);
-        
-        // Store target info
-        this.currentTarget = player;
-        this.targetType = 'player';
-        this.windowX = x;
-        this.windowY = y;
-        this.playerIndex = playerIndex; // Store the player index for updates
-        
+
+    // Build player info HTML
+    _buildPlayerHtml(player, playerIndex) {
         const shipTypes = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
         const shipName = shipTypes[player.ship] || '??';
-        
+
         let html = '';
-        
-        // Player name, rank, ship type with team/slot identifier
         html += `<div style="color: ${this.getTeamColor(player.team)}; font-weight: bold;">`;
         if (playerIndex >= 0) {
             const teamSlot = formatTeamSlot(player, playerIndex);
@@ -157,8 +128,6 @@ class InfoWindow {
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
         html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(player.killsStreak || 0))} / ${escapeHtml(Math.floor(player.kills))} / ${escapeHtml(player.deaths || 0)} / ${escapeHtml(kd)})</div>`;
 
-        // Show detailed stats for all players (teammates, enemies, and self)
-        // Stats
         html += '<div style="margin-top: 4px;">';
         html += `Speed: ${escapeHtml(Math.round(player.speed))} `;
         html += `Dam: ${escapeHtml(player.damage)}% `;
@@ -166,7 +135,6 @@ class InfoWindow {
         html += `Fuel: ${escapeHtml(player.fuel)}`;
         html += '</div>';
 
-        // Status flags
         let status = [];
         if (player.shields_up) status.push('Shields');
         if (player.cloaked) status.push('Cloak');
@@ -177,8 +145,28 @@ class InfoWindow {
         if (status.length > 0) {
             html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
         }
+        return html;
+    }
 
-        this.element.innerHTML = html;
+    // Show planet information
+    showPlanetInfo(planet, x, y) {
+        this.createWindow(x, y);
+        this.currentTarget = planet;
+        this.targetType = 'planet';
+        this.windowX = x;
+        this.windowY = y;
+        this.element.innerHTML = this._buildPlanetHtml(planet);
+    }
+
+    // Show player information
+    showPlayerInfo(player, x, y, playerIndex = -1) {
+        this.createWindow(x, y);
+        this.currentTarget = player;
+        this.targetType = 'player';
+        this.windowX = x;
+        this.windowY = y;
+        this.playerIndex = playerIndex;
+        this.element.innerHTML = this._buildPlayerHtml(player, playerIndex);
     }
     
     // Get team color (uses canonical TEAM_COLORS from netrek.js)
@@ -225,91 +213,13 @@ class InfoWindow {
         // Update the stored target
         this.currentTarget = updatedTarget;
         
-        // Rebuild the content
+        // Rebuild the content using shared helpers
         let html = '';
-        
         if (this.targetType === 'planet') {
-            // Get my team
-            const myPlayer = gameState.players[gameState.myPlayerID];
-            const myTeam = myPlayer ? myPlayer.team : 1;
-            
-            // Check if we have info on this planet (scouted by our team)
-            // Only apply scouting rules in tournament mode
-            if (!gameState.tMode || (updatedTarget.info && (updatedTarget.info & myTeam))) {
-                // Planet name and owner
-                const ownerName = this.getTeamName(updatedTarget.owner);
-                html += `<div style="color: ${this.getTeamColor(updatedTarget.owner)}; font-weight: bold;">`;
-                html += `${escapeHtml(updatedTarget.name)} (${escapeHtml(ownerName)})`;
-                html += '</div>';
-
-                // Army count
-                html += `<div style="margin-top: 4px;">Armies: ${escapeHtml(updatedTarget.armies || 0)}</div>`;
-
-                // Resources and info
-                let resources = [];
-                if (updatedTarget.flags & 16) resources.push('REPAIR');
-                if (updatedTarget.flags & 32) resources.push('FUEL');
-                if (updatedTarget.flags & 64) resources.push('AGRI');
-                if (updatedTarget.flags & 2048) resources.push('CORE');
-
-                // Who has info on this planet
-                let info = [];
-                if (updatedTarget.info & 1) info.push('F');
-                if (updatedTarget.info & 2) info.push('R');
-                if (updatedTarget.info & 4) info.push('K');
-                if (updatedTarget.info & 8) info.push('O');
-
-                html += '<div style="margin-top: 4px;">';
-                if (resources.length > 0) {
-                    html += resources.join(' ') + ' ';
-                } else {
-                    html += '(no resources) ';
-                }
-                html += info.join('');
-                html += '</div>';
-            } else {
-                // No info on this planet - show name but indicate it's unscouted
-                html += `<div style="color: #888; font-weight: bold;">${escapeHtml(updatedTarget.name)} (Unscouted)</div>`;
-                html += '<div style="margin-top: 4px; color: #666;">Orbit to reveal owner and armies</div>';
-            }
+            html = this._buildPlanetHtml(updatedTarget);
         } else if (this.targetType === 'player') {
-            const shipTypes = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
-            const shipName = shipTypes[updatedTarget.ship] || '??';
-            
-            // Player name, rank, ship type with team/slot identifier
-            html += `<div style="color: ${this.getTeamColor(updatedTarget.team)}; font-weight: bold;">`;
-            if (this.playerIndex >= 0) {
-                const teamSlot = formatTeamSlot(updatedTarget, this.playerIndex);
-                html += `<span style="font-weight: bold; margin-right: 8px; color: ${this.getTeamColor(updatedTarget.team)};">${teamSlot}</span>`;
-            }
-            html += `${escapeHtml(updatedTarget.name)} (${escapeHtml(updatedTarget.rank) || 'Ensign'})`;
-            html += '</div>';
-            const kd = updatedTarget.deaths > 0 ? (updatedTarget.kills / updatedTarget.deaths).toFixed(2) : Math.floor(updatedTarget.kills).toFixed(1);
-            html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(updatedTarget.killsStreak || 0))} / ${escapeHtml(Math.floor(updatedTarget.kills))} / ${escapeHtml(updatedTarget.deaths || 0)} / ${escapeHtml(kd)})</div>`;
-            
-            // Show detailed stats for all players (teammates, enemies, and self)
-            // Stats
-            html += '<div style="margin-top: 4px;">';
-            html += `Speed: ${escapeHtml(Math.round(updatedTarget.speed))} `;
-            html += `Dam: ${escapeHtml(updatedTarget.damage)}% `;
-            html += `Sh: ${escapeHtml(updatedTarget.shields)}% `;
-            html += `Fuel: ${escapeHtml(updatedTarget.fuel)}`;
-            html += '</div>';
-            
-            // Status flags
-            let status = [];
-            if (updatedTarget.shields_up) status.push('Shields');
-            if (updatedTarget.cloaked) status.push('Cloak');
-            if (updatedTarget.wtemp > 50) status.push('W-Temp');
-            if (updatedTarget.etemp > 50) status.push('E-Temp');
-            if (updatedTarget.armies > 0) status.push(`${escapeHtml(updatedTarget.armies)} armies`);
-            
-            if (status.length > 0) {
-                html += `<div style="margin-top: 4px;">${status.join(', ')}</div>`;
-            }
+            html = this._buildPlayerHtml(updatedTarget, this.playerIndex);
         }
-        
-        // Update the element content
         this.element.innerHTML = html;
     }
     

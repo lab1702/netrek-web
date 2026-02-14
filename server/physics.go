@@ -349,6 +349,12 @@ func (s *Server) updateTractorBeams() {
 						target.X -= dir * cosTheta * halfforce / float64(targetStats.Mass)
 						target.Y -= dir * sinTheta * halfforce / float64(targetStats.Mass)
 
+						// Clamp positions to galaxy bounds
+						p.X = math.Max(0, math.Min(game.GalaxyWidth, p.X))
+						p.Y = math.Max(0, math.Min(game.GalaxyHeight, p.Y))
+						target.X = math.Max(0, math.Min(game.GalaxyWidth, target.X))
+						target.Y = math.Max(0, math.Min(game.GalaxyHeight, target.Y))
+
 						// Break orbit immediately if target is orbiting (from original code)
 						if target.Orbiting >= 0 {
 							target.Orbiting = -1

@@ -58,24 +58,7 @@ func (c *Client) handleBotCommand(cmd string) {
 			// Silently ignore the level parameter for backward compatibility
 		}
 
-		// Check starbase limit before adding bot
-		if ship == int(game.ShipStarbase) {
-			c.server.gameState.Mu.Lock()
-			starbaseCounts := c.server.countStarbasesByTeam()
-			if starbaseCounts[team] >= 1 {
-				c.server.gameState.Mu.Unlock()
-				c.sendMsg(ServerMessage{
-					Type: MsgTypeMessage,
-					Data: map[string]interface{}{
-						"text": "Cannot add starbase bot - team already has a starbase. Only one starbase per team is allowed.",
-						"type": "warning",
-					},
-				})
-				return
-			}
-			c.server.gameState.Mu.Unlock()
-		}
-
+		// AddBot enforces the one-starbase-per-team limit atomically under its own lock
 		c.server.AddBot(team, ship)
 
 	case "/removebot":

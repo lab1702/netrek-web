@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -262,8 +263,9 @@ func (s *Server) announceVictory() {
 		}
 	}
 
-	// Broadcast victory message — use blocking send for critical game event
-	s.broadcast <- ServerMessage{
+	// Non-blocking broadcast to avoid deadlock when called while holding gameState.Mu
+	select {
+	case s.broadcast <- ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
 			"text":     message,
@@ -271,6 +273,9 @@ func (s *Server) announceVictory() {
 			"winner":   s.gameState.Winner,
 			"win_type": s.gameState.WinType,
 		},
+	}:
+	default:
+		log.Printf("Warning: victory broadcast dropped (channel full)")
 	}
 
 	// Schedule game reset after 10 seconds, respecting server shutdown.
@@ -335,6 +340,8 @@ func (s *Server) resetGame() {
 	s.gameState.WinType = ""
 	s.gameState.Torps = make([]*game.Torpedo, 0)
 	s.gameState.Plasmas = make([]*game.Plasma, 0)
+	s.nextTorpID = 0
+	s.nextPlasmaID = 0
 	s.gameState.TournamentStats = make(map[int]*game.TournamentPlayerStats)
 	for i := range s.gameState.TeamPlayers {
 		s.gameState.TeamPlayers[i] = 0
