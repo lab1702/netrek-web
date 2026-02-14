@@ -1099,8 +1099,8 @@ function handleServerMessage(msg) {
             // Copy previous positions in-place to avoid allocating new arrays/objects every tick
             for (let pi = 0; pi < gameState.players.length; pi++) {
                 const p = gameState.players[pi];
-                if (!prevState.players[pi]) prevState.players[pi] = {x: 0, y: 0, dir: 0};
-                if (p) { prevState.players[pi].x = p.x; prevState.players[pi].y = p.y; prevState.players[pi].dir = p.dir; }
+                if (!prevState.players[pi]) prevState.players[pi] = {x: 0, y: 0, dir: 0, status: 0};
+                if (p) { prevState.players[pi].x = p.x; prevState.players[pi].y = p.y; prevState.players[pi].dir = p.dir; prevState.players[pi].status = p.status; }
             }
             prevState.players.length = gameState.players.length;
             for (let ti = 0; ti < gameState.torps.length; ti++) {
@@ -1232,7 +1232,14 @@ function getInterpolatedPosition(current, previous, entityId) {
     // Find previous position
     const prev = Array.isArray(previous) ? previous[entityId] : previous;
     if (!prev) return current;
-    
+
+    // Skip interpolation when a player just respawned: the previous state
+    // still holds the death-location coordinates, so lerping would briefly
+    // flash the ship at its old position before it appears at the homeworld.
+    if (prev.status !== undefined && current.status === 2 && prev.status !== 2) {
+        return current;
+    }
+
     return {
         ...current,
         x: lerp(prev.x || 0, current.x || 0, t),
