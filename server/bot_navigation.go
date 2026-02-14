@@ -186,7 +186,7 @@ func (s *Server) getOptimalSpeed(p *game.Player, dist float64) float64 {
 	case game.ShipAssault, game.ShipCruiser:
 		decelerationFactor = 200
 	default:
-		decelerationFactor = 200
+		decelerationFactor = 200 // Safe fallback for any future ship type
 	}
 
 	// Calculate optimal speed to decelerate in time
@@ -264,7 +264,7 @@ func calculateClearanceWithPlanets(p *game.Player, dir float64, nearbyPlanets []
 }
 
 // applySafeNavigation applies torpedo dodging and threat assessment to any navigation
-func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desiredSpeed float64, objective string) {
+func (s *Server) applySafeNavigation(p *game.Player, desiredDir float64, desiredSpeed float64) {
 	// Always check for threats regardless of what the bot is doing
 	threats := s.assessUniversalThreats(p)
 
@@ -481,14 +481,18 @@ func (s *Server) executePatrol(p *game.Player) {
 			p.BotGoalY = float64(game.TeamHomeY[p.Team]) + float64(rand.Intn(15000)-7500)
 		} else {
 			// Offensive patrol in contested areas
-			// Find a frontline planet
-			var frontlinePlanet *game.Planet
+			// Collect all frontline planets and pick one randomly
+			// to spread bots across different contested areas
+			var frontlineCandidates []*game.Planet
 			for i := range s.gameState.Planets {
 				planet := s.gameState.Planets[i]
 				if s.isPlanetOnFrontline(planet, p.Team) {
-					frontlinePlanet = planet
-					break
+					frontlineCandidates = append(frontlineCandidates, planet)
 				}
+			}
+			var frontlinePlanet *game.Planet
+			if len(frontlineCandidates) > 0 {
+				frontlinePlanet = frontlineCandidates[rand.Intn(len(frontlineCandidates))]
 			}
 
 			if frontlinePlanet != nil {

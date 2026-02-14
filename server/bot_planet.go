@@ -423,7 +423,7 @@ func (s *Server) defendPlanet(p *game.Player, planet *game.Planet, enemy *game.P
 		}
 
 		// Use safe navigation with torpedo dodging
-		s.applySafeNavigation(p, navDir, desiredSpeed, "intercepting planet bomber")
+		s.applySafeNavigation(p, navDir, desiredSpeed)
 	} else {
 		// We're in position - engage with combat maneuvering
 		angleToEnemy := math.Atan2(enemy.Y-p.Y, enemy.X-p.X)

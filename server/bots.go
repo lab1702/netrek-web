@@ -216,7 +216,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				baseDir := math.Atan2(dy, dx)
 				desiredSpeed := s.getOptimalSpeed(p, dist)
 
-				s.applySafeNavigation(p, baseDir, desiredSpeed, "resuming planet approach")
+				s.applySafeNavigation(p, baseDir, desiredSpeed)
 				p.BotCooldown = 5
 				return
 			}
@@ -255,7 +255,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				desiredSpeed := s.getOptimalSpeed(p, dist)
 
 				// Use safe navigation with torpedo dodging
-				s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to repair planet")
+				s.applySafeNavigation(p, baseDir, desiredSpeed)
 				return
 			}
 		}
@@ -299,7 +299,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					desiredSpeed := s.getOptimalSpeed(p, dist)
 
 					// Use safe navigation with torpedo dodging
-					s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to neutral planet")
+					s.applySafeNavigation(p, baseDir, desiredSpeed)
 
 					// Defend against nearby enemies while carrying
 					if enemyDist < 5000 {
@@ -484,7 +484,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					desiredSpeed := s.getOptimalSpeed(p, dist)
 
 					// Use safe navigation with torpedo dodging
-					s.applySafeNavigation(p, baseDir, desiredSpeed, "navigating to planet")
+					s.applySafeNavigation(p, baseDir, desiredSpeed)
 
 					// Still engage if closest enemy gets too close while navigating
 					if enemyDist < 4000 {
@@ -549,14 +549,14 @@ func (s *Server) updateBotHard(p *game.Player) {
 					desiredSpeed := float64(shipStats.MaxSpeed)
 
 					// Use safe navigation with torpedo dodging
-					s.applySafeNavigation(p, baseDir, desiredSpeed, "moving to defend planet")
+					s.applySafeNavigation(p, baseDir, desiredSpeed)
 				} else {
 					// Patrol around planet with torpedo dodging
 					patrolAngle := math.Mod(float64(rand.Intn(360))*math.Pi/180, math.Pi*2)
 					desiredSpeed := float64(shipStats.MaxSpeed) * 0.7
 
 					// Use safe navigation with torpedo dodging
-					s.applySafeNavigation(p, patrolAngle, desiredSpeed, "patrolling around planet")
+					s.applySafeNavigation(p, patrolAngle, desiredSpeed)
 				}
 				return
 			}
@@ -585,7 +585,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 					desiredSpeed := float64(shipStats.MaxSpeed)
 
 					// Use safe navigation with torpedo dodging
-					s.applySafeNavigation(p, baseDir, desiredSpeed, "approaching planet to raid")
+					s.applySafeNavigation(p, baseDir, desiredSpeed)
 				}
 				return
 			}
