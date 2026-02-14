@@ -231,8 +231,8 @@ let canvases = {
 // Cached DOM element references for dashboard (populated during init)
 let dashboardEls = {};
 
-// Toggle for team centroid markers on galactic map
-let showTeamCentroids = false;
+// Centroid mode for team markers on galactic map: 'none', 'average', 'median'
+let centroidMode = 'none';
 
 // Ship names
 const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
@@ -380,6 +380,7 @@ async function init() {
         kdRatio: document.getElementById('kd-ratio'),
         updateInterval: document.getElementById('network-delay'),
         compression: document.getElementById('compression-indicator'),
+        centroid: document.getElementById('centroid-indicator'),
         armies: document.getElementById('armies'),
         status: document.getElementById('status'),
         tournamentDisplay: document.getElementById('tournament-timer-display'),
@@ -668,9 +669,14 @@ function handleKeyPress(key) {
         }
     }
     
-    // Toggle team centroid markers (works even when dead)
+    // Cycle team centroid mode (works even when dead)
     if (key === 'm') {
-        showTeamCentroids = !showTeamCentroids;
+        const modes = ['none', 'average', 'median'];
+        centroidMode = modes[(modes.indexOf(centroidMode) + 1) % modes.length];
+        if (dashboardEls.centroid) {
+            dashboardEls.centroid.textContent = centroidMode === 'none' ? 'OFF' : centroidMode.toUpperCase();
+            dashboardEls.centroid.style.color = centroidMode === 'none' ? '#888' : '#0f0';
+        }
         return;
     }
 
@@ -1964,34 +1970,57 @@ function renderGalactic() {
     }
     
     // Draw team centroid markers
-    if (showTeamCentroids) {
+    if (centroidMode !== 'none') {
+        const useMedian = centroidMode === 'median';
         const teams = [1, 2, 4, 8];
         for (const team of teams) {
             const color = teamColors[team] || '#fff';
 
-            // Average position of alive players on this team
-            let px = 0, py = 0, pCount = 0;
+            // Collect positions of alive players on this team
+            const playerXs = [], playerYs = [];
             for (const player of gameState.players) {
                 if (player && player.status === 2 && player.team === team) {
-                    px += player.x;
-                    py += player.y;
-                    pCount++;
+                    playerXs.push(player.x);
+                    playerYs.push(player.y);
                 }
             }
-            const playerCX = pCount > 0 ? (px / pCount) * scale : null;
-            const playerCY = pCount > 0 ? (py / pCount) * scale : null;
 
-            // Average position of planets owned by this team
-            let plx = 0, ply = 0, plCount = 0;
+            let playerCX = null, playerCY = null;
+            if (playerXs.length > 0) {
+                if (useMedian) {
+                    playerXs.sort((a, b) => a - b);
+                    playerYs.sort((a, b) => a - b);
+                    const mid = playerXs.length >> 1;
+                    playerCX = (playerXs.length & 1 ? playerXs[mid] : (playerXs[mid - 1] + playerXs[mid]) / 2) * scale;
+                    playerCY = (playerYs.length & 1 ? playerYs[mid] : (playerYs[mid - 1] + playerYs[mid]) / 2) * scale;
+                } else {
+                    playerCX = (playerXs.reduce((a, b) => a + b, 0) / playerXs.length) * scale;
+                    playerCY = (playerYs.reduce((a, b) => a + b, 0) / playerYs.length) * scale;
+                }
+            }
+
+            // Collect positions of planets owned by this team
+            const planetXs = [], planetYs = [];
             for (const planet of gameState.planets) {
                 if (planet && planet.owner === team) {
-                    plx += planet.x;
-                    ply += planet.y;
-                    plCount++;
+                    planetXs.push(planet.x);
+                    planetYs.push(planet.y);
                 }
             }
-            const planetCX = plCount > 0 ? (plx / plCount) * scale : null;
-            const planetCY = plCount > 0 ? (ply / plCount) * scale : null;
+
+            let planetCX = null, planetCY = null;
+            if (planetXs.length > 0) {
+                if (useMedian) {
+                    planetXs.sort((a, b) => a - b);
+                    planetYs.sort((a, b) => a - b);
+                    const mid = planetXs.length >> 1;
+                    planetCX = (planetXs.length & 1 ? planetXs[mid] : (planetXs[mid - 1] + planetXs[mid]) / 2) * scale;
+                    planetCY = (planetYs.length & 1 ? planetYs[mid] : (planetYs[mid - 1] + planetYs[mid]) / 2) * scale;
+                } else {
+                    planetCX = (planetXs.reduce((a, b) => a + b, 0) / planetXs.length) * scale;
+                    planetCY = (planetYs.reduce((a, b) => a + b, 0) / planetYs.length) * scale;
+                }
+            }
 
             // Draw arrow from planet centroid to player centroid
             if (playerCX !== null && planetCX !== null) {
