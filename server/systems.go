@@ -77,11 +77,10 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		p.ETemp = game.MaxEngineTempCap
 	}
 
-	// Recharge fuel using ship-specific rate
+	// Recharge fuel using ship-specific rate (every tick)
 	shipStats := game.ShipData[p.Ship]
-	if p.Orbiting < 0 {
-		// Normal fuel recharge when not orbiting
-		p.Fuel = int(math.Min(float64(shipStats.MaxFuel), float64(p.Fuel+shipStats.FuelRecharge)))
+	if p.Fuel < shipStats.MaxFuel {
+		p.Fuel = game.Min(p.Fuel+shipStats.FuelRecharge, shipStats.MaxFuel)
 	}
 
 	// Cool weapons and engines using ship-specific rates
@@ -133,21 +132,14 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		}
 	}
 
-	// Handle repair mode
-	// Fuel recharge (always happens, faster when at a fuel planet)
-	// shipStats already declared above
-	if p.Fuel < shipStats.MaxFuel {
-		rechargeRate := shipStats.FuelRecharge
-		// Check if orbiting a fuel planet
-		if p.Orbiting >= 0 {
-			planet := s.gameState.Planets[p.Orbiting]
-			if planet.Owner == p.Team && (planet.Flags&game.PlanetFuel) != 0 {
-				rechargeRate *= 2 // Double rate at fuel planets
+	// Bonus fuel recharge when orbiting a friendly fuel planet
+	if p.Orbiting >= 0 && p.Orbiting < game.MaxPlanets && p.Fuel < shipStats.MaxFuel {
+		planet := s.gameState.Planets[p.Orbiting]
+		if planet.Owner == p.Team && (planet.Flags&game.PlanetFuel) != 0 {
+			// Extra recharge at fuel planets (applied every 10 ticks)
+			if s.gameState.TickCount%10 == 0 {
+				p.Fuel = game.Min(p.Fuel+shipStats.FuelRecharge, shipStats.MaxFuel)
 			}
-		}
-		// Apply recharge every 10 ticks to match original scale
-		if s.gameState.TickCount%10 == 0 {
-			p.Fuel = game.Min(p.Fuel+rechargeRate, shipStats.MaxFuel)
 		}
 	}
 
@@ -157,16 +149,15 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 			// Track repair progress with accumulator for fractional repairs
 			p.RepairCounter++
 
-			// Use ship-specific repair rate, scale down for reasonable gameplay
-			// RepairRate values are 80-140, we'll divide by 8 for intervals of 10-17 ticks
-			// This means repairing every 1-1.7 seconds
-			repairInterval := shipStats.RepairRate / 8
+			// Use ship-specific repair rate: higher RepairRate = faster repair.
+			// Invert to get interval: 1120/RepairRate gives SB=8, BB=9, CA=10, DD=11, SC=14
+			repairInterval := 1120 / shipStats.RepairRate
 			if repairInterval < 5 {
 				repairInterval = 5 // Minimum interval (0.5 seconds)
 			}
 
 			// Check if at repair planet (halve the interval for double speed)
-			if p.Orbiting >= 0 {
+			if p.Orbiting >= 0 && p.Orbiting < game.MaxPlanets {
 				planet := s.gameState.Planets[p.Orbiting]
 				if planet.Owner == p.Team && (planet.Flags&game.PlanetRepair) != 0 {
 					repairInterval = repairInterval / 2

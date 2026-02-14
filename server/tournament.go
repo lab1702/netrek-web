@@ -114,7 +114,7 @@ func (s *Server) checkTournamentMode() {
 				// Reset death tracking (in case they were exploding)
 				p.ExplodeTimer = 0
 				p.KilledBy = -1
-				p.WhyDead = 0
+				p.WhyDead = game.KillNone
 
 				// Reset position to near home world
 				homeX := float64(game.TeamHomeX[p.Team])

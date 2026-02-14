@@ -1259,8 +1259,9 @@ function render() {
 }
 
 function renderTactical() {
-    // Don't render anything if player is in outfit screen
+    // Decay phasers even when not rendering to prevent unbounded accumulation
     if (uiState.inOutfitScreen) {
+        gameState.phasers = gameState.phasers.filter(p => { p.life--; return p.life > 0; });
         return;
     }
     

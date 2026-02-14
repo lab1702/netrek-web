@@ -282,6 +282,7 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	}
 
 	p.Fuel -= phaserCost
+	p.WTemp += 70
 
 	return true
 }

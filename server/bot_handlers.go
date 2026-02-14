@@ -18,6 +18,19 @@ func (c *Client) handleBotCommand(cmd string) {
 
 	switch parts[0] {
 	case "/addbot":
+		// Rate limit bot commands
+		if time.Since(c.lastBotCmd) < c.botCmdCooldown {
+			c.sendMsg(ServerMessage{
+				Type: MsgTypeMessage,
+				Data: map[string]interface{}{
+					"text": "Please wait before using this command again.",
+					"type": "warning",
+				},
+			})
+			return
+		}
+		c.lastBotCmd = time.Now()
+
 		// /addbot [team] [ship_type]
 		team := game.TeamFed
 		ship := 1 // Destroyer

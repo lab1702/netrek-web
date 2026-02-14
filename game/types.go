@@ -112,13 +112,14 @@ const (
 
 // Death reasons (why player died)
 const (
-	KillTorp      = 0 // Killed by torpedo
-	KillPhaser    = 1 // Killed by phaser
-	KillPlanet    = 2 // Killed by planet
-	KillExplosion = 3 // Killed by explosion
-	KillQuit      = 4 // Player quit
-	KillDaemon    = 5 // Server killed player
-	KillPlasma    = 6 // Killed by plasma torpedo
+	KillNone      = 0 // No death / reset state
+	KillTorp      = 1 // Killed by torpedo
+	KillPhaser    = 2 // Killed by phaser
+	KillPlanet    = 3 // Killed by planet
+	KillExplosion = 4 // Killed by explosion
+	KillQuit      = 5 // Player quit
+	KillDaemon    = 6 // Server killed player
+	KillPlasma    = 7 // Killed by plasma torpedo
 )
 
 // Planet combat constants

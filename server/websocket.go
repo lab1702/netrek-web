@@ -145,8 +145,10 @@ type Server struct {
 	done                   chan struct{}
 	playerGrid             *SpatialGrid       // Spatial index for efficient collision detection
 	pendingSuggestions     []targetSuggestion // Buffered target suggestions applied after UpdateBots
-	cachedTeamPlanets      map[int]int        // Cached planet counts per team
-	cachedTeamPlanetsFrame int64              // Frame when cache was last computed
+	cachedTeamPlanets      map[int]int           // Cached planet counts per team
+	cachedTeamPlanetsFrame int64                 // Frame when cache was last computed
+	cachedThreats          map[int]CombatThreat  // Per-bot threat cache
+	cachedThreatsFrame     int64                 // Frame when threat cache was last valid
 }
 
 // NewServer creates a new game server
@@ -428,7 +430,7 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 					p.Status = game.StatusFree
 					p.Name = ""
 					p.Connected = false
-					p.WhyDead = 0
+					p.WhyDead = game.KillNone
 					log.Printf("Player slot freed after self-destruct")
 				} else {
 					// Normal death, move to dead state
@@ -546,7 +548,7 @@ func (s *Server) sendGameState() {
 	s.gameState.Mu.RLock()
 
 	// Marshal game state to JSON while holding the lock to prevent races.
-	// Player and Planet contain sync.RWMutex so they cannot be copied by value.
+	// Use pointers from GameState arrays directly to avoid copying large structs.
 	update := struct {
 		Frame    int64           `json:"frame"`
 		Players  []*game.Player  `json:"players"`
@@ -593,8 +595,6 @@ func (s *Server) sendGameState() {
 
 // HandleTeamStats returns current team populations
 func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
-	// Enable CORS for cross-origin requests
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
 	s.gameState.Mu.RLock()

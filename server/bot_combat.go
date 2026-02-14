@@ -121,6 +121,16 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Only detonate specific torpedoes that are passing by enemies, not all in-flight
 	s.detonatePassingTorpedoes(p)
 
+	// Cloaking tactics for scouts and destroyers — decide before weapons
+	// so that a cloaking bot doesn't fire and cloak in the same tick.
+	if (p.Ship == game.ShipScout || p.Ship == game.ShipDestroyer) && p.Fuel > 3000 {
+		if s.shouldUseCloaking(p, target, dist) {
+			p.Cloaked = true
+		} else if p.Cloaked && (p.Fuel < 1500 || dist < 1000) {
+			p.Cloaked = false
+		}
+	}
+
 	// Weapon usage - no facing restrictions needed
 
 	// Enhanced torpedo firing with prediction and spread patterns
@@ -169,21 +179,25 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Enhanced phaser timing with kill securing
+	// Enhanced phaser timing with kill securing — only if no torps fired this tick
 	// Phasers can be fired in any direction regardless of ship facing
-	myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
-	if dist < myPhaserRange {
-		phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
-		if p.Fuel >= phaserCost && p.WTemp < shipStats.MaxWpnTemp-100 { // Match human firing threshold
-			targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
-			// Calculate if phaser would be a kill shot
-			phaserDamage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
-			wouldKill := target.Damage+int(phaserDamage) >= targetStats.MaxDamage
+	firedPhaser := false
+	if !firedTorps {
+		myPhaserRange := float64(game.PhaserDist) * float64(shipStats.PhaserDamage) / 100.0
+		if dist < myPhaserRange {
+			phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult
+			if p.Fuel >= phaserCost && p.WTemp < shipStats.MaxWpnTemp-100 { // Match human firing threshold
+				targetDamageRatio := float64(target.Damage) / float64(targetStats.MaxDamage)
+				// Calculate if phaser would be a kill shot
+				phaserDamage := float64(shipStats.PhaserDamage) * (1.0 - dist/myPhaserRange)
+				wouldKill := target.Damage+int(phaserDamage) >= targetStats.MaxDamage
 
-			// More aggressive phaser usage
-			if wouldKill || targetDamageRatio > 0.5 || dist < 1500 || target.Cloaked {
-				s.fireBotPhaser(p, target)
-				p.BotCooldown = 5 // Reduced from 10 to 5
+				// More aggressive phaser usage
+				if wouldKill || targetDamageRatio > 0.5 || dist < 1500 || target.Cloaked {
+					s.fireBotPhaser(p, target)
+					p.BotCooldown = 5 // Reduced from 10 to 5
+					firedPhaser = true
+				}
 			}
 		}
 	}
@@ -191,8 +205,8 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Predictive shield management
 	s.managePredictiveShields(p, target, dist, closestTorpDist)
 
-	// Enhanced plasma usage for area control - use actual plasma range, not torpedo range
-	if shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 { // Lower fuel threshold
+	// Enhanced plasma usage for area control — only if no other weapon fired this tick
+	if !firedTorps && !firedPhaser && shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 {
 		// Use actual plasma maximum range to prevent fuse expiry
 		maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
 		plasmaLongRange := game.EffectivePlasmaRange(p.Ship, 0.85)  // 85% of max for long range
@@ -206,15 +220,6 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 				(target.Orbiting >= 0 && dist < plasmaKillRange)) {
 			s.fireBotPlasma(p, target)
 			p.BotCooldown = 12 // Reduced from 20 to 12
-		}
-	}
-
-	// Cloaking tactics for scouts and destroyers
-	if (p.Ship == game.ShipScout || p.Ship == game.ShipDestroyer) && p.Fuel > 3000 {
-		if s.shouldUseCloaking(p, target, dist) {
-			p.Cloaked = true
-		} else if p.Cloaked && (p.Fuel < 1500 || dist < 1000) {
-			p.Cloaked = false
 		}
 	}
 
@@ -248,8 +253,20 @@ func (s *Server) defendWhileCarrying(p, enemy *game.Player) {
 	}
 }
 
-// assessUniversalThreats evaluates all threats to the bot (for both combat and navigation)
+// assessUniversalThreats evaluates all threats to the bot (for both combat and navigation).
+// Results are cached per bot per game frame to avoid redundant iteration.
 func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
+	// Return cached result if already computed this frame
+	if s.cachedThreats != nil && s.cachedThreatsFrame == s.gameState.Frame {
+		if cached, ok := s.cachedThreats[p.ID]; ok {
+			return cached
+		}
+	} else {
+		// New frame or first call — reset the cache
+		s.cachedThreats = make(map[int]CombatThreat)
+		s.cachedThreatsFrame = s.gameState.Frame
+	}
+
 	threat := CombatThreat{
 		closestTorpDist: MaxSearchDistance,
 		closestPlasma:   MaxSearchDistance,
@@ -333,6 +350,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 		}
 	}
 
+	s.cachedThreats[p.ID] = threat
 	return threat
 }
 

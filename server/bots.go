@@ -508,9 +508,10 @@ func (s *Server) updateBotHard(p *game.Player) {
 		// Without this check, bots get permanently stuck in defense mode after
 		// the threat is eliminated because nothing clears BotDefenseTarget.
 		if p.BotDefenseTarget >= 0 {
-			if planet, enemy, _ := s.getThreatenedFriendlyPlanet(p); planet != nil && enemy != nil {
-				// Threat still active — continue defending
-				p.BotCooldown = 10
+			if planet, enemy, enemyDist := s.getThreatenedFriendlyPlanet(p); planet != nil && enemy != nil {
+				// Threat still active — engage the enemy
+				s.assessAndActivateShields(p, enemy)
+				s.engageCombat(p, enemy, enemyDist)
 				return
 			}
 			// Threat gone — clear defense target and resume normal behavior
@@ -887,6 +888,10 @@ func (s *Server) findMostThreatenedFriendlyPlanet(p *game.Player) *game.Planet {
 
 // RemoveBot removes a bot player from the game
 func (s *Server) RemoveBot(botID int) {
+	if botID < 0 || botID >= game.MaxPlayers {
+		return
+	}
+
 	s.gameState.Mu.Lock()
 	defer s.gameState.Mu.Unlock()
 

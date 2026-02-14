@@ -205,9 +205,9 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 			targetY = planet.Y
 			validTarget = true
 
-			// Auto-orbit when close to locked planet (use ORBSPEED for consistency with manual orbit)
+			// Auto-orbit when close to locked planet (same distance as manual orbit)
 			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < 3000 && p.Speed <= float64(game.ORBSPEED) {
+			if dist < float64(game.EntOrbitDist) && p.Speed <= float64(game.ORBSPEED) {
 				// Close enough and slow enough to orbit
 				p.Orbiting = p.LockTarget
 				p.Speed = 0
@@ -231,15 +231,17 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 				}:
 				default:
 				}
-			} else if dist > 5000 {
-				// Far from planet - go fast (unless we need to turn)
+			} else if dist > 3000 {
+				// Far from planet - go fast
 				p.DesSpeed = float64(game.ShipData[p.Ship].MaxSpeed)
 			} else {
 				// Approaching planet - slow down based on distance
 				maxSpeed := float64(game.ShipData[p.Ship].MaxSpeed)
 				orbSpeed := float64(game.ORBSPEED)
-				// Slow down from max speed to ORBSPEED as we approach from 5000 to 3000 units
-				speedRatio := (dist - 3000) / 2000 // 0 to 1 as we get closer
+				entDist := float64(game.EntOrbitDist)
+				// Slow down from max speed to ORBSPEED as we approach from 3000 to EntOrbitDist
+				rampRange := 3000 - entDist
+				speedRatio := (dist - entDist) / rampRange // 0 at orbit entry, 1 at 3000
 				p.DesSpeed = orbSpeed + (maxSpeed-orbSpeed)*speedRatio
 				p.DesSpeed = math.Max(orbSpeed, math.Min(maxSpeed, p.DesSpeed))
 			}

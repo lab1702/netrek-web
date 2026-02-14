@@ -601,7 +601,7 @@ func TestAutoOrbitOnLockOn(t *testing.T) {
 	p.Ship = game.ShipDestroyer
 	p.LockType = "planet"
 	p.LockTarget = 0
-	p.X = planet.X + 2500 // Close enough (< 3000)
+	p.X = planet.X + float64(game.EntOrbitDist) - 100 // Close enough (< EntOrbitDist)
 	p.Y = planet.Y
 	p.Dir = 0
 	p.DesDir = 0

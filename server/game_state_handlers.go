@@ -226,7 +226,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	// Death tracking
 	p.ExplodeTimer = 0
 	p.KilledBy = -1
-	p.WhyDead = 0
+	p.WhyDead = game.KillNone
 	p.RespawnMsgSent = false
 
 	// Engine overheat

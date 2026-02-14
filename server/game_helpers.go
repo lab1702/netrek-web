@@ -39,7 +39,7 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// Reset player state
 	p.Status = game.StatusAlive
 	p.ExplodeTimer = 0
-	p.WhyDead = 0
+	p.WhyDead = game.KillNone
 	p.KilledBy = -1
 	p.KillsStreak = 0        // Reset kill streak on death
 	p.RespawnMsgSent = false // Reset respawn message flag

@@ -6,8 +6,9 @@ import (
 
 // Bot AI constants
 const (
-	// OrbitDistance is the distance required to orbit a planet
-	OrbitDistance = 2000.0
+	// OrbitDistance is the distance at which bots attempt to enter orbit.
+	// Must not exceed game.EntOrbitDist (900) for orbit to succeed.
+	OrbitDistance = float64(game.EntOrbitDist)
 
 	// Planet defense constants
 	PlanetDefenseDetectRadius    = 15000.0 // Range for bot to detect threats to friendly planets
