@@ -1797,14 +1797,23 @@ function renderTactical() {
             
             // Reset all transformation and styling to defaults
             ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset transform matrix
-            ctx.globalAlpha = 0.3;               // Set shield alpha
-            ctx.strokeStyle = teamColors[player.team] || '#fff';
-            ctx.lineWidth = 1;
+            const shieldColor = teamColors[player.team] || '#fff';
             ctx.lineCap = 'butt';
             ctx.lineJoin = 'miter';
             ctx.setLineDash([]);
-            
-            // Draw shield at screen coordinates
+
+            // Outer glow layer
+            ctx.globalAlpha = 0.15;
+            ctx.strokeStyle = shieldColor;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 16, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Main shield circle
+            ctx.globalAlpha = 0.55;
+            ctx.strokeStyle = shieldColor;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.arc(screenX, screenY, 15, 0, Math.PI * 2);
             ctx.stroke();
