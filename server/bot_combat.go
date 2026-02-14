@@ -55,38 +55,38 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	}
 
 	// Advanced dodge with threat prioritization
+	// Evasion sets movement direction but does NOT skip weapon firing —
+	// bots should shoot back while dodging, just like human players do.
 	if threats.requiresEvasion {
 		dodgeDir := s.getAdvancedDodgeDirection(p, interceptDir, threats)
 		p.DesDir = dodgeDir
 		p.DesSpeed = s.getEvasionSpeed(p, threats)
-		p.BotCooldown = 3
-		return
-	}
+	} else {
+		// Combat maneuvering based on range and ship matchup
+		combatManeuver := s.selectCombatManeuver(p, target, dist)
 
-	// Combat maneuvering based on range and ship matchup
-	combatManeuver := s.selectCombatManeuver(p, target, dist)
+		// Apply separation adjustment if allies are too close
+		if separationVector.magnitude > 0 {
+			// Blend the combat direction with separation vector
+			// Much higher weight for separation to prevent bunching
+			separationWeight := math.Min(separationVector.magnitude/300.0, 0.75) // Increased max weight to 0.75
+			combatWeight := 1.0 - separationWeight
 
-	// Apply separation adjustment if allies are too close
-	if separationVector.magnitude > 0 {
-		// Blend the combat direction with separation vector
-		// Much higher weight for separation to prevent bunching
-		separationWeight := math.Min(separationVector.magnitude/300.0, 0.75) // Increased max weight to 0.75
-		combatWeight := 1.0 - separationWeight
+			// Combine directions using weighted average
+			desiredX := combatWeight*math.Cos(combatManeuver.direction) + separationWeight*separationVector.x
+			desiredY := combatWeight*math.Sin(combatManeuver.direction) + separationWeight*separationVector.y
+			p.DesDir = math.Atan2(desiredY, desiredX)
 
-		// Combine directions using weighted average
-		desiredX := combatWeight*math.Cos(combatManeuver.direction) + separationWeight*separationVector.x
-		desiredY := combatWeight*math.Sin(combatManeuver.direction) + separationWeight*separationVector.y
-		p.DesDir = math.Atan2(desiredY, desiredX)
-
-		// Also reduce speed when too close to allies for better separation
-		if separationVector.magnitude > 2.0 {
-			p.DesSpeed = combatManeuver.speed * 0.7 // Slow down to separate better
+			// Also reduce speed when too close to allies for better separation
+			if separationVector.magnitude > 2.0 {
+				p.DesSpeed = combatManeuver.speed * 0.7 // Slow down to separate better
+			} else {
+				p.DesSpeed = combatManeuver.speed
+			}
 		} else {
+			p.DesDir = combatManeuver.direction
 			p.DesSpeed = combatManeuver.speed
 		}
-	} else {
-		p.DesDir = combatManeuver.direction
-		p.DesSpeed = combatManeuver.speed
 	}
 
 	// Adjust for damage and energy management

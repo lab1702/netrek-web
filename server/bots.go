@@ -510,9 +510,9 @@ func (s *Server) updateBotHard(p *game.Player) {
 		// the threat is eliminated because nothing clears BotDefenseTarget.
 		if p.BotDefenseTarget >= 0 {
 			if planet, enemy, enemyDist := s.getThreatenedFriendlyPlanet(p); planet != nil && enemy != nil {
-				// Threat still active — engage the enemy
-				s.assessAndActivateShields(p, enemy)
-				s.engageCombat(p, enemy, enemyDist)
+				// Threat still active — continue planet defense (not engageCombat,
+				// since defendPlanet has better weapon logic for this scenario)
+				s.defendPlanet(p, planet, enemy, enemyDist)
 				return
 			}
 			// Threat gone — clear defense target and resume normal behavior
