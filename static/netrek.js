@@ -1989,41 +1989,39 @@ function renderGalactic() {
             const planetCX = plCount > 0 ? (plx / plCount) * scale : null;
             const planetCY = plCount > 0 ? (ply / plCount) * scale : null;
 
-            ctx.save();
-            ctx.strokeStyle = color;
-
-            // Line connecting player centroid to planet centroid
+            // Draw arrow from planet centroid to player centroid
             if (playerCX !== null && planetCX !== null) {
-                ctx.globalAlpha = 0.5;
-                ctx.lineWidth = 0.75;
-                ctx.beginPath();
-                ctx.moveTo(playerCX, playerCY);
-                ctx.lineTo(planetCX, planetCY);
-                ctx.stroke();
-            }
+                const dx = playerCX - planetCX;
+                const dy = playerCY - planetCY;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                if (len > 1) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.6;
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.5;
 
-            // Triangle for player centroid
-            if (playerCX !== null) {
-                const s = 6;
-                ctx.globalAlpha = 0.7;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(playerCX, playerCY - s);
-                ctx.lineTo(playerCX - s, playerCY + s);
-                ctx.lineTo(playerCX + s, playerCY + s);
-                ctx.closePath();
-                ctx.stroke();
-            }
+                    // Shaft
+                    ctx.beginPath();
+                    ctx.moveTo(planetCX, planetCY);
+                    ctx.lineTo(playerCX, playerCY);
+                    ctx.stroke();
 
-            // Square for planet centroid
-            if (planetCX !== null) {
-                const s = 5;
-                ctx.globalAlpha = 0.7;
-                ctx.lineWidth = 1.5;
-                ctx.strokeRect(planetCX - s, planetCY - s, s * 2, s * 2);
-            }
+                    // Arrowhead
+                    const headLen = 7;
+                    const ux = dx / len;
+                    const uy = dy / len;
+                    ctx.beginPath();
+                    ctx.moveTo(playerCX, playerCY);
+                    ctx.lineTo(playerCX - headLen * ux + headLen * 0.5 * uy,
+                               playerCY - headLen * uy - headLen * 0.5 * ux);
+                    ctx.moveTo(playerCX, playerCY);
+                    ctx.lineTo(playerCX - headLen * ux - headLen * 0.5 * uy,
+                               playerCY - headLen * uy + headLen * 0.5 * ux);
+                    ctx.stroke();
 
-            ctx.restore();
+                    ctx.restore();
+                }
+            }
         }
     }
 
