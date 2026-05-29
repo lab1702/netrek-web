@@ -249,7 +249,9 @@ func TestSpeedWithDamage(t *testing.T) {
 	}
 }
 
-// TestEngineOverheat tests that engine overheat limits speed to 1
+// TestEngineOverheat tests that engine overheat limits actual speed to 1
+// without destroying the player's requested cruise speed, so the ship resumes
+// its desired speed once overheat clears.
 func TestEngineOverheat(t *testing.T) {
 	gs := game.NewGameState()
 	server := &Server{gameState: gs}
@@ -258,7 +260,7 @@ func TestEngineOverheat(t *testing.T) {
 	p.Status = game.StatusAlive
 	p.Ship = game.ShipDestroyer
 	p.Speed = 10
-	p.DesSpeed = 5 // Set to different value to trigger speed update logic
+	p.DesSpeed = 5 // Player's requested cruise speed
 	p.X = 50000
 	p.Y = 50000
 	p.Dir = 0
@@ -273,11 +275,22 @@ func TestEngineOverheat(t *testing.T) {
 	}
 
 	if p.Speed > 1 {
-		t.Errorf("Engine overheat should limit speed to 1, got %.1f", p.Speed)
+		t.Errorf("Engine overheat should limit actual speed to 1, got %.1f", p.Speed)
 	}
 
-	if p.DesSpeed > 1 {
-		t.Errorf("Engine overheat should clamp DesSpeed to 1, got %.1f", p.DesSpeed)
+	// The requested cruise speed must be preserved: overheat is a temporary
+	// penalty, not a permanent reset of the player's desired speed.
+	if p.DesSpeed != 5 {
+		t.Errorf("Engine overheat must not overwrite DesSpeed; want 5, got %.1f", p.DesSpeed)
+	}
+
+	// Once overheat clears, the ship must accelerate back toward its desired speed.
+	p.EngineOverheat = false
+	for tick := 0; tick < 200; tick++ {
+		server.updatePlayerPhysics(p, 0)
+	}
+	if p.Speed < 5 {
+		t.Errorf("After overheat clears, ship should return to desired speed 5, got %.1f", p.Speed)
 	}
 }
 

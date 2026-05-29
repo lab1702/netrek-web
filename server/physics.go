@@ -75,10 +75,12 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 			maxSpeed = math.Max(1, maxSpeed) // Minimum speed of 1
 		}
 
-		// Engine overheat limits speed to 1 (from original daemon.c)
+		// Engine overheat limits actual speed to 1 (from original daemon.c).
+		// Cap maxSpeed only; do not overwrite DesSpeed, or the temporary penalty
+		// would persist after overheat clears and leave the ship stuck at warp 1
+		// until the player re-issues a speed command.
 		if p.EngineOverheat {
 			maxSpeed = 1
-			p.DesSpeed = math.Min(p.DesSpeed, 1)
 		}
 
 		// Enforce max speed limit

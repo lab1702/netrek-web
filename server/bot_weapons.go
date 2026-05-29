@@ -335,27 +335,27 @@ func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 }
 
 // fireBotPlasma fires a plasma torpedo from a bot
-func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
+func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) bool {
 	// Can't fire while cloaked or repairing (same rules as human players)
 	if p.Cloaked || p.Repairing {
-		return
+		return false
 	}
 
 	shipStats := game.ShipData[p.Ship]
 
 	if !shipStats.HasPlasma {
-		return
+		return false
 	}
 
 	// Check fuel (using ship-specific multiplier, same as human handler)
 	plasmaCost := shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
 	if p.Fuel < plasmaCost {
-		return
+		return false
 	}
 
 	// Check weapon temperature against ship-specific limit
 	if p.WTemp > shipStats.MaxWpnTemp-100 {
-		return
+		return false
 	}
 
 	// Pre-fire sanity check: don't fire beyond plasma maximum range
@@ -364,7 +364,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 	if dist > maxPlasmaRange {
 		// Don't fire - plasma would expire before reaching target
 		logPlasmaFiring("SKIPPED", int(p.Ship), dist, maxPlasmaRange, "target beyond max range")
-		return
+		return false
 	}
 
 	// Use unified intercept solver for plasma
@@ -396,6 +396,7 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) {
 
 	// Log successful plasma firing
 	logPlasmaFiring("FIRED", int(p.Ship), dist, maxPlasmaRange, "within range")
+	return true
 }
 
 // fireTorpedoSpread fires multiple torpedoes in a spread pattern
@@ -490,9 +491,11 @@ func (s *Server) planetDefenseWeaponLogic(p *game.Player, enemy *game.Player, en
 	maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
 	plasmaDefenseRange := game.EffectivePlasmaRange(p.Ship, 0.90) // 90% of max plasma range
 	plasmaMinRange := maxPlasmaRange * 0.25                       // 25% of max plasma range
-	if !firedWeapon && shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel > 3000 {
-		s.fireBotPlasma(p, enemy)
-		p.BotCooldown = 15
+	plasmaCost := shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+	if !firedWeapon && shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < plasmaDefenseRange && enemyDist > plasmaMinRange && p.Fuel >= plasmaCost {
+		if s.fireBotPlasma(p, enemy) {
+			p.BotCooldown = 15
+		}
 	}
 }
 
@@ -524,10 +527,12 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	}
 
 	// Plasma for area denial - wide firing window
-	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < game.StarbasePlasmaMaxRange && enemyDist > 1000 && p.Fuel > 3000 {
-		s.fireBotPlasma(p, enemy)
-		p.BotCooldown = 12
-		return
+	sbPlasmaCost := shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+	if shipStats.HasPlasma && p.NumPlasma < 1 && enemyDist < game.StarbasePlasmaMaxRange && enemyDist > 1000 && p.Fuel >= sbPlasmaCost {
+		if s.fireBotPlasma(p, enemy) {
+			p.BotCooldown = 12
+			return
+		}
 	}
 
 	// Close-range torpedo fallback - fires when other conditions prevent it, but still

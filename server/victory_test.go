@@ -195,6 +195,87 @@ func TestVictoryConditions(t *testing.T) {
 	})
 }
 
+// TestGenocideRespawnGuard verifies genocide is NOT declared while the last
+// player of an enemy team is mid-explosion/dead but still connected and about
+// to respawn. The death->explode->dead->respawn transitions run earlier in the
+// same updateGame() tick than checkVictoryConditions(), so a team's only player
+// has a StatusAlive count of 0 for ~11 ticks even though it is still in play.
+func TestGenocideRespawnGuard(t *testing.T) {
+	setup := func(s *Server) {
+		s.gameState.Frame = 200
+		s.gameState.GameOver = false
+		s.gameState.Winner = 0
+		s.gameState.WinType = ""
+		for i := range s.gameState.Players {
+			s.gameState.Players[i] = &game.Player{ID: i, Status: game.StatusFree, Team: 0}
+		}
+		for i := range s.gameState.Planets {
+			s.gameState.Planets[i].Owner = game.TeamNone
+		}
+	}
+
+	t.Run("ExplodingConnectedEnemyBlocksGenocide", func(t *testing.T) {
+		server := NewServer()
+		setup(server)
+		// Two alive Federation players
+		server.gameState.Players[0] = &game.Player{ID: 0, Status: game.StatusAlive, Team: game.TeamFed}
+		server.gameState.Players[1] = &game.Player{ID: 1, Status: game.StatusAlive, Team: game.TeamFed}
+		// Romulan team's only player is mid-explosion but connected -> will respawn
+		server.gameState.Players[2] = &game.Player{ID: 2, Status: game.StatusExplode, Team: game.TeamRom, Connected: true}
+
+		server.checkVictoryConditions()
+
+		if server.gameState.GameOver {
+			t.Errorf("Genocide must not fire while a connected enemy is mid-explosion (about to respawn); got WinType=%q", server.gameState.WinType)
+		}
+	})
+
+	t.Run("DeadConnectedEnemyBlocksGenocide", func(t *testing.T) {
+		server := NewServer()
+		setup(server)
+		server.gameState.Players[0] = &game.Player{ID: 0, Status: game.StatusAlive, Team: game.TeamFed}
+		server.gameState.Players[1] = &game.Player{ID: 1, Status: game.StatusAlive, Team: game.TeamFed}
+		// Romulan dead but connected -> respawns next tick
+		server.gameState.Players[2] = &game.Player{ID: 2, Status: game.StatusDead, Team: game.TeamRom, Connected: true}
+
+		server.checkVictoryConditions()
+
+		if server.gameState.GameOver {
+			t.Errorf("Genocide must not fire while a connected enemy is dead-but-respawning; got WinType=%q", server.gameState.WinType)
+		}
+	})
+
+	t.Run("DisconnectedDeadEnemyStillAllowsGenocide", func(t *testing.T) {
+		server := NewServer()
+		setup(server)
+		server.gameState.Players[0] = &game.Player{ID: 0, Status: game.StatusAlive, Team: game.TeamFed}
+		server.gameState.Players[1] = &game.Player{ID: 1, Status: game.StatusAlive, Team: game.TeamFed}
+		// Romulan dead AND disconnected -> truly gone, genocide should still fire
+		server.gameState.Players[2] = &game.Player{ID: 2, Status: game.StatusDead, Team: game.TeamRom, Connected: false}
+
+		server.checkVictoryConditions()
+
+		if !server.gameState.GameOver || server.gameState.WinType != "genocide" {
+			t.Errorf("Genocide should fire when the only enemy is dead and disconnected; got GameOver=%v WinType=%q", server.gameState.GameOver, server.gameState.WinType)
+		}
+	})
+
+	t.Run("QuittingExplodingEnemyAllowsGenocide", func(t *testing.T) {
+		server := NewServer()
+		setup(server)
+		server.gameState.Players[0] = &game.Player{ID: 0, Status: game.StatusAlive, Team: game.TeamFed}
+		server.gameState.Players[1] = &game.Player{ID: 1, Status: game.StatusAlive, Team: game.TeamFed}
+		// Romulan self-destructed: exploding with KillQuit -> slot will be freed, not respawned
+		server.gameState.Players[2] = &game.Player{ID: 2, Status: game.StatusExplode, Team: game.TeamRom, Connected: true, WhyDead: game.KillQuit}
+
+		server.checkVictoryConditions()
+
+		if !server.gameState.GameOver || server.gameState.WinType != "genocide" {
+			t.Errorf("Genocide should fire when the only enemy quit (exploding with KillQuit, freeing its slot); got GameOver=%v WinType=%q", server.gameState.GameOver, server.gameState.WinType)
+		}
+	})
+}
+
 func TestAnnounceVictory(t *testing.T) {
 	server := NewServer()
 

@@ -27,13 +27,15 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		// Transition from repair request to actual repair
 		p.RepairRequest = false
 		p.Repairing = true
-		// Send message about starting repairs
+		// Send message about starting repairs (private to the repairing player,
+		// matching the repair-completion message below).
 		select {
 		case s.broadcast <- ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("%s is repairing damage", formatPlayerName(p)),
 				"type": "info",
+				"to":   playerIndex,
 			},
 		}:
 		default:

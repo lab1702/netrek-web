@@ -120,6 +120,63 @@ func TestBotPlasmaFiringDecisions(t *testing.T) {
 	}
 }
 
+// TestFireBotPlasmaReportsWhetherFired verifies fireBotPlasma returns true only
+// when it actually launches a plasma. The caller uses this to avoid burning a
+// decision cooldown when the shot was suppressed (e.g. insufficient fuel for a
+// heavy ship whose plasma cost exceeds the coarse 3000-fuel gate).
+func TestFireBotPlasmaReportsWhetherFired(t *testing.T) {
+	newSetup := func(fuel int) (*Server, *game.Player, *game.Player) {
+		server := &Server{
+			gameState: game.NewGameState(),
+			broadcast: make(chan ServerMessage, 10),
+		}
+		shooter := server.gameState.Players[0]
+		shooter.Status = game.StatusAlive
+		shooter.Ship = game.ShipBattleship // plasma cost = 130 * 30 = 3900
+		shooter.Team = game.TeamFed
+		shooter.X = 50000
+		shooter.Y = 50000
+		shooter.Fuel = fuel
+		shooter.WTemp = 0
+		shooter.Cloaked = false
+		shooter.Repairing = false
+
+		target := server.gameState.Players[1]
+		target.Status = game.StatusAlive
+		target.Ship = game.ShipCruiser
+		target.Team = game.TeamKli
+		target.X = shooter.X + 4000 // well within Battleship plasma range
+		target.Y = shooter.Y
+		return server, shooter, target
+	}
+
+	t.Run("ReturnsTrueWhenFired", func(t *testing.T) {
+		server, shooter, target := newSetup(4000) // >= 3900 cost
+		before := len(server.gameState.Plasmas)
+		fired := server.fireBotPlasma(shooter, target)
+		if !fired {
+			t.Fatal("fireBotPlasma should return true when it launches a plasma")
+		}
+		if len(server.gameState.Plasmas) != before+1 {
+			t.Errorf("expected a plasma to be created, count %d -> %d", before, len(server.gameState.Plasmas))
+		}
+	})
+
+	t.Run("ReturnsFalseWhenFuelBelowCost", func(t *testing.T) {
+		// 3500 fuel passes the old coarse `Fuel > 3000` gate but is below the
+		// Battleship's actual 3900 plasma cost, so no plasma should fire.
+		server, shooter, target := newSetup(3500)
+		before := len(server.gameState.Plasmas)
+		fired := server.fireBotPlasma(shooter, target)
+		if fired {
+			t.Error("fireBotPlasma should return false when fuel is below plasma cost")
+		}
+		if len(server.gameState.Plasmas) != before {
+			t.Error("no plasma should be created when fuel is below cost")
+		}
+	})
+}
+
 func TestBotPlasmaMaxRangeCalculations(t *testing.T) {
 	// Verify our understanding of plasma max ranges matches the actual calculations
 	expectedRanges := map[game.ShipType]float64{

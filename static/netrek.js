@@ -1021,9 +1021,14 @@ function reconnect() {
 }
 
 function openWebSocket(name, team, ship) {
-    // Close existing connection if any
+    // Close existing connection if any. Detach ALL handlers first: a closing
+    // socket can still deliver buffered frames, and a stale onmessage would
+    // mutate gameState for the new session (and onclose would trigger an
+    // unwanted reconnect).
     if (ws) {
-        ws.onclose = null; // Prevent triggering reconnect from this close
+        ws.onclose = null;
+        ws.onmessage = null;
+        ws.onerror = null;
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
             ws.close();
         }

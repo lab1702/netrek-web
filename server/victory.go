@@ -92,6 +92,7 @@ func (s *Server) checkVictoryConditions() {
 	teamsAlive := 0
 	lastTeamAlive := -1
 	teamsEverPlayed := 0 // Bitmask of teams that have ever had players
+	teamsInPlay := 0     // Teams with players that are alive OR about to respawn
 
 	// Check current players and count teams with alive players
 	for i, count := range s.gameState.TeamPlayers {
@@ -101,6 +102,26 @@ func (s *Server) checkVictoryConditions() {
 			lastTeamAlive = teamIndexToFlag(i)
 		}
 	}
+
+	// A team is not yet eliminated if it has a player that is alive or that is
+	// connected and about to respawn. The death->explode->dead->respawn
+	// transitions run earlier in the same tick than this check, so a team's
+	// only player can be StatusExplode/StatusDead for ~11 ticks while still in
+	// play; counting only StatusAlive would declare a premature genocide.
+	// Players who self-destruct (WhyDead == KillQuit) free their slot instead of
+	// respawning, so they do not keep a team in play.
+	inPlayFlags := 0
+	for _, p := range s.gameState.Players {
+		if p.Team <= 0 {
+			continue
+		}
+		willRespawn := p.Connected && (p.Status == game.StatusDead ||
+			(p.Status == game.StatusExplode && p.WhyDead != game.KillQuit))
+		if p.Status == game.StatusAlive || willRespawn {
+			inPlayFlags |= p.Team
+		}
+	}
+	teamsInPlay = countBitsSet(inPlayFlags)
 
 	// Build bitmask of teams that have ever had players in this game
 	for _, p := range s.gameState.Players {
@@ -115,9 +136,10 @@ func (s *Server) checkVictoryConditions() {
 	// Only check for genocide if:
 	// - At least 2 different teams have played
 	// - Game has been running for a bit
-	// - Only one team remains alive
+	// - Only one team remains in play (alive or respawning), and it is the team
+	//   that currently has alive players
 	// - At least 2 total players currently
-	if numTeamsPlayed >= 2 && totalPlayers >= 2 && s.gameState.Frame > 100 && teamsAlive == 1 && lastTeamAlive > 0 {
+	if numTeamsPlayed >= 2 && totalPlayers >= 2 && s.gameState.Frame > 100 && teamsInPlay == 1 && teamsAlive == 1 && lastTeamAlive > 0 {
 		// Genocide victory
 		s.gameState.GameOver = true
 		s.gameState.Winner = lastTeamAlive

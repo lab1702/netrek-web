@@ -185,8 +185,12 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Shield management
 	s.assessAndActivateShields(p)
 
-	// Enhanced plasma usage for area control — only if no other weapon fired this tick
-	if !firedTorps && !firedPhaser && shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel > 3000 {
+	// Enhanced plasma usage for area control — only if no other weapon fired this tick.
+	// Gate on the ship's actual plasma fuel cost (not a coarse 3000 constant) so a
+	// heavy ship whose cost exceeds 3000 (e.g. Battleship = 3900) doesn't commit to
+	// the plasma branch when it cannot afford the shot.
+	plasmaCost := shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+	if !firedTorps && !firedPhaser && shipStats.HasPlasma && p.NumPlasma < 1 && p.Fuel >= plasmaCost {
 		// Use actual plasma maximum range to prevent fuse expiry
 		maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
 		plasmaLongRange := game.EffectivePlasmaRange(p.Ship, 0.85)  // 85% of max for long range
@@ -198,8 +202,10 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 			((dist < plasmaLongRange && dist > plasmaShortRange && target.Speed < 4) ||
 				(targetDamageRatio > 0.6 && dist < plasmaKillRange) || // Lower damage threshold
 				(target.Orbiting >= 0 && dist < plasmaKillRange)) {
-			s.fireBotPlasma(p, target)
-			p.BotCooldown = 12 // Reduced from 20 to 12
+			// Only burn the decision cooldown if a plasma was actually launched.
+			if s.fireBotPlasma(p, target) {
+				p.BotCooldown = 12 // Reduced from 20 to 12
+			}
 		}
 	}
 

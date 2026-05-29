@@ -817,10 +817,12 @@ func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dis
 	}
 
 	// Plasma for area denial
-	if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > 1000 && p.Fuel > 3000 {
-		s.fireBotPlasma(p, enemy)
-		p.BotCooldown = 12
-		return
+	sbPlasmaCost := shipStats.PlasmaDamage * shipStats.PlasmaFuelMult
+	if shipStats.HasPlasma && p.NumPlasma < 1 && dist < game.StarbasePlasmaMaxRange && dist > 1000 && p.Fuel >= sbPlasmaCost {
+		if s.fireBotPlasma(p, enemy) {
+			p.BotCooldown = 12
+			return
+		}
 	}
 
 	// No weapon fired - short cooldown to re-evaluate quickly
