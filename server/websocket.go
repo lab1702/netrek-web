@@ -133,26 +133,28 @@ func (c *Client) SetPlayerID(id int) {
 
 // Server manages the game and client connections
 type Server struct {
-	mu                     sync.RWMutex
-	clients                map[int]*Client
-	register               chan *Client
-	unregister             chan *Client
-	broadcast              chan ServerMessage
-	gameState              *game.GameState
-	nextID                 int
-	nextTorpID             int  // Monotonically increasing torpedo ID
-	nextPlasmaID           int  // Monotonically increasing plasma ID
-	galaxyReset            bool // Track if galaxy has been reset (true = already reset/empty)
-	done                   chan struct{}
-	activeConns            atomic.Int32         // Atomic connection counter for race-free limit enforcement
-	playerGrid             *SpatialGrid         // Spatial index for efficient collision detection
-	pendingSuggestions     []targetSuggestion   // Buffered target suggestions applied after UpdateBots
-	cachedTeamPlanets      map[int]int          // Cached planet counts per team
-	cachedTeamPlanetsFrame int64                // Frame when cache was last computed
-	cachedThreats          map[int]CombatThreat // Per-bot threat cache
-	cachedThreatsFrame     int64                // Frame when threat cache was last valid
-	cachedIsolation        map[int]bool         // Per-player isolation cache (no same-team ally within 5000)
-	cachedIsolationFrame   int64                // Frame when isolation cache was last computed
+	mu                       sync.RWMutex
+	clients                  map[int]*Client
+	register                 chan *Client
+	unregister               chan *Client
+	broadcast                chan ServerMessage
+	gameState                *game.GameState
+	nextID                   int
+	nextTorpID               int  // Monotonically increasing torpedo ID
+	nextPlasmaID             int  // Monotonically increasing plasma ID
+	galaxyReset              bool // Track if galaxy has been reset (true = already reset/empty)
+	done                     chan struct{}
+	activeConns              atomic.Int32         // Atomic connection counter for race-free limit enforcement
+	playerGrid               *SpatialGrid         // Spatial index for efficient collision detection
+	pendingSuggestions       []targetSuggestion   // Buffered target suggestions applied after UpdateBots
+	cachedTeamPlanets        map[int]int          // Cached planet counts per team
+	cachedTeamPlanetsFrame   int64                // Frame when cache was last computed
+	cachedThreats            map[int]CombatThreat // Per-bot threat cache
+	cachedThreatsFrame       int64                // Frame when threat cache was last valid
+	cachedIsolation          map[int]bool         // Per-player isolation cache (no same-team ally within 5000)
+	cachedIsolationFrame     int64                // Frame when isolation cache was last computed
+	cachedPlanetThreats      map[int]planetThreat // Per-planet threat cache (bot-independent, shared per team)
+	cachedPlanetThreatsFrame int64                // Frame when planet-threat cache was last computed
 }
 
 // NewServer creates a new game server

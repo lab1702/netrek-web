@@ -116,6 +116,18 @@ func (s *Server) updateBotHard(p *game.Player) {
 		return
 	}
 
+	// Track damage taken since the previous decision so the bot reacts to being
+	// hit even by an attacker it cannot see (e.g. a cloaked ship). A recent hit
+	// suppresses sitting still to repair without granting the bot cloak vision.
+	if p.Damage > p.BotPrevDamage {
+		p.BotHitTimer = BotRecentHitFrames
+	}
+	p.BotPrevDamage = p.Damage
+	recentlyHit := p.BotHitTimer > 0
+	if p.BotHitTimer > 0 {
+		p.BotHitTimer--
+	}
+
 	// STARBASE-SPECIFIC AI: Cautious and defensive behavior
 	if p.Ship == game.ShipStarbase {
 		s.updateStarbaseBot(p)
@@ -152,8 +164,9 @@ func (s *Server) updateBotHard(p *game.Player) {
 	if p.Orbiting >= 0 && p.Orbiting < len(s.gameState.Planets) {
 		orbitPlanet := s.gameState.Planets[p.Orbiting]
 		if orbitPlanet.Owner == p.Team {
-			// Continue repairing if needed and safe (must be well outside phaser range)
-			if (needRepair || needFuel) && enemyDist > RepairSafetyDistance {
+			// Continue repairing if needed and safe (must be well outside phaser
+			// range and not recently hit by an unseen attacker)
+			if (needRepair || needFuel) && enemyDist > RepairSafetyDistance && !recentlyHit {
 				p.DesSpeed = 0
 				p.Shields_up = false
 				// Activate repair mode if damaged over 50%
@@ -167,7 +180,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 	}
 
 	// Use repair mode when safe and over 50% damaged even without orbiting
-	if needRepair && enemyDist > RepairSafetyDistance && !p.Repairing && p.Speed < 2 {
+	if needRepair && enemyDist > RepairSafetyDistance && !p.Repairing && p.Speed < 2 && !recentlyHit {
 		// Safe to repair - activate repair mode
 		p.Repairing = true
 		p.RepairRequest = false
@@ -177,8 +190,9 @@ func (s *Server) updateBotHard(p *game.Player) {
 		return
 	}
 
-	// Cancel repair mode if threatened
-	if p.Repairing && enemyDist < RepairSafetyDistance {
+	// Cancel repair mode if threatened (a visible enemy is close, or we just
+	// took damage from an attacker we may not be able to see).
+	if p.Repairing && (enemyDist < RepairSafetyDistance || recentlyHit) {
 		p.Repairing = false
 		p.RepairRequest = false
 	}
@@ -1107,33 +1121,38 @@ func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy
 // getThreatenedFriendlyPlanet scans for friendly planets under threat
 // Returns the most threatened planet, the closest enemy to it, and the
 // distance from the bot (p) to that enemy (for weapon range / positioning).
-func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *game.Player, float64) {
-	var bestPlanet *game.Planet
-	var bestEnemy *game.Player
-	var bestBotToEnemyDist float64 = MaxSearchDistance
-	bestThreatScore := 0.0
+// planetThreat holds the bot-independent threat assessment for a single planet:
+// the aggregate threat score and the closest threatening enemy to that planet.
+// It depends only on the planet and the set of visible enemy players, so it is
+// computed once per frame and shared by every bot defending that planet.
+type planetThreat struct {
+	threatScore  float64
+	closestEnemy *game.Player
+}
 
-	// Check each friendly planet within bot's scanning range
+// getPlanetThreats returns the per-planet threat assessment for the current
+// frame, computing it once and caching it. The assessment is independent of any
+// particular bot, so caching it turns the per-bot O(planets*players) scan into a
+// single O(planets*players) pass per frame plus a cheap per-bot lookup.
+func (s *Server) getPlanetThreats() map[int]planetThreat {
+	if s.cachedPlanetThreats != nil && s.cachedPlanetThreatsFrame == s.gameState.Frame {
+		return s.cachedPlanetThreats
+	}
+
+	threats := make(map[int]planetThreat, len(s.gameState.Planets))
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
-		if planet.Owner != p.Team {
-			continue
+		if planet.Owner == game.TeamNone {
+			continue // unowned planets are never defended by a bot
 		}
 
-		// Only check planets within bot's detection range
-		botToPlanetDist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-		if botToPlanetDist > PlanetDefenseDetectRadius {
-			continue
-		}
-
-		// Find the closest threatening enemy to this planet
 		var closestEnemy *game.Player
 		closestEnemyToPlanetDist := MaxSearchDistance
 		threatScore := 0.0
 
 		for j := range s.gameState.Players {
 			enemy := s.gameState.Players[j]
-			if enemy.Status != game.StatusAlive || enemy.Team == p.Team || enemy.Cloaked {
+			if enemy.Status != game.StatusAlive || enemy.Team == planet.Owner || enemy.Cloaked {
 				continue
 			}
 
@@ -1148,7 +1167,6 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 			} else {
 				// Check if enemy is moving toward the planet (vector analysis)
 				if enemy.Speed > 1.0 && enemyToPlanetDist < 12000 {
-					// Calculate if enemy heading is toward planet
 					angleToPlanet := math.Atan2(planet.Y-enemy.Y, planet.X-enemy.X)
 					angleDiff := math.Abs(enemy.Dir - angleToPlanet)
 					if angleDiff > math.Pi {
@@ -1169,16 +1187,15 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 					currentThreatScore += float64(enemy.Armies) * 2.0
 				}
 
-				// Add threat weight based on enemy damage (damaged enemies are easier to kill but might be desperate)
+				// Damaged enemies are easier to kill but might be desperate
 				enemyStats := game.ShipData[enemy.Ship]
 				damageRatio := float64(enemy.Damage) / float64(enemyStats.MaxDamage)
 				if damageRatio > 0.7 {
-					currentThreatScore += 1.0 // Desperate enemies are more threatening
+					currentThreatScore += 1.0
 				}
 
 				threatScore += currentThreatScore
 
-				// Track closest threatening enemy to this planet
 				if enemyToPlanetDist < closestEnemyToPlanetDist {
 					closestEnemyToPlanetDist = enemyToPlanetDist
 					closestEnemy = enemy
@@ -1186,14 +1203,51 @@ func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *gam
 			}
 		}
 
+		if closestEnemy != nil {
+			threats[i] = planetThreat{threatScore: threatScore, closestEnemy: closestEnemy}
+		}
+	}
+
+	s.cachedPlanetThreats = threats
+	s.cachedPlanetThreatsFrame = s.gameState.Frame
+	return threats
+}
+
+func (s *Server) getThreatenedFriendlyPlanet(p *game.Player) (*game.Planet, *game.Player, float64) {
+	var bestPlanet *game.Planet
+	var bestEnemy *game.Player
+	var bestBotToEnemyDist float64 = MaxSearchDistance
+	bestThreatScore := 0.0
+
+	// Per-planet threat scores are computed once per frame and shared by all bots.
+	threats := s.getPlanetThreats()
+
+	// Check each friendly planet within bot's scanning range
+	for i := range s.gameState.Planets {
+		planet := s.gameState.Planets[i]
+		if planet.Owner != p.Team {
+			continue
+		}
+
+		// Only check planets within bot's detection range
+		botToPlanetDist := game.Distance(p.X, p.Y, planet.X, planet.Y)
+		if botToPlanetDist > PlanetDefenseDetectRadius {
+			continue
+		}
+
+		// Look up this planet's (bot-independent) threat assessment.
+		pt, ok := threats[i]
+		if !ok || pt.closestEnemy == nil {
+			continue
+		}
+
 		// Consider this planet if it has threats and higher priority than current best
-		if threatScore > bestThreatScore && closestEnemy != nil {
-			bestThreatScore = threatScore
+		if pt.threatScore > bestThreatScore {
+			bestThreatScore = pt.threatScore
 			bestPlanet = planet
-			bestEnemy = closestEnemy
-			// Return bot-to-enemy distance so callers can use it for
-			// weapon range checks and positioning decisions.
-			bestBotToEnemyDist = game.Distance(p.X, p.Y, closestEnemy.X, closestEnemy.Y)
+			bestEnemy = pt.closestEnemy
+			// Bot-to-enemy distance for weapon range checks and positioning.
+			bestBotToEnemyDist = game.Distance(p.X, p.Y, pt.closestEnemy.X, pt.closestEnemy.Y)
 		}
 	}
 

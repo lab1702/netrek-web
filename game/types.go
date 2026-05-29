@@ -472,6 +472,8 @@ type Player struct {
 	BotHasGoal          bool    `json:"-"` // Whether a patrol goal is set (avoids (0,0) sentinel)
 	BotShieldFrame      int64   `json:"-"` // Last frame shields were assessed (avoids redundant per-tick calls)
 	BotCooldown         int     `json:"-"` // Frames until next action
+	BotPrevDamage       int     `json:"-"` // Damage at the previous bot decision (detects new hits)
+	BotHitTimer         int     `json:"-"` // Frames remaining where the bot counts as recently hit
 
 	// Refit system - ship type to use on next respawn (-1 means no pending refit)
 	NextShipType int `json:"-"` // Ship type to use on next respawn

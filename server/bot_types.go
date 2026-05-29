@@ -14,6 +14,12 @@ const (
 	PlanetDefenseDetectRadius    = 15000.0 // Range for bot to detect threats to friendly planets
 	PlanetDefenseInterceptBuffer = 3000.0  // Additional range beyond bomb range to intercept threats
 	PlanetBombRange              = 2000.0  // Range at which enemies can bomb planets effectively
+
+	// BotRecentHitFrames is how many frames a bot treats itself as "recently hit"
+	// after its damage increases. While recently hit it will not sit still to
+	// repair, so it reacts to attackers it cannot see (e.g. cloaked ships)
+	// without being given cloak vision.
+	BotRecentHitFrames = 30 // 3 seconds at 10 FPS
 )
 
 // Bot behavior roles returned by selectBotBehavior
