@@ -259,10 +259,19 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		log.Printf("Phaser hit: player %d hit player %d for %.1f damage at range %.0f", p.ID, target.ID, damage, targetDist)
 
 		// Apply damage to shields first, then hull (round instead of truncate)
-		game.ApplyDamageWithShields(target, int(math.Round(damage)))
+		actualDamage := game.ApplyDamageWithShields(target, int(math.Round(damage)))
 
 		if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-			c.server.killPlayer(target, p.ID, game.KillPhaser, int(math.Round(damage)))
+			c.server.killPlayer(target, p.ID, game.KillPhaser, actualDamage)
+		} else if c.server.gameState.T_mode {
+			// Non-lethal hit: still track damage for tournament stats, matching
+			// the torpedo and plasma hit paths.
+			if stats, ok := c.server.gameState.TournamentStats[p.ID]; ok {
+				stats.DamageDealt += actualDamage
+			}
+			if stats, ok := c.server.gameState.TournamentStats[target.ID]; ok {
+				stats.DamageTaken += actualDamage
+			}
 		}
 
 		// Send phaser visual to all players (non-blocking).
@@ -422,8 +431,11 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 				}
 				break
 			}
-			// Set fuse to 1 so it will explode next frame
-			torp.Fuse = 1
+			// Mark the torpedo as detonating so updateTorpedoes removes it in
+			// place next frame. Setting Fuse=1 instead would let the torp move
+			// a full step and run its collision check one more tick, so a
+			// "neutralized" torp could still strike a target before vanishing.
+			torp.Status = game.TorpDet
 			detonatedCount++
 			// Deduct fuel cost
 			p.Fuel -= shipStats.DetCost

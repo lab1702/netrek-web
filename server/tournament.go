@@ -9,10 +9,14 @@ import (
 
 // checkTournamentMode checks if tournament mode should be active
 func (s *Server) checkTournamentMode() {
-	// Count players per team
+	// Count players per team. A connected player who is currently exploding or
+	// dead (but will respawn) is still a tournament participant — counting only
+	// StatusAlive makes tournament mode flicker off on every death in a tight
+	// 4v4, which would reset the galaxy and teleport everyone mid-fight.
 	teamCounts := make(map[int]int)
 	for _, p := range s.gameState.Players {
-		if p.Status == game.StatusAlive && p.Connected {
+		if p.Connected && (p.Status == game.StatusAlive ||
+			p.Status == game.StatusExplode || p.Status == game.StatusDead) {
 			teamCounts[p.Team]++
 		}
 	}
@@ -168,6 +172,20 @@ func (s *Server) checkTournamentMode() {
 			},
 		}:
 		default:
+		}
+	}
+
+	// Ensure every active participant has a tournament stats entry. Entries are
+	// otherwise created only at T-mode entry for alive+connected players, so
+	// anyone who was dead/exploding at entry — or who joined after the
+	// tournament started — would silently have their kills/damage dropped.
+	if s.gameState.T_mode {
+		for _, p := range s.gameState.Players {
+			if p.Connected && p.Status != game.StatusFree && p.Team > 0 {
+				if _, ok := s.gameState.TournamentStats[p.ID]; !ok {
+					s.gameState.TournamentStats[p.ID] = &game.TournamentPlayerStats{}
+				}
+			}
 		}
 	}
 

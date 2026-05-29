@@ -9,6 +9,11 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
+// maxPlanetArmies is the maximum number of armies a planet may hold. Natural
+// army repopulation caps here, and player beam-down is capped here as well so
+// the limit is enforced consistently regardless of how armies arrive.
+const maxPlanetArmies = 40
+
 // updatePlanetInteractions handles all planet-related interactions for all players
 func (s *Server) updatePlanetInteractions() {
 	for i := 0; i < game.MaxPlayers; i++ {
@@ -182,8 +187,11 @@ func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 					p.BeamingUp = false
 				}
 			} else {
-				// Beam down mode
-				if p.Armies > 0 && (planet.Owner == p.Team || planet.Owner == game.TeamNone) {
+				// Beam down mode. Cap planet armies at maxPlanetArmies so
+				// beaming can't push a planet past the limit that natural
+				// repopulation already enforces.
+				if p.Armies > 0 && planet.Armies < maxPlanetArmies &&
+					(planet.Owner == p.Team || planet.Owner == game.TeamNone) {
 					// Beam down 1 army at a time
 					p.Armies--
 					planet.Armies++
@@ -261,7 +269,6 @@ func (s *Server) updatePlanetArmies() {
 	// AGRI planets generate 1 army every 5 seconds (50 frames at 10 FPS)
 	// Non-AGRI planets generate 1 army every 30 seconds (300 frames at 10 FPS)
 	// Only planets with owner (not neutral) can grow armies
-	const maxPlanetArmies = 40
 
 	// Check AGRI planets every 5 seconds
 	if s.gameState.Frame%50 == 0 {

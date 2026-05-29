@@ -907,11 +907,16 @@ function handleKeyPress(key) {
 function updateMovement(player, desiredSpeed) {
     if (!player) return;
     
-    // Update speed only, keep current direction
-    // Keep the current desired direction when changing speed
+    // Update speed only, keep current direction.
+    // Use a null/undefined check rather than `||` so a desired direction of
+    // exactly 0 radians (due east) is preserved instead of falling through to
+    // the current heading, which would snap the ship off its commanded course.
+    let keepDir = player.desDir;
+    if (keepDir === undefined || keepDir === null) keepDir = player.dir;
+    if (keepDir === undefined || keepDir === null) keepDir = 0;
     sendMessage({
         type: 'move',
-        data: { dir: player.desDir || player.dir || 0, speed: desiredSpeed }
+        data: { dir: keepDir, speed: desiredSpeed }
     });
 }
 
@@ -1311,13 +1316,22 @@ function render() {
     // requestAnimationFrame loop continues in renderLoop()
 }
 
+// decayPhasers ages phaser beams and drops expired ones. It is called on the
+// render paths that skip the main draw loop (outfit/victory screens, no local
+// player) so the phaser list can't grow without bound while the server keeps
+// pushing beam messages — which would leak memory and produce a burst of stale
+// beams the moment normal rendering resumes.
+function decayPhasers() {
+    gameState.phasers = gameState.phasers.filter(p => { p.life--; return p.life > 0; });
+}
+
 function renderTactical() {
     // Decay phasers even when not rendering to prevent unbounded accumulation
     if (uiState.inOutfitScreen) {
-        gameState.phasers = gameState.phasers.filter(p => { p.life--; return p.life > 0; });
+        decayPhasers();
         return;
     }
-    
+
     const ctx = canvases.tacticalCtx;
     const width = canvases.tactical.width;
     const height = canvases.tactical.height;
@@ -1398,17 +1412,20 @@ function renderTactical() {
         ctx.fillText(getVictoryCountdownMessage(), centerX, centerY + 60);
         
         ctx.restore();
+        decayPhasers(); // age beams so they don't pile up during the victory screen
         return; // Don't render game elements during victory screen
     }
-    
-    // Don't render if we don't have a valid player  
+
+    // Don't render if we don't have a valid player
     if (gameState.myPlayerID < 0) {
+        decayPhasers();
         return;
     }
-    
+
     // Get my player
     const myPlayer = gameState.players[gameState.myPlayerID];
     if (!myPlayer) {
+        decayPhasers();
         return;
     }
     

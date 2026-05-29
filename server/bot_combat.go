@@ -84,13 +84,6 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		}
 	}
 
-	// Team coordination: synchronize cooldowns for volley fire.
-	// Only apply if the coordinated cooldown is at least as high as the current
-	// cooldown, to prevent averaging from making bots fire faster than intended.
-	if coordinatedCooldown := s.coordinateTeamAttack(p, target); coordinatedCooldown > 0 && coordinatedCooldown >= p.BotCooldown {
-		p.BotCooldown = coordinatedCooldown
-	}
-
 	// Broadcast high-value targets to nearby allies
 	s.broadcastTargetToAllies(p, target, p.BotTargetValue)
 
@@ -150,10 +143,10 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Fire when enemy is running away - only if we didn't already fire torpedoes above
 	if !firedTorps && canReachTarget && dist < effectiveTorpRange && p.NumTorps < game.MaxTorps-3 && p.Fuel > 1000 {
 		targetAngleToUs := math.Atan2(p.Y-target.Y, p.X-target.X)
-		targetRunAngle := math.Abs(target.Dir - targetAngleToUs)
-		if targetRunAngle > math.Pi {
-			targetRunAngle = 2*math.Pi - targetRunAngle
-		}
+		// AngleDifference fully normalizes the wrap; a manual single-fold
+		// (abs then "if > π subtract from 2π") leaves a negative result when
+		// Dir (in [0,2π)) and atan2 (in (-π,π]) differ by more than 2π.
+		targetRunAngle := AngleDifference(target.Dir, targetAngleToUs)
 		if targetRunAngle < math.Pi/3 && target.Speed > float64(shipStats.MaxSpeed)*0.5 {
 			s.fireBotTorpedo(p, target)
 			p.BotCooldown = 4 // Reduced from 8 to 4
@@ -216,6 +209,15 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 		p.BotTargetValue = 0     // Will be scored properly on next selectBestCombatTarget call
 	} else if p.BotTargetLockTime < 10 {
 		p.BotTargetLockTime = 10 // Refresh lock on same target
+	}
+
+	// Team coordination: synchronize cooldowns for volley fire. This must run
+	// AFTER weapon firing — the per-weapon branches above set BotCooldown, so
+	// applying coordination earlier would just be overwritten. The ">=" guard
+	// means coordination only ever raises the cooldown (to wait for allies),
+	// never lowers it to make a bot fire faster than intended.
+	if coordinatedCooldown := s.coordinateTeamAttack(p, target); coordinatedCooldown > 0 && coordinatedCooldown >= p.BotCooldown {
+		p.BotCooldown = coordinatedCooldown
 	}
 }
 
@@ -375,12 +377,10 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 				threat.nearbyEnemies++
 				threat.threatLevel++
 
-				// Check if enemy is facing us (potential phaser threat)
+				// Check if enemy is facing us (potential phaser threat).
+				// Use AngleDifference for a fully-normalized wrap.
 				angleToUs := math.Atan2(p.Y-enemy.Y, p.X-enemy.X)
-				angleDiff := math.Abs(enemy.Dir - angleToUs)
-				if angleDiff > math.Pi {
-					angleDiff = 2*math.Pi - angleDiff
-				}
+				angleDiff := AngleDifference(enemy.Dir, angleToUs)
 				if dist < 2000 && angleDiff < math.Pi/6 {
 					threat.requiresEvasion = true
 					threat.threatLevel += 2

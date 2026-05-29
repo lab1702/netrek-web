@@ -182,6 +182,7 @@ func (c *Client) handleBotCommand(cmd string) {
 			targetBots = 0
 		}
 
+		failedAdds := 0
 		for botsAdded < targetBots {
 			// Select team with fewest bots so far
 			var selectedTeam int
@@ -218,10 +219,24 @@ func (c *Client) handleBotCommand(cmd string) {
 
 			selectedShipType := candidateShips[rand.Intn(len(candidateShips))]
 
-			// AddBot acquires its own lock and silently returns if no free slot
-			c.server.AddBot(selectedTeam, selectedShipType)
-			botsAdded++
-			teamShipCounts[selectedTeam][selectedShipType]++
+			// AddBot acquires its own lock and returns false if the add was
+			// rejected (starbase-per-team limit or no free slot). Only count a
+			// bot as added when AddBot actually succeeds; counting rejects would
+			// skew the per-team ship plan and under-fill the game.
+			if c.server.AddBot(selectedTeam, selectedShipType) {
+				botsAdded++
+				teamShipCounts[selectedTeam][selectedShipType]++
+				failedAdds = 0
+			} else {
+				// Deprioritize this ship type for this team so we don't keep
+				// reselecting an unaddable starbase, and bail out once every
+				// team/ship combination has failed (server is full).
+				teamShipCounts[selectedTeam][selectedShipType]++
+				failedAdds++
+				if failedAdds >= len(teams)*len(allShipTypes) {
+					break
+				}
+			}
 		}
 
 		// Get the actual count of bots added (AddBot may have silently

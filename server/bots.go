@@ -10,7 +10,11 @@ import (
 )
 
 // AddBot adds a new bot player to the game
-func (s *Server) AddBot(team int, ship game.ShipType) {
+// AddBot adds a bot of the given ship type to the team. It returns true if a
+// bot was actually added, and false if the request was rejected (the team
+// already has its one allowed starbase, or there is no free player slot). The
+// boolean lets callers like /fillbots avoid counting rejected adds.
+func (s *Server) AddBot(team int, ship game.ShipType) bool {
 	s.gameState.Mu.Lock()
 	defer s.gameState.Mu.Unlock()
 
@@ -18,7 +22,7 @@ func (s *Server) AddBot(team int, ship game.ShipType) {
 	if ship == game.ShipStarbase {
 		for _, p := range s.gameState.Players {
 			if p.Connected && p.Ship == game.ShipStarbase && p.Team == team && p.Status != game.StatusFree {
-				return // Team already has a starbase
+				return false // Team already has a starbase
 			}
 		}
 	}
@@ -33,7 +37,7 @@ func (s *Server) AddBot(team int, ship game.ShipType) {
 	}
 
 	if botID == -1 {
-		return // No free slots
+		return false // No free slots
 	}
 
 	// Initialize bot player (p.ID is already set by NewGameState)
@@ -70,6 +74,7 @@ func (s *Server) AddBot(team int, ship game.ShipType) {
 	p.NumPlasma = 0
 
 	// Bot join messages are suppressed to reduce chat clutter
+	return true
 }
 
 // UpdateBots updates all bot players' AI
@@ -1170,10 +1175,9 @@ func (s *Server) getPlanetThreats() map[int]planetThreat {
 				// Check if enemy is moving toward the planet (vector analysis)
 				if enemy.Speed > 1.0 && enemyToPlanetDist < 12000 {
 					angleToPlanet := math.Atan2(planet.Y-enemy.Y, planet.X-enemy.X)
-					angleDiff := math.Abs(enemy.Dir - angleToPlanet)
-					if angleDiff > math.Pi {
-						angleDiff = 2*math.Pi - angleDiff
-					}
+					// AngleDifference fully normalizes the wrap (a manual
+					// single-fold can leave a negative angle).
+					angleDiff := AngleDifference(enemy.Dir, angleToPlanet)
 
 					// If enemy is heading roughly toward planet (within 45 degrees)
 					if angleDiff < math.Pi/4 {

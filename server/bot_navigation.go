@@ -30,9 +30,12 @@ func (s *Server) calculateEnhancedInterceptCourse(p, target *game.Player) float6
 		}
 	}
 
-	// Enhanced prediction including acceleration
-	// Use ship speed (not torpedo speed) since this is for navigation intercept
-	mySpeed := math.Max(p.DesSpeed, 2) * 20 // Convert to units/tick, minimum warp 2
+	// Enhanced prediction including acceleration.
+	// Use the bot's ACTUAL speed (not its commanded DesSpeed): a stopped or
+	// damaged bot that just commanded full speed would otherwise overestimate
+	// its closing rate, underestimate time-to-intercept, and aim behind the
+	// target. The Max(...,2) floor keeps the prediction sane while accelerating.
+	mySpeed := math.Max(p.Speed, 2) * 20 // Convert to units/tick, minimum warp 2
 	timeToIntercept := dist / mySpeed
 
 	// Clamp prediction horizon to prevent unrealistic extrapolation at long range.
