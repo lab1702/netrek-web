@@ -9,6 +9,26 @@ import (
 	"github.com/lab1702/netrek-web/game"
 )
 
+// botCmdThrottled enforces the shared bot-command rate limit. It returns true
+// (after notifying the client) when the command should be rejected because it
+// arrived within the cooldown window; otherwise it records the time and returns
+// false. Applied to every bot command so none — including /removebot and
+// /balance — can be spammed to churn the game loop.
+func (c *Client) botCmdThrottled() bool {
+	if time.Since(c.lastBotCmd) < c.botCmdCooldown {
+		c.sendMsg(ServerMessage{
+			Type: MsgTypeMessage,
+			Data: map[string]interface{}{
+				"text": "Please wait before using this command again.",
+				"type": "warning",
+			},
+		})
+		return true
+	}
+	c.lastBotCmd = time.Now()
+	return false
+}
+
 // handleBotCommand processes bot-related slash commands
 func (c *Client) handleBotCommand(cmd string) {
 	parts := strings.Fields(cmd)
@@ -18,18 +38,10 @@ func (c *Client) handleBotCommand(cmd string) {
 
 	switch parts[0] {
 	case "/addbot":
-		// Rate limit bot commands
-		if time.Since(c.lastBotCmd) < c.botCmdCooldown {
-			c.sendMsg(ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": "Please wait before using this command again.",
-					"type": "warning",
-				},
-			})
+		// Rate limit bot-management commands to prevent game-loop churn.
+		if c.botCmdThrottled() {
 			return
 		}
-		c.lastBotCmd = time.Now()
 
 		// /addbot [team] [ship_type]
 		team := game.TeamFed
@@ -75,6 +87,10 @@ func (c *Client) handleBotCommand(cmd string) {
 		c.server.AddBot(team, ship)
 
 	case "/removebot":
+		if c.botCmdThrottled() {
+			return
+		}
+
 		// Remove a random bot — find bot ID under read lock, then remove
 		botID := -1
 		c.server.gameState.Mu.RLock()
@@ -90,22 +106,18 @@ func (c *Client) handleBotCommand(cmd string) {
 		}
 
 	case "/balance":
+		if c.botCmdThrottled() {
+			return
+		}
+
 		// Auto-balance teams with bots
 		c.server.AutoBalanceBots()
 
 	case "/clearbots":
 		// Rate limit destructive bot commands
-		if time.Since(c.lastBotCmd) < c.botCmdCooldown {
-			c.sendMsg(ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": "Please wait before using this command again.",
-					"type": "warning",
-				},
-			})
+		if c.botCmdThrottled() {
 			return
 		}
-		c.lastBotCmd = time.Now()
 
 		// Remove all bots — collect bot IDs under read lock, then remove
 		var botIDs []int
@@ -122,17 +134,9 @@ func (c *Client) handleBotCommand(cmd string) {
 
 	case "/fillbots":
 		// Rate limit destructive bot commands
-		if time.Since(c.lastBotCmd) < c.botCmdCooldown {
-			c.sendMsg(ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": "Please wait before using this command again.",
-					"type": "warning",
-				},
-			})
+		if c.botCmdThrottled() {
 			return
 		}
-		c.lastBotCmd = time.Now()
 
 		// Fill available slots with bots of every ship type
 		// All bots use hard difficulty mode

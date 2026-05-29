@@ -162,3 +162,44 @@ func TestBotTargetPersistence(t *testing.T) {
 			initialTarget, bot.BotTarget, bot.BotTargetLockTime)
 	}
 }
+
+// TestAssessThreatsIgnoresCloakedEnemies verifies the bot threat assessment
+// does not "see" cloaked enemies, matching findNearestEnemy/getPlanetThreats.
+// Otherwise bots raise shields and stop repairing against invisible ships,
+// burning fuel and leaking that they detected a cloaker.
+func TestAssessThreatsIgnoresCloakedEnemies(t *testing.T) {
+	setup := func() (*Server, *game.Player, *game.Player) {
+		s := &Server{gameState: game.NewGameState()}
+		for i := range s.gameState.Players {
+			s.gameState.Players[i] = &game.Player{ID: i, Status: game.StatusFree}
+		}
+		bot := s.gameState.Players[0]
+		bot.Status = game.StatusAlive
+		bot.Team = game.TeamFed
+		bot.Ship = game.ShipCruiser
+		bot.X, bot.Y = 50000, 50000
+
+		enemy := s.gameState.Players[1]
+		enemy.Status = game.StatusAlive
+		enemy.Team = game.TeamKli
+		enemy.Ship = game.ShipCruiser
+		enemy.X, enemy.Y = 50500, 50000 // 500 units away, well inside EnemyVeryClose
+		return s, bot, enemy
+	}
+
+	t.Run("VisibleEnemyIsImmediateThreat", func(t *testing.T) {
+		s, bot, enemy := setup()
+		enemy.Cloaked = false
+		if !s.assessUniversalThreats(bot).immediateThreat {
+			t.Error("a visible nearby enemy should register as an immediate threat")
+		}
+	})
+
+	t.Run("CloakedEnemyIsNotSeen", func(t *testing.T) {
+		s, bot, enemy := setup()
+		enemy.Cloaked = true
+		if s.assessUniversalThreats(bot).immediateThreat {
+			t.Error("a cloaked enemy must not register as an immediate threat (bots can't see cloakers)")
+		}
+	})
+}

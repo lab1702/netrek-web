@@ -1242,6 +1242,12 @@ function lerp(start, end, t) {
     return start + (end - start) * t;
 }
 
+// Squared distance threshold above which a per-tick position change is treated
+// as a teleport (respawn or slot reuse) rather than real movement, so we snap
+// instead of interpolating. 2000 units is well above any legitimate single-tick
+// ship movement but far below cross-map distances.
+const MAX_INTERP_JUMP_SQ = 2000 * 2000;
+
 function getInterpolatedPosition(current, previous, entityId) {
     if (!gameState.interpolation || !previous || !current) {
         return current;
@@ -1260,6 +1266,17 @@ function getInterpolatedPosition(current, previous, entityId) {
     // still holds the death-location coordinates, so lerping would briefly
     // flash the ship at its old position before it appears at the homeworld.
     if (prev.status !== undefined && current.status === 2 && prev.status !== 2) {
+        return current;
+    }
+
+    // Snap (don't interpolate) on an implausibly large position jump. A ship
+    // never moves more than a few hundred units per 100ms tick, so a jump this
+    // large means a respawn or a slot being reused by a different player
+    // between updates; lerping would slide the ship across the map from the
+    // previous occupant's position.
+    const jx = (current.x || 0) - (prev.x || 0);
+    const jy = (current.y || 0) - (prev.y || 0);
+    if (jx * jx + jy * jy > MAX_INTERP_JUMP_SQ) {
         return current;
     }
 

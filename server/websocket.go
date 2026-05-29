@@ -176,6 +176,31 @@ func (s *Server) Shutdown() {
 	close(s.done)
 }
 
+// freeDisconnectedSlot frees a human player's slot on disconnect, but only if
+// the slot is still owned by the given client. This guards against a stale or
+// delayed unregister wiping a slot that has since been reassigned to a new
+// client (bots and slots owned by another client are left untouched). Returns
+// true if a slot was freed, so the caller can broadcast updated team counts.
+// Acquires the gameState lock internally.
+func (s *Server) freeDisconnectedSlot(clientID, playerID int) bool {
+	if playerID < 0 || playerID >= game.MaxPlayers {
+		return false
+	}
+	s.gameState.Mu.Lock()
+	defer s.gameState.Mu.Unlock()
+	p := s.gameState.Players[playerID]
+	if p.IsBot || p.OwnerClientID != clientID {
+		return false
+	}
+	log.Printf("Freeing slot for disconnected player %s", p.Name)
+	p.Status = game.StatusFree
+	p.Name = ""
+	p.Connected = false
+	p.LastUpdate = time.Time{}
+	p.OwnerClientID = -1
+	return true
+}
+
 // Run starts the server main loop
 func (s *Server) Run() {
 	// Start game loop
@@ -202,23 +227,9 @@ func (s *Server) Run() {
 				close(client.send)
 				s.activeConns.Add(-1) // Release the connection slot
 
-				// Immediately free the player slot on disconnect
-				if playerID >= 0 && playerID < game.MaxPlayers {
-					s.gameState.Mu.Lock()
-					p := s.gameState.Players[playerID]
-					isBot := p.IsBot
-					// Only free if it's a human player (not a bot)
-					if !isBot {
-						log.Printf("Freeing slot for disconnected player %s", p.Name)
-						p.Status = game.StatusFree
-						p.Name = ""
-						p.Connected = false
-						p.LastUpdate = time.Time{}
-						p.OwnerClientID = -1
-						needBroadcast = true
-					}
-					s.gameState.Mu.Unlock()
-				}
+				// Immediately free the player slot on disconnect, but only if
+				// this client still owns it.
+				needBroadcast = s.freeDisconnectedSlot(client.ID, playerID)
 			}
 			s.mu.Unlock()
 			// Broadcast updated team counts after releasing s.mu to avoid deadlock

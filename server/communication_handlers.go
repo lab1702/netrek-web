@@ -31,7 +31,7 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 
 	playerID := c.GetPlayerID()
 	c.server.gameState.Mu.RLock()
-	p := c.server.gameState.Players[playerID]
+	p := c.getPlayer() // ownership-checked: nil if the slot was reassigned
 	if p == nil {
 		c.server.gameState.Mu.RUnlock()
 		return
@@ -71,7 +71,7 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 	// to avoid stale routing between two separate RLock calls.
 	playerID := c.GetPlayerID()
 	c.server.gameState.Mu.RLock()
-	p := c.server.gameState.Players[playerID]
+	p := c.getPlayer() // ownership-checked: nil if the slot was reassigned
 	if p == nil {
 		c.server.gameState.Mu.RUnlock()
 		return
@@ -135,7 +135,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 	// Read player info under game state lock
 	playerID := c.GetPlayerID()
 	c.server.gameState.Mu.RLock()
-	p := c.server.gameState.Players[playerID]
+	p := c.getPlayer() // ownership-checked: nil if the slot was reassigned
 	targetPlayer := c.server.gameState.Players[msgData.Target]
 	if p == nil || targetPlayer == nil {
 		c.server.gameState.Mu.RUnlock()

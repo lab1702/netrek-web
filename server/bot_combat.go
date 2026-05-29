@@ -358,9 +358,12 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 		}
 	}
 
-	// Check nearby enemies for additional context
+	// Check nearby enemies for additional context. Skip cloaked enemies so the
+	// bot can't "see" them for shield/threat decisions (consistent with
+	// findNearestEnemy and getPlanetThreats); reactions to unseen attackers are
+	// handled separately via the bot hit timer.
 	for _, enemy := range s.gameState.Players {
-		if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
+		if enemy.Status == game.StatusAlive && enemy.Team != p.Team && !enemy.Cloaked {
 			dist := game.Distance(p.X, p.Y, enemy.X, enemy.Y)
 
 			// Track closest enemy (for shield decisions)
