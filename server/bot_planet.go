@@ -37,6 +37,9 @@ func (s *Server) findBestPlanetToTake(p *game.Player) *game.Planet {
 		}
 
 		// Base score on distance
+		if dist < 1 {
+			dist = 1 // avoid divide-by-zero / +Inf when bot is at the planet's exact position
+		}
 		score := 15000.0 / dist
 
 		// Strategic value assessment
@@ -363,6 +366,9 @@ func (s *Server) findPlanetToRaid(p *game.Player) *game.Planet {
 		}
 
 		if defenders == 0 && planet.Armies > 2 {
+			if dist < 1 {
+				dist = 1 // avoid divide-by-zero / +Inf when bot is at the planet's exact position
+			}
 			score := 10000.0/dist + float64(planet.Armies)*500
 
 			if score > bestScore {

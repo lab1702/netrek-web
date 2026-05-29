@@ -329,6 +329,9 @@ func (s *Server) isPlayerIsolated(playerID int) bool {
 
 // calculateTargetScore calculates the value score for a potential target
 func (s *Server) calculateTargetScore(p *game.Player, target *game.Player, dist float64) float64 {
+	if dist < 1 {
+		dist = 1 // avoid divide-by-zero / +Inf when target shares our exact position
+	}
 	score := TargetDistanceFactor / dist
 
 	targetStats := game.ShipData[target.Ship]

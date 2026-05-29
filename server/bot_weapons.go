@@ -194,14 +194,16 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 		s.killPlayer(hitTarget, p.ID, game.KillPhaser, int(damage))
 	}
 
-	// Create phaser visual
+	// Create phaser visual for all players.
+	// Use "target" (not "to") so the broadcast router does not treat this
+	// as a private message routed only to the player that was hit.
 	select {
 	case s.broadcast <- ServerMessage{
 		Type: "phaser",
 		Data: map[string]interface{}{
-			"from":  p.ID,
-			"to":    hitTarget.ID,
-			"range": myPhaserRange,
+			"from":   p.ID,
+			"target": hitTarget.ID,
+			"range":  myPhaserRange,
 		},
 	}:
 	default:

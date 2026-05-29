@@ -123,7 +123,7 @@ class InfoWindow {
             const teamSlot = formatTeamSlot(player, playerIndex);
             html += `<span style="font-weight: bold; margin-right: 8px; color: ${this.getTeamColor(player.team)};">${teamSlot}</span>`;
         }
-        html += `${escapeHtml(player.name)} (${escapeHtml(player.rank) || 'Ensign'})`;
+        html += `${escapeHtml(player.name)}`;
         html += '</div>';
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
         html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(player.killsStreak || 0))} / ${escapeHtml(Math.floor(player.kills))} / ${escapeHtml(player.deaths || 0)} / ${escapeHtml(kd)})</div>`;

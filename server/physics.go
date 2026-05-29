@@ -60,8 +60,11 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 		}
 	}
 
-	// Update speed (with damage-based max speed enforcement)
-	if p.Speed != p.DesSpeed {
+	// Update speed (with damage-based max speed enforcement).
+	// The max-speed / overheat caps are computed every tick (not only when
+	// Speed != DesSpeed) so a new overheat or damage cap is enforced even when
+	// the ship is currently cruising at a steady speed.
+	{
 		// Calculate max speed based on damage
 		shipStats := game.ShipData[p.Ship]
 		maxSpeed := float64(shipStats.MaxSpeed)

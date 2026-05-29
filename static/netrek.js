@@ -1218,6 +1218,7 @@ function handleServerMessage(msg) {
             gameState.phasers.push({
                 from: msg.data.from,
                 to: msg.data.to,
+                target: msg.data.target, // Player id this phaser connected with (hit)
                 dir: msg.data.dir || 0, // Direction for missed phasers
                 x: msg.data.x || 0,     // X coordinate for plasma hits
                 y: msg.data.y || 0,     // Y coordinate for plasma hits
@@ -1470,9 +1471,9 @@ function renderTactical() {
         const fromY = centerY + (fromPlayer.y - myPlayer.y) * scale;
         let toX, toY;
         
-        if (phaser.to >= 0) {
+        if (phaser.target >= 0) {
             // Phaser hit a player target
-            const toPlayer = gameState.players[phaser.to];
+            const toPlayer = gameState.players[phaser.target];
             if (!toPlayer) return false;
             toX = centerX + (toPlayer.x - myPlayer.x) * scale;
             toY = centerY + (toPlayer.y - myPlayer.y) * scale;
@@ -1516,7 +1517,7 @@ function renderTactical() {
         ctx.stroke();
         
         // Add hit effect if phaser hit a target
-        if (phaser.to >= 0 && phaser.life > 8) {
+        if (phaser.target >= 0 && phaser.life > 8) {
             // Draw impact flash
             ctx.fillStyle = color;
             ctx.globalAlpha = phaser.life / 15;

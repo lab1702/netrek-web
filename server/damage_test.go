@@ -123,7 +123,7 @@ func TestTorpedoShieldHandling(t *testing.T) {
 		Damage: 40,
 	}
 
-	server.handleTorpedoHit(torp, target, 0)
+	server.handleTorpedoHit(torp, target)
 
 	// Shields should absorb all damage
 	if target.Shields != 60 {
@@ -154,7 +154,7 @@ func TestPlasmaShieldHandling(t *testing.T) {
 		Damage: 50,
 	}
 
-	server.handlePlasmaHit(plasma, target, 0)
+	server.handlePlasmaHit(plasma, target)
 
 	// Shields should absorb 20, hull takes remaining 30
 	if target.Shields != 0 {

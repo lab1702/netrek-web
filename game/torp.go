@@ -37,6 +37,12 @@ func MaxTorpRange(shipStats ShipStats) int {
 // to make bots fire only when a hit is reasonably possible.
 // The safety margin accounts for target movement and aiming imperfection.
 func EffectiveTorpRange(shipStats ShipStats, safetyMargin float64) int {
+	// Clamp safety margin to a valid range (matches EffectivePlasmaRange)
+	if safetyMargin < 0 {
+		safetyMargin = 0
+	} else if safetyMargin > 1.0 {
+		safetyMargin = 1.0
+	}
 	maxRange := MaxTorpRange(shipStats)
 	effectiveRange := float64(maxRange) * safetyMargin
 	return int(effectiveRange)

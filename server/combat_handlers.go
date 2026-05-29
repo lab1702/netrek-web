@@ -265,14 +265,16 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			c.server.killPlayer(target, p.ID, game.KillPhaser, int(math.Round(damage)))
 		}
 
-		// Send phaser visual (non-blocking)
+		// Send phaser visual to all players (non-blocking).
+		// Use "target" (not "to") so the broadcast router does not treat this
+		// as a private message routed only to the player that was hit.
 		select {
 		case c.server.broadcast <- ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
-				"from":  p.ID,
-				"to":    target.ID,
-				"range": myPhaserRange,
+				"from":   p.ID,
+				"target": target.ID,
+				"range":  myPhaserRange,
 			},
 		}:
 		default:

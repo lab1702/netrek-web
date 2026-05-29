@@ -93,7 +93,7 @@ func (s *Server) updateTorpedoes() {
 
 			if game.Distance(torp.X, torp.Y, p.X, p.Y) <= game.ExplosionDist {
 				// Hit!
-				s.handleTorpedoHit(torp, p, i)
+				s.handleTorpedoHit(torp, p)
 				// Mark torpedo as exploding - it will be removed next frame
 				torp.Status = game.TorpDet
 				break
@@ -180,7 +180,7 @@ func (s *Server) updatePlasmas() {
 
 			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) <= game.PlasmaExplosionDist {
 				// Hit!
-				s.handlePlasmaHit(plasma, p, i)
+				s.handlePlasmaHit(plasma, p)
 				hit = true
 				break
 			}
@@ -199,7 +199,7 @@ func (s *Server) updatePlasmas() {
 }
 
 // handleTorpedoHit processes a torpedo hit on a player
-func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targetIndex int) {
+func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player) {
 	actualDamage := game.ApplyDamageWithShields(target, torp.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 		s.killPlayer(target, torp.Owner, game.KillTorp, actualDamage)
@@ -215,7 +215,7 @@ func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player, targe
 }
 
 // handlePlasmaHit processes a plasma hit on a player
-func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player, targetIndex int) {
+func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player) {
 	actualDamage := game.ApplyDamageWithShields(target, plasma.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
 		s.killPlayer(target, plasma.Owner, game.KillPlasma, actualDamage)
