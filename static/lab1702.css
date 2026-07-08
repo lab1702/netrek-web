@@ -64,7 +64,8 @@
 ::selection { background: var(--selection-bg); }
 
 a { color: var(--amber); text-decoration: none; }
-a:hover { color: var(--link-hover); text-decoration: underline; }
+/* buttons rendered as <a> keep their own colors on hover */
+a:hover:not(.l7-btn) { color: var(--link-hover); text-decoration: underline; }
 
 /* mono uppercase section label */
 .l7-label {
