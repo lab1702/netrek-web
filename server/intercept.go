@@ -18,7 +18,6 @@ type Vector2D struct {
 type InterceptSolution struct {
 	Direction       float64 // Direction to fire in radians
 	TimeToIntercept float64 // Time until projectile reaches target
-	InterceptPoint  Point2D // Where the intercept will occur
 }
 
 // InterceptDirection calculates the direction to fire a projectile to intercept a moving target.
@@ -52,7 +51,6 @@ func InterceptDirection(shooterPos, targetPos Point2D, targetVel Vector2D, projS
 		return &InterceptSolution{
 			Direction:       0.0,
 			TimeToIntercept: 1e-6, // Very small positive time instead of zero
-			InterceptPoint:  shooterPos,
 		}, true
 	}
 
@@ -71,7 +69,6 @@ func InterceptDirection(shooterPos, targetPos Point2D, targetVel Vector2D, projS
 		return &InterceptSolution{
 			Direction:       direction,
 			TimeToIntercept: timeToIntercept,
-			InterceptPoint:  targetPos,
 		}, true
 	}
 
@@ -109,7 +106,6 @@ func InterceptDirection(shooterPos, targetPos Point2D, targetVel Vector2D, projS
 		return &InterceptSolution{
 			Direction:       direction,
 			TimeToIntercept: t,
-			InterceptPoint:  Point2D{X: interceptX, Y: interceptY},
 		}, true
 	}
 
@@ -146,7 +142,6 @@ func InterceptDirection(shooterPos, targetPos Point2D, targetVel Vector2D, projS
 	return &InterceptSolution{
 		Direction:       direction,
 		TimeToIntercept: t,
-		InterceptPoint:  Point2D{X: interceptX, Y: interceptY},
 	}, true
 }
 

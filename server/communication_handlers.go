@@ -40,17 +40,14 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 	c.server.gameState.Mu.RUnlock()
 
 	// Broadcast to all players (non-blocking)
-	select {
-	case c.server.broadcast <- ServerMessage{
+	c.server.tryBroadcast(ServerMessage{
 		Type: MsgTypeMessage,
 		Data: map[string]interface{}{
 			"text": fmt.Sprintf("[ALL] %s: %s", senderName, msgData.Text),
 			"type": "all",
 			"from": playerID,
 		},
-	}:
-	default:
-	}
+	})
 }
 
 // handleTeamMessage handles team-only messages

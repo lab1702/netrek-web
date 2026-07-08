@@ -33,9 +33,9 @@ func TestMaxPlasmaRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := MaxPlasmaRange(tt.fuseTicks, tt.speedUnitsPerTick)
+			result := maxPlasmaRange(tt.fuseTicks, tt.speedUnitsPerTick)
 			if result != tt.expectedRange {
-				t.Errorf("MaxPlasmaRange(%d, %.1f) = %.1f, want %.1f",
+				t.Errorf("maxPlasmaRange(%d, %.1f) = %.1f, want %.1f",
 					tt.fuseTicks, tt.speedUnitsPerTick, result, tt.expectedRange)
 			}
 		})
@@ -132,34 +132,5 @@ func TestEffectivePlasmaRange(t *testing.T) {
 					tt.ship, tt.safetyFactor, result, tt.expectedRange)
 			}
 		})
-	}
-}
-
-func TestGetPlasmaRangeTable(t *testing.T) {
-	ranges := GetPlasmaRangeTable()
-
-	// Test that all ship types are included
-	expectedShips := []ShipType{ShipScout, ShipDestroyer, ShipCruiser, ShipBattleship, ShipAssault, ShipStarbase}
-	for _, ship := range expectedShips {
-		if _, exists := ranges[ship]; !exists {
-			t.Errorf("Missing ship type %v in range table", ship)
-		}
-	}
-
-	// Test some specific expected values
-	if ranges[ShipDestroyer] != 9000.0 {
-		t.Errorf("Expected Destroyer range 9000.0, got %.1f", ranges[ShipDestroyer])
-	}
-
-	if ranges[ShipCruiser] != 10500.0 {
-		t.Errorf("Expected Cruiser range 10500.0, got %.1f", ranges[ShipCruiser])
-	}
-
-	if ranges[ShipScout] != 0.0 {
-		t.Errorf("Expected Scout range 0.0 (no plasma), got %.1f", ranges[ShipScout])
-	}
-
-	if ranges[ShipAssault] != 0.0 {
-		t.Errorf("Expected Assault range 0.0 (no plasma), got %.1f", ranges[ShipAssault])
 	}
 }

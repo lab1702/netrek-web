@@ -2,6 +2,7 @@ package server
 
 import (
 	"math"
+	"math/rand"
 
 	"github.com/lab1702/netrek-web/game"
 )
@@ -170,8 +171,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 
 	if hitTarget == nil {
 		// Miss — send phaser visual with no target
-		select {
-		case s.broadcast <- ServerMessage{
+		s.tryBroadcast(ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
 				"from":  p.ID,
@@ -179,9 +179,7 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 				"dir":   course,
 				"range": myPhaserRange,
 			},
-		}:
-		default:
-		}
+		})
 		return
 	}
 
@@ -197,17 +195,14 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	// Create phaser visual for all players.
 	// Use "target" (not "to") so the broadcast router does not treat this
 	// as a private message routed only to the player that was hit.
-	select {
-	case s.broadcast <- ServerMessage{
+	s.tryBroadcast(ServerMessage{
 		Type: "phaser",
 		Data: map[string]interface{}{
 			"from":   p.ID,
 			"target": hitTarget.ID,
 			"range":  myPhaserRange,
 		},
-	}:
-	default:
-	}
+	})
 }
 
 // fireBotPhaserAtPlasma fires a phaser at an incoming plasma torpedo to destroy it
@@ -268,8 +263,7 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	plasma.Status = game.TorpDet // Detonate
 
 	// Send phaser visual to plasma location
-	select {
-	case s.broadcast <- ServerMessage{
+	s.tryBroadcast(ServerMessage{
 		Type: "phaser",
 		Data: map[string]interface{}{
 			"from":  p.ID,
@@ -278,9 +272,7 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 			"y":     plasma.Y,
 			"range": myPhaserRange,
 		},
-	}:
-	default:
-	}
+	})
 
 	p.Fuel -= phaserCost
 	p.WTemp += 70
@@ -363,7 +355,6 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) bool {
 	maxPlasmaRange := game.MaxPlasmaRangeForShip(p.Ship)
 	if dist > maxPlasmaRange {
 		// Don't fire - plasma would expire before reaching target
-		logPlasmaFiring("SKIPPED", int(p.Ship), dist, maxPlasmaRange, "target beyond max range")
 		return false
 	}
 
@@ -394,8 +385,6 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) bool {
 	p.Fuel -= plasmaCost
 	p.WTemp += 100 // Plasma heats weapons (matching human handler)
 
-	// Log successful plasma firing
-	logPlasmaFiring("FIRED", int(p.Ship), dist, maxPlasmaRange, "within range")
 	return true
 }
 
@@ -574,10 +563,7 @@ func (s *Server) detonatePassingTorpedoes(p *game.Player) {
 				dx := enemy.X - torp.X
 				dy := enemy.Y - torp.Y
 				angleToEnemy := math.Atan2(dy, dx)
-				angleDiff := math.Abs(angleToEnemy - torp.Dir)
-				if angleDiff > math.Pi {
-					angleDiff = 2*math.Pi - angleDiff
-				}
+				angleDiff := AngleDifference(angleToEnemy, torp.Dir)
 
 				// Only detonate if torpedo is clearly passing by (not heading at) the enemy
 				if angleDiff > math.Pi/4 {
@@ -594,4 +580,14 @@ func (s *Server) detonatePassingTorpedoes(p *game.Player) {
 			}
 		}
 	}
+}
+
+// maxJitterDeg is the maximum random angle deviation in degrees for bot torpedo firing
+const maxJitterDeg = 5.0
+
+// randomJitterRad returns a random angle in radians within ±maxJitterDeg
+// This adds unpredictability to bot torpedo firing to make them harder to dodge
+func randomJitterRad() float64 {
+	deg := (rand.Float64()*2 - 1) * maxJitterDeg
+	return deg * math.Pi / 180
 }

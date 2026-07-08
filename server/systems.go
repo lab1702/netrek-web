@@ -29,17 +29,14 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		p.Repairing = true
 		// Send message about starting repairs (private to the repairing player,
 		// matching the repair-completion message below).
-		select {
-		case s.broadcast <- ServerMessage{
+		s.tryBroadcast(ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("%s is repairing damage", formatPlayerName(p)),
 				"type": "info",
 				"to":   playerIndex,
 			},
-		}:
-		default:
-		}
+		})
 	}
 
 	// Update fuel and engine temperature
@@ -75,7 +72,7 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 	// Recharge fuel using ship-specific rate (every tick)
 	shipStats := game.ShipData[p.Ship]
 	if p.Fuel < shipStats.MaxFuel {
-		p.Fuel = game.Min(p.Fuel+shipStats.FuelRecharge, shipStats.MaxFuel)
+		p.Fuel = min(p.Fuel+shipStats.FuelRecharge, shipStats.MaxFuel)
 	}
 
 	// Cool weapons and engines using ship-specific rates
@@ -133,7 +130,7 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		if planet.Owner == p.Team && (planet.Flags&game.PlanetFuel) != 0 {
 			// Extra recharge at fuel planets (applied every 10 ticks)
 			if s.gameState.TickCount%10 == 0 {
-				p.Fuel = game.Min(p.Fuel+shipStats.FuelRecharge, shipStats.MaxFuel)
+				p.Fuel = min(p.Fuel+shipStats.FuelRecharge, shipStats.MaxFuel)
 			}
 		}
 	}
@@ -168,12 +165,12 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 
 				// Repair shields by 3 points (even with shields up)
 				if p.Shields < shipStats.MaxShields {
-					p.Shields = game.Min(p.Shields+3, shipStats.MaxShields)
+					p.Shields = min(p.Shields+3, shipStats.MaxShields)
 				}
 
 				// Repair hull damage by 2 points (only with shields down)
 				if !p.Shields_up && p.Damage > 0 {
-					p.Damage = game.Max(p.Damage-2, 0)
+					p.Damage = max(p.Damage-2, 0)
 				}
 			}
 
@@ -182,20 +179,17 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 				p.Repairing = false
 				p.RepairCounter = 0
 				// Send completion notice to the pilot
-				select {
-				case s.broadcast <- ServerMessage{
+				s.tryBroadcast(ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": fmt.Sprintf("%s has completed repairs", formatPlayerName(p)),
 						"type": "info",
 						"to":   playerIndex, // Private message to the specific player
 					},
-				}:
-				default:
-				}
+				})
 			} else {
 				// Add small fuel consumption for repairs
-				p.Fuel = game.Max(p.Fuel-1, 0)
+				p.Fuel = max(p.Fuel-1, 0)
 			}
 		} else {
 			// Cancel repair mode and repair request if moving while not orbiting

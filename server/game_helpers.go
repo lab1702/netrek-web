@@ -241,29 +241,10 @@ func (s *Server) broadcastDeathMessage(victim *game.Player, killer *game.Player)
 	}
 
 	// Non-blocking send to avoid deadlock when called while holding gameState.Mu
-	select {
-	case s.broadcast <- ServerMessage{
+	s.tryBroadcast(ServerMessage{
 		Type: "message",
 		Data: messageData,
-	}:
-	default:
-	}
-}
-
-// getTeamName returns the team name for display
-func getTeamName(team int) string {
-	switch team {
-	case game.TeamFed:
-		return "Federation"
-	case game.TeamRom:
-		return "Romulan"
-	case game.TeamKli:
-		return "Klingon"
-	case game.TeamOri:
-		return "Orion"
-	default:
-		return "Independent"
-	}
+	})
 }
 
 // countStarbasesByTeam returns the number of starbases each team currently has
@@ -321,8 +302,7 @@ func (s *Server) computeTeamCounts() TeamCountData {
 // broadcastTeamCountsData broadcasts pre-computed team counts to all clients.
 // Use this when you need to capture counts under a lock and broadcast after releasing.
 func (s *Server) broadcastTeamCountsData(counts TeamCountData) {
-	select {
-	case s.broadcast <- ServerMessage{
+	s.tryBroadcast(ServerMessage{
 		Type: MsgTypeTeamUpdate,
 		Data: map[string]interface{}{
 			"total": counts.Total,
@@ -333,9 +313,7 @@ func (s *Server) broadcastTeamCountsData(counts TeamCountData) {
 				"ori": counts.Ori,
 			},
 		},
-	}:
-	default:
-	}
+	})
 }
 
 // broadcastTeamCounts sends current team counts to all connected clients.

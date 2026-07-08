@@ -19,143 +19,72 @@ func (s *Server) updateProjectiles() {
 }
 
 // updateTorpedoes handles torpedo movement, collision detection, and cleanup
-// Uses in-place filtering to avoid slice allocation every frame
 func (s *Server) updateTorpedoes() {
-	writeIdx := 0
-	for _, torp := range s.gameState.Torps {
-		// If torpedo is already exploding, remove it this frame
-		if torp.Status == game.TorpDet {
-			// Decrement owner's torpedo count (floor at 0 to handle post-death expiry)
-			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil && owner.NumTorps > 0 {
-					owner.NumTorps--
-				}
+	s.gameState.Torps = s.updateProjectileList(s.gameState.Torps, game.ExplosionDist, game.KillTorp,
+		func(owner *game.Player) {
+			if owner.NumTorps > 0 {
+				owner.NumTorps--
 			}
-			continue
-		}
-
-		// Move torpedo before decrementing fuse so projectiles travel
-		// the full number of ticks their fuse allows (fixes off-by-one
-		// where fuse was decremented before movement, causing torpedoes
-		// to travel one tick short of their configured range).
-		torp.X += torp.Speed * math.Cos(torp.Dir)
-		torp.Y += torp.Speed * math.Sin(torp.Dir)
-
-		// Decrement fuse every tick (now running at 10 ticks/sec)
-		torp.Fuse--
-		if torp.Fuse <= 0 {
-			// Torpedo exploded
-			// Decrement owner's torpedo count (floor at 0 to handle post-death expiry)
-			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil && owner.NumTorps > 0 {
-					owner.NumTorps--
-				}
-			}
-			continue
-		}
-
-		// Check if torpedo went out of bounds
-		if torp.X < 0 || torp.X > game.GalaxyWidth || torp.Y < 0 || torp.Y > game.GalaxyHeight {
-			// Torpedo hit galaxy edge - remove it (floor at 0 to handle post-death expiry)
-			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[torp.Owner]; owner != nil && owner.NumTorps > 0 {
-					owner.NumTorps--
-				}
-			}
-			continue
-		}
-
-		// Check for hits using spatial grid for O(1) average lookup (falls back to O(n) if grid unavailable)
-		var nearbyPlayers []int
-		if s.playerGrid != nil {
-			nearbyPlayers = s.playerGrid.GetNearby(torp.X, torp.Y)
-		} else {
-			// Fallback: check all players (O(n) per projectile)
-			for i := 0; i < game.MaxPlayers; i++ {
-				if s.gameState.Players[i].Status == game.StatusAlive {
-					nearbyPlayers = append(nearbyPlayers, i)
-				}
-			}
-		}
-		for _, i := range nearbyPlayers {
-			p := s.gameState.Players[i]
-			// Skip if not alive, self-damage, or friendly fire
-			if p.Status != game.StatusAlive || p.ID == torp.Owner {
-				continue
-			}
-			// Prevent friendly fire - check if target is on same team as torpedo owner
-			if torp.Owner >= 0 && torp.Owner < game.MaxPlayers {
-				owner := s.gameState.Players[torp.Owner]
-				if owner != nil && p.Team == owner.Team {
-					continue
-				}
-			}
-
-			if game.Distance(torp.X, torp.Y, p.X, p.Y) <= game.ExplosionDist {
-				// Hit!
-				s.handleTorpedoHit(torp, p)
-				// Mark torpedo as exploding - it will be removed next frame
-				torp.Status = game.TorpDet
-				break
-			}
-		}
-
-		// Keep torpedo in list (even if exploding, so it shows for one frame)
-		s.gameState.Torps[writeIdx] = torp
-		writeIdx++
-	}
-	s.gameState.Torps = s.gameState.Torps[:writeIdx]
+		})
 }
 
 // updatePlasmas handles plasma movement, collision detection, and cleanup
-// Uses in-place filtering to avoid slice allocation every frame
 func (s *Server) updatePlasmas() {
+	s.gameState.Plasmas = s.updateProjectileList(s.gameState.Plasmas, game.PlasmaExplosionDist, game.KillPlasma,
+		func(owner *game.Player) {
+			if owner.NumPlasma > 0 {
+				owner.NumPlasma--
+			}
+		})
+}
+
+// updateProjectileList moves projectiles, expires fuses, and detects hits,
+// filtering the list in place to avoid slice allocation every frame.
+// Torpedoes and plasmas share the same struct and lifecycle; they differ only
+// in explosion distance, kill reason, and which per-player counter to
+// decrement (decCount floors at 0 to handle post-death expiry).
+func (s *Server) updateProjectileList(list []*game.Torpedo, explDist float64, killType int, decCount func(*game.Player)) []*game.Torpedo {
 	writeIdx := 0
-	for _, plasma := range s.gameState.Plasmas {
-		// If plasma is already exploding, remove it this frame
-		if plasma.Status == game.TorpDet {
-			// Decrement owner's plasma count (floor at 0 to handle post-death expiry)
-			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.NumPlasma > 0 {
-					owner.NumPlasma--
+	for _, t := range list {
+		decOwner := func() {
+			if t.Owner >= 0 && t.Owner < game.MaxPlayers {
+				if owner := s.gameState.Players[t.Owner]; owner != nil {
+					decCount(owner)
 				}
 			}
+		}
+
+		// If projectile is already exploding, remove it this frame
+		if t.Status == game.TorpDet {
+			decOwner()
 			continue
 		}
-		// Move plasma before decrementing fuse so projectiles travel
-		// the full number of ticks their fuse allows (same fix as torpedoes).
-		plasma.X += plasma.Speed * math.Cos(plasma.Dir)
-		plasma.Y += plasma.Speed * math.Sin(plasma.Dir)
+
+		// Move projectile before decrementing fuse so projectiles travel
+		// the full number of ticks their fuse allows (fixes off-by-one
+		// where fuse was decremented before movement, causing projectiles
+		// to travel one tick short of their configured range).
+		t.X += t.Speed * math.Cos(t.Dir)
+		t.Y += t.Speed * math.Sin(t.Dir)
 
 		// Decrement fuse every tick (now running at 10 ticks/sec)
-		plasma.Fuse--
-		if plasma.Fuse <= 0 {
-			// Plasma dissipated
-			// Decrement owner's plasma count (floor at 0 to handle post-death expiry)
-			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.NumPlasma > 0 {
-					owner.NumPlasma--
-				}
-			}
+		t.Fuse--
+		if t.Fuse <= 0 {
+			// Projectile expired
+			decOwner()
 			continue
 		}
 
-		// Check if plasma went out of bounds
-		if plasma.X < 0 || plasma.X > game.GalaxyWidth || plasma.Y < 0 || plasma.Y > game.GalaxyHeight {
-			// Plasma hit galaxy edge - remove it (floor at 0 to handle post-death expiry)
-			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[plasma.Owner]; owner != nil && owner.NumPlasma > 0 {
-					owner.NumPlasma--
-				}
-			}
+		// Check if projectile went out of bounds - remove it
+		if t.X < 0 || t.X > game.GalaxyWidth || t.Y < 0 || t.Y > game.GalaxyHeight {
+			decOwner()
 			continue
 		}
 
 		// Check for hits using spatial grid for O(1) average lookup (falls back to O(n) if grid unavailable)
-		hit := false
 		var nearbyPlayers []int
 		if s.playerGrid != nil {
-			nearbyPlayers = s.playerGrid.GetNearby(plasma.X, plasma.Y)
+			nearbyPlayers = s.playerGrid.GetNearby(t.X, t.Y)
 		} else {
 			// Fallback: check all players (O(n) per projectile)
 			for i := 0; i < game.MaxPlayers; i++ {
@@ -166,62 +95,41 @@ func (s *Server) updatePlasmas() {
 		}
 		for _, i := range nearbyPlayers {
 			p := s.gameState.Players[i]
-			// Skip if not alive, self-damage, or friendly fire
-			if p.Status != game.StatusAlive || p.ID == plasma.Owner {
+			// Skip if not alive or self-damage
+			if p.Status != game.StatusAlive || p.ID == t.Owner {
 				continue
 			}
-			// Prevent friendly fire - check if target is on same team as plasma owner
-			if plasma.Owner >= 0 && plasma.Owner < game.MaxPlayers {
-				owner := s.gameState.Players[plasma.Owner]
+			// Prevent friendly fire - check if target is on same team as projectile owner
+			if t.Owner >= 0 && t.Owner < game.MaxPlayers {
+				owner := s.gameState.Players[t.Owner]
 				if owner != nil && p.Team == owner.Team {
 					continue
 				}
 			}
 
-			if game.Distance(plasma.X, plasma.Y, p.X, p.Y) <= game.PlasmaExplosionDist {
-				// Hit!
-				s.handlePlasmaHit(plasma, p)
-				hit = true
+			if game.Distance(t.X, t.Y, p.X, p.Y) <= explDist {
+				// Hit! Mark as exploding - it will be removed next frame
+				s.handleProjectileHit(t, p, killType)
+				t.Status = game.TorpDet
 				break
 			}
 		}
 
-		if hit {
-			// Mark plasma as exploding - it will be removed next frame
-			plasma.Status = game.TorpDet
-		}
-
-		// Keep plasma in list (even if exploding, so it shows for one frame)
-		s.gameState.Plasmas[writeIdx] = plasma
+		// Keep projectile in list (even if exploding, so it shows for one frame)
+		list[writeIdx] = t
 		writeIdx++
 	}
-	s.gameState.Plasmas = s.gameState.Plasmas[:writeIdx]
+	return list[:writeIdx]
 }
 
-// handleTorpedoHit processes a torpedo hit on a player
-func (s *Server) handleTorpedoHit(torp *game.Torpedo, target *game.Player) {
-	actualDamage := game.ApplyDamageWithShields(target, torp.Damage)
+// handleProjectileHit processes a torpedo or plasma hit on a player
+func (s *Server) handleProjectileHit(t *game.Torpedo, target *game.Player, killType int) {
+	actualDamage := game.ApplyDamageWithShields(target, t.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-		s.killPlayer(target, torp.Owner, game.KillTorp, actualDamage)
+		s.killPlayer(target, t.Owner, killType, actualDamage)
 	} else if s.gameState.T_mode {
 		// Non-lethal hit: still track damage for tournament stats
-		if stats, ok := s.gameState.TournamentStats[torp.Owner]; ok {
-			stats.DamageDealt += actualDamage
-		}
-		if stats, ok := s.gameState.TournamentStats[target.ID]; ok {
-			stats.DamageTaken += actualDamage
-		}
-	}
-}
-
-// handlePlasmaHit processes a plasma hit on a player
-func (s *Server) handlePlasmaHit(plasma *game.Plasma, target *game.Player) {
-	actualDamage := game.ApplyDamageWithShields(target, plasma.Damage)
-	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-		s.killPlayer(target, plasma.Owner, game.KillPlasma, actualDamage)
-	} else if s.gameState.T_mode {
-		// Non-lethal hit: still track damage for tournament stats
-		if stats, ok := s.gameState.TournamentStats[plasma.Owner]; ok {
+		if stats, ok := s.gameState.TournamentStats[t.Owner]; ok {
 			stats.DamageDealt += actualDamage
 		}
 		if stats, ok := s.gameState.TournamentStats[target.ID]; ok {

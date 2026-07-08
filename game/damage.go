@@ -12,7 +12,7 @@ func ApplyDamageWithShields(p *Player, damage int) int {
 
 	// Apply damage to shields first if they're up and have capacity
 	if p.Shields_up && p.Shields > 0 {
-		shieldDamage := Min(damage, p.Shields)
+		shieldDamage := min(damage, p.Shields)
 		p.Shields -= shieldDamage
 		damage -= shieldDamage
 		totalApplied += shieldDamage

@@ -96,16 +96,13 @@ func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 				p.Deaths++ // Increment death count
 
 				// Send death message
-				select {
-				case s.broadcast <- ServerMessage{
+				s.tryBroadcast(ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": fmt.Sprintf("%s killed by %s [planet]", formatPlayerName(p), planet.Name),
 						"type": "kill",
 					},
-				}:
-				default:
-				}
+				})
 			}
 		}
 	}
@@ -139,7 +136,7 @@ func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 					//     killed++
 					// }
 
-					planet.Armies = game.Max(0, planet.Armies-killed)
+					planet.Armies = max(0, planet.Armies-killed)
 
 					// If planet has no armies left, it becomes neutral and stop bombing
 					if planet.Armies == 0 {
@@ -147,16 +144,7 @@ func (s *Server) updateOrbitingPlayer(p *game.Player, playerIndex int) {
 						planet.Owner = game.TeamNone
 						p.Bombing = false
 						// Send completion message
-						select {
-						case s.broadcast <- ServerMessage{
-							Type: MsgTypeMessage,
-							Data: map[string]interface{}{
-								"text": fmt.Sprintf("%s destroyed all armies on %s (now independent)", formatPlayerName(p), planet.Name),
-								"type": "info",
-							},
-						}:
-						default:
-						}
+						s.broadcastInfo(fmt.Sprintf("%s destroyed all armies on %s (now independent)", formatPlayerName(p), planet.Name))
 						// Debug log
 						log.Printf("Planet %s bombed to 0 armies, owner changed from %d to %d (TeamNone=%d)",
 							planet.Name, oldOwner, planet.Owner, game.TeamNone)
@@ -247,16 +235,13 @@ func (s *Server) updatePlanetCombat(p *game.Player, playerIndex int) {
 				p.LockTarget = -1
 
 				// Send death message
-				select {
-				case s.broadcast <- ServerMessage{
+				s.tryBroadcast(ServerMessage{
 					Type: MsgTypeMessage,
 					Data: map[string]interface{}{
 						"text": fmt.Sprintf("%s killed by %s [planet]", formatPlayerName(p), planet.Name),
 						"type": "kill",
 					},
-				}:
-				default:
-				}
+				})
 				break // Ship is dead, no need to check other planets
 			}
 		}

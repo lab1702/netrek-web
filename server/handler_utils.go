@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/lab1702/netrek-web/game"
 	"html"
-	"math"
 	"strings"
 )
 
@@ -102,18 +101,6 @@ func sanitizeName(name string) string {
 	return cleaned
 }
 
-// validateDirection ensures direction is within valid range [0, 2*pi]
-func validateDirection(dir float64) float64 {
-	if math.IsNaN(dir) || math.IsInf(dir, 0) {
-		return 0
-	}
-	dir = math.Mod(dir, 2*math.Pi)
-	if dir < 0 {
-		dir += 2 * math.Pi
-	}
-	return dir
-}
-
 // validateTeam ensures team is valid
 func validateTeam(team int) bool {
 	return team == game.TeamFed || team == game.TeamRom ||
@@ -169,13 +156,11 @@ func (c *Client) getPlayer() *game.Player {
 	return p
 }
 
-// sendMsg sends a message to this client's send channel without blocking.
-// Returns true if the message was sent, false if the channel was full.
-func (c *Client) sendMsg(msg ServerMessage) bool {
+// sendMsg sends a message to this client's send channel without blocking;
+// the message is dropped if the channel is full.
+func (c *Client) sendMsg(msg ServerMessage) {
 	select {
 	case c.send <- msg:
-		return true
 	default:
-		return false
 	}
 }

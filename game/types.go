@@ -493,19 +493,8 @@ type Torpedo struct {
 	Team   int     `json:"team"`
 }
 
-// Plasma represents a plasma torpedo (reuses Torpedo struct)
-type Plasma struct {
-	ID     int     `json:"id"`
-	Owner  int     `json:"owner"` // Player ID
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Dir    float64 `json:"dir"`
-	Speed  float64 `json:"speed"`
-	Damage int     `json:"damage"`
-	Fuse   int     `json:"fuse"`   // Ticks until explosion
-	Status int     `json:"status"` // Free, Move, Explode, Det
-	Team   int     `json:"team"`
-}
+// Plasma represents a plasma torpedo (same struct and lifecycle as Torpedo)
+type Plasma = Torpedo
 
 // Planet represents a planet
 type Planet struct {
@@ -628,22 +617,6 @@ func NormalizeAngle(angle float64) float64 {
 		angle += 2 * math.Pi
 	}
 	return angle
-}
-
-// Min returns the minimum of two integers
-func Min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// Max returns the maximum of two integers
-func Max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // GetShipExplosionDamage returns the explosion damage for a ship type

@@ -227,16 +227,7 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 				planet.Info |= p.Team
 
 				// Send orbit confirmation
-				select {
-				case s.broadcast <- ServerMessage{
-					Type: MsgTypeMessage,
-					Data: map[string]interface{}{
-						"text": fmt.Sprintf("%s is orbiting %s", formatPlayerName(p), planet.Name),
-						"type": "info",
-					},
-				}:
-				default:
-				}
+				s.broadcastInfo(fmt.Sprintf("%s is orbiting %s", formatPlayerName(p), planet.Name))
 			} else if dist > 3000 {
 				// Far from planet - go fast
 				p.DesSpeed = float64(game.ShipData[p.Ship].MaxSpeed)
@@ -368,16 +359,7 @@ func (s *Server) updateTractorBeams() {
 							target.Bombing = false // Stop bombing if forced out of orbit
 							target.Beaming = false // Stop beaming too
 							// Send message about breaking orbit
-							select {
-							case s.broadcast <- ServerMessage{
-								Type: MsgTypeMessage,
-								Data: map[string]interface{}{
-									"text": fmt.Sprintf("%s was pulled out of orbit", formatPlayerName(target)),
-									"type": "info",
-								},
-							}:
-							default:
-							}
+							s.broadcastInfo(fmt.Sprintf("%s was pulled out of orbit", formatPlayerName(target)))
 						}
 
 						// Use fuel for beam and add engine heat

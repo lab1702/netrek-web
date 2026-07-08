@@ -61,33 +61,9 @@ class ShipRenderer {
     
     // Create a ship sprite for a specific team, type, and view
     createShipSprite(team, shipType, view) {
-        // Get team-specific bitmap data
-        let shipData = null;
-        
-        if (window.teamBitmapMap && window.teamBitmapMap[team]) {
-            // Use team-specific bitmaps
-            const teamBitmaps = window.teamBitmapMap[team];
-            shipData = teamBitmaps[shipType];
-        } else if (window.allTeamShipBitmaps) {
-            // Fallback to team name lookup
-            const teamNames = {
-                1: 'federation',
-                2: 'romulan',
-                4: 'klingon',
-                8: 'orion'
-            };
-            const teamName = teamNames[team];
-            if (teamName && window.allTeamShipBitmaps[teamName]) {
-                shipData = window.allTeamShipBitmaps[teamName][shipType];
-            }
-        }
-        
-        // Final fallback to old system
-        if (!shipData) {
-            const bitmaps = window.shipBitmaps;
-            shipData = bitmaps && bitmaps.federation ? bitmaps.federation[shipType] : null;
-        }
-        
+        // Get team-specific bitmap data (independent/neutral ships live under key 0)
+        const shipData = (window.teamBitmapMap[team] || window.teamBitmapMap[0])[shipType];
+
         if (!shipData || !shipData[view] || shipData[view].length === 0) {
             return null; // No bitmap data for this ship/view
         }

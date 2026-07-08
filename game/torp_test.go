@@ -89,38 +89,9 @@ func TestEffectiveTorpRange(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			shipStats := ShipData[tt.shipType]
-			result := EffectiveTorpRange(shipStats, tt.safetyMargin)
+			result := effectiveTorpRange(shipStats, tt.safetyMargin)
 			if result != tt.expected {
-				t.Errorf("EffectiveTorpRange(%s, %.2f) = %d, expected %d", tt.name, tt.safetyMargin, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestEffectiveTorpRangeDefault(t *testing.T) {
-	tests := []struct {
-		name     string
-		shipType ShipType
-		expected int
-	}{
-		{
-			name:     "Scout",
-			shipType: ShipScout,
-			expected: int(5120 * DefaultTorpSafety), // 3584
-		},
-		{
-			name:     "Cruiser",
-			shipType: ShipCruiser,
-			expected: int(9600 * DefaultTorpSafety), // 6720
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			shipStats := ShipData[tt.shipType]
-			result := EffectiveTorpRangeDefault(shipStats)
-			if result != tt.expected {
-				t.Errorf("EffectiveTorpRangeDefault(%s) = %d, expected %d", tt.name, result, tt.expected)
+				t.Errorf("effectiveTorpRange(%s, %.2f) = %d, expected %d", tt.name, tt.safetyMargin, result, tt.expected)
 			}
 		})
 	}
@@ -147,14 +118,13 @@ func TestEffectiveTorpRangeForShip(t *testing.T) {
 
 			// Calculate ranges
 			maxRange := MaxTorpRange(stats)
-			oldEffectiveRange := EffectiveTorpRangeDefault(stats) // Uses 0.70 (reduced from 0.85)
 			newEffectiveRange := EffectiveTorpRangeForShip(tc.ship, stats)
 
 			// Expected range based on ship-specific safety factor
 			expectedRange := int(float64(maxRange) * tc.expected)
 
-			t.Logf("Ship: %s, Max: %d, Old: %d, New: %d, Expected: %d",
-				stats.Name, maxRange, oldEffectiveRange, newEffectiveRange, expectedRange)
+			t.Logf("Ship: %s, Max: %d, New: %d, Expected: %d",
+				stats.Name, maxRange, newEffectiveRange, expectedRange)
 
 			// Verify new range matches expected ship-specific factor
 			if newEffectiveRange != expectedRange {

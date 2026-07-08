@@ -28,10 +28,8 @@ const (
 
 	// Shield Decision Weights
 	// These control how threat levels translate to shield decisions
-	ImmediateThreatBonus = 6 // Additional threat level for immediate threats
-	TorpedoThreatBonus   = 4 // Bonus threat level for threatening torpedoes
-	CloseEnemyBonus      = 3 // Bonus for very close enemies
-	PlasmaThreatBonus    = 5 // Bonus for plasma threats
+	TorpedoThreatBonus = 4 // Bonus threat level for threatening torpedoes
+	CloseEnemyBonus    = 3 // Bonus for very close enemies
 
 	// Special Situation Thresholds
 	ArmyCarryingRange    = 3500.0  // Shield range when carrying armies

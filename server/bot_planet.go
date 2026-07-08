@@ -238,58 +238,39 @@ func (s *Server) isPlanetOnFrontline(planet *game.Planet, team int) bool {
 	return hasEnemyNearby && hasFriendlyNearby
 }
 
-// findNearestNeutralPlanet finds the closest neutral planet
-func (s *Server) findNearestNeutralPlanet(p *game.Player) *game.Planet {
+// nearestPlanet returns the planet closest to p that satisfies ok, or nil.
+func (s *Server) nearestPlanet(p *game.Player, ok func(*game.Planet) bool) *game.Planet {
 	var nearest *game.Planet
 	minDist := MaxSearchDistance
 
 	for i := range s.gameState.Planets {
 		planet := s.gameState.Planets[i]
-		if planet.Owner == 0 { // 0 is neutral team
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
+		if planet == nil || !ok(planet) {
+			continue
+		}
+		if dist := game.Distance(p.X, p.Y, planet.X, planet.Y); dist < minDist {
+			minDist = dist
+			nearest = planet
 		}
 	}
 	return nearest
+}
+
+// findNearestNeutralPlanet finds the closest neutral planet
+func (s *Server) findNearestNeutralPlanet(p *game.Player) *game.Planet {
+	return s.nearestPlanet(p, func(pl *game.Planet) bool { return pl.Owner == 0 })
 }
 
 // findNearestArmyPlanet finds the closest friendly planet with armies
 func (s *Server) findNearestArmyPlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	minDist := MaxSearchDistance
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet.Owner == p.Team && planet.Armies > 4 {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
+	return s.nearestPlanet(p, func(pl *game.Planet) bool { return pl.Owner == p.Team && pl.Armies > 4 })
 }
 
 // findNearestEnemyArmyPlanet finds the closest enemy planet with armies
 func (s *Server) findNearestEnemyArmyPlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	minDist := MaxSearchDistance
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet.Owner != p.Team && planet.Owner != 0 && planet.Armies > 4 {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
+	return s.nearestPlanet(p, func(pl *game.Planet) bool {
+		return pl.Owner != p.Team && pl.Owner != 0 && pl.Armies > 4
+	})
 }
 
 // findPlanetToDefend finds a friendly planet that needs defense

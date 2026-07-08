@@ -95,11 +95,7 @@ func (s *Server) getAdvancedDodgeDirection(p *game.Player, wantedDir float64, th
 			score -= plasmaDanger * 10
 
 			// Prefer directions that maintain some angle to target
-			angleDiff := math.Abs(game.NormalizeAngle(testDir) - game.NormalizeAngle(wantedDir))
-			if angleDiff > math.Pi {
-				angleDiff = 2*math.Pi - angleDiff
-			}
-			score -= angleDiff * 100
+			score -= AngleDifference(testDir, wantedDir) * 100
 
 			// Check wall and planet proximity using pre-filtered planets
 			clearance := calculateClearanceWithPlanets(p, testDir, nearbyPlanets)

@@ -21,7 +21,7 @@ func (c *Client) handleFire(data json.RawMessage) {
 	}
 
 	// Validate direction
-	fireData.Dir = validateDirection(fireData.Dir)
+	fireData.Dir = game.NormalizeAngle(fireData.Dir)
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
@@ -88,7 +88,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 	}
 
 	// Validate direction
-	phaserData.Dir = validateDirection(phaserData.Dir)
+	phaserData.Dir = game.NormalizeAngle(phaserData.Dir)
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
@@ -235,8 +235,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 			log.Printf("Phaser destroyed plasma: player %d destroyed plasma from player %d", p.ID, plasma.Owner)
 
 			// Send phaser visual to plasma location (non-blocking)
-			select {
-			case c.server.broadcast <- ServerMessage{
+			c.server.tryBroadcast(ServerMessage{
 				Type: "phaser",
 				Data: map[string]interface{}{
 					"from":  p.ID,
@@ -245,9 +244,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 					"y":     plasma.Y,
 					"range": myPhaserRange,
 				},
-			}:
-			default:
-			}
+			})
 			return // Plasma takes priority if hit
 		}
 	}
@@ -277,22 +274,18 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		// Send phaser visual to all players (non-blocking).
 		// Use "target" (not "to") so the broadcast router does not treat this
 		// as a private message routed only to the player that was hit.
-		select {
-		case c.server.broadcast <- ServerMessage{
+		c.server.tryBroadcast(ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
 				"from":   p.ID,
 				"target": target.ID,
 				"range":  myPhaserRange,
 			},
-		}:
-		default:
-		}
+		})
 	} else {
 		// No target - phaser fires but misses
 		// Send phaser visual with direction but no target (non-blocking)
-		select {
-		case c.server.broadcast <- ServerMessage{
+		c.server.tryBroadcast(ServerMessage{
 			Type: "phaser",
 			Data: map[string]interface{}{
 				"from":  p.ID,
@@ -300,9 +293,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 				"dir":   course, // Direction the phaser was fired
 				"range": myPhaserRange,
 			},
-		}:
-		default:
-		}
+		})
 	}
 }
 
@@ -319,7 +310,7 @@ func (c *Client) handlePlasma(data json.RawMessage) {
 	}
 
 	// Validate direction
-	plasmaData.Dir = validateDirection(plasmaData.Dir)
+	plasmaData.Dir = game.NormalizeAngle(plasmaData.Dir)
 
 	c.server.gameState.Mu.Lock()
 	defer c.server.gameState.Mu.Unlock()
@@ -418,17 +409,14 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 			// Check if we have enough fuel
 			if p.Fuel < shipStats.DetCost {
 				// Not enough fuel to detonate (non-blocking)
-				select {
-				case c.server.broadcast <- ServerMessage{
+				c.server.tryBroadcast(ServerMessage{
 					Type: "message",
 					Data: map[string]interface{}{
 						"text": "Not enough fuel to detonate",
 						"type": "error",
 						"to":   p.ID, // Send only to this player
 					},
-				}:
-				default:
-				}
+				})
 				break
 			}
 			// Mark the torpedo as detonating so updateTorpedoes removes it in
@@ -444,16 +432,13 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 
 	// Send feedback message (non-blocking)
 	if detonatedCount > 0 {
-		select {
-		case c.server.broadcast <- ServerMessage{
+		c.server.tryBroadcast(ServerMessage{
 			Type: "message",
 			Data: map[string]interface{}{
 				"text": fmt.Sprintf("%s detonated %d torpedo(es)", formatPlayerName(p), detonatedCount),
 				"type": "info",
 			},
-		}:
-		default:
-		}
+		})
 	}
 }
 
@@ -487,68 +472,27 @@ func (c *Client) handleShields(data json.RawMessage) {
 
 // handleTractor handles tractor beam engagement
 func (c *Client) handleTractor(data json.RawMessage) {
-	if !c.validPlayerID() {
-		return
-	}
-
-	var tractorData struct {
-		TargetID int `json:"targetId"`
-	}
-	if err := json.Unmarshal(data, &tractorData); err != nil {
-		log.Printf("Error unmarshaling tractor data: %v", err)
-		return
-	}
-
-	c.server.gameState.Mu.Lock()
-	defer c.server.gameState.Mu.Unlock()
-
-	p := c.getAlivePlayer()
-	if p == nil {
-		return
-	}
-
-	// Can't use tractor while cloaked
-	if p.Cloaked {
-		return
-	}
-
-	// Get ship stats for range calculation
-	shipStats := game.ShipData[p.Ship]
-
-	// Clear pressor if engaging tractor
-	p.Pressoring = -1
-
-	// Toggle tractor beam
-	if p.Tractoring == tractorData.TargetID {
-		// Turn off tractor
-		p.Tractoring = -1
-	} else {
-		// Check if target is valid and in range
-		if tractorData.TargetID >= 0 && tractorData.TargetID < game.MaxPlayers {
-			target := c.server.gameState.Players[tractorData.TargetID]
-			if target != nil && target.Status == game.StatusAlive && target.ID != p.ID {
-				// Check range (using ship-specific range)
-				dist := game.Distance(p.X, p.Y, target.X, target.Y)
-				tractorRange := float64(game.TractorDist) * shipStats.TractorRange
-				if dist <= tractorRange {
-					p.Tractoring = tractorData.TargetID
-				}
-			}
-		}
-	}
+	c.handleBeamEngage(data, false)
 }
 
 // handlePressor handles pressor beam engagement
 func (c *Client) handlePressor(data json.RawMessage) {
+	c.handleBeamEngage(data, true)
+}
+
+// handleBeamEngage toggles a tractor or pressor beam; the two beams share
+// identical rules and range, differing only in which field they set (and
+// engaging one clears the other).
+func (c *Client) handleBeamEngage(data json.RawMessage, pressor bool) {
 	if !c.validPlayerID() {
 		return
 	}
 
-	var pressorData struct {
+	var beamData struct {
 		TargetID int `json:"targetId"`
 	}
-	if err := json.Unmarshal(data, &pressorData); err != nil {
-		log.Printf("Error unmarshaling pressor data: %v", err)
+	if err := json.Unmarshal(data, &beamData); err != nil {
+		log.Printf("Error unmarshaling tractor/pressor data: %v", err)
 		return
 	}
 
@@ -560,31 +504,33 @@ func (c *Client) handlePressor(data json.RawMessage) {
 		return
 	}
 
-	// Can't use pressor while cloaked
+	// Can't use tractor/pressor while cloaked
 	if p.Cloaked {
 		return
 	}
 
-	// Get ship stats for range calculation
-	shipStats := game.ShipData[p.Ship]
+	beam, other := &p.Tractoring, &p.Pressoring
+	if pressor {
+		beam, other = other, beam
+	}
 
-	// Clear tractor if engaging pressor
-	p.Tractoring = -1
+	// Engaging one beam clears the other
+	*other = -1
 
-	// Toggle pressor beam
-	if p.Pressoring == pressorData.TargetID {
-		// Turn off pressor
-		p.Pressoring = -1
+	// Toggle beam
+	if *beam == beamData.TargetID {
+		// Turn off beam
+		*beam = -1
 	} else {
 		// Check if target is valid and in range
-		if pressorData.TargetID >= 0 && pressorData.TargetID < game.MaxPlayers {
-			target := c.server.gameState.Players[pressorData.TargetID]
+		if beamData.TargetID >= 0 && beamData.TargetID < game.MaxPlayers {
+			target := c.server.gameState.Players[beamData.TargetID]
 			if target != nil && target.Status == game.StatusAlive && target.ID != p.ID {
 				// Check range (using ship-specific range)
 				dist := game.Distance(p.X, p.Y, target.X, target.Y)
-				tractorRange := float64(game.TractorDist) * shipStats.TractorRange
+				tractorRange := float64(game.TractorDist) * game.ShipData[p.Ship].TractorRange
 				if dist <= tractorRange {
-					p.Pressoring = pressorData.TargetID
+					*beam = beamData.TargetID
 				}
 			}
 		}
@@ -622,15 +568,6 @@ func (c *Client) handleCloak(data json.RawMessage) {
 
 	// Send cloak status message to all clients (after releasing lock to avoid deadlock)
 	if message != "" {
-		select {
-		case c.server.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": message,
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		c.server.broadcastInfo(message)
 	}
 }

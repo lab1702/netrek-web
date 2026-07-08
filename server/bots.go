@@ -864,20 +864,9 @@ func (s *Server) starbaseDefensivePatrol(p *game.Player) {
 
 // findNearestCorePlanet finds the nearest core (home) planet
 func (s *Server) findNearestCorePlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	nearestDist := MaxSearchDistance
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet != nil && planet.Owner == p.Team && s.isCorePlanet(planet, p.Team) {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < nearestDist {
-				nearestDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
+	return s.nearestPlanet(p, func(pl *game.Planet) bool {
+		return pl.Owner == p.Team && s.isCorePlanet(pl, p.Team)
+	})
 }
 
 // findMostThreatenedFriendlyPlanet finds friendly planet most at risk
@@ -954,37 +943,15 @@ func (s *Server) RemoveBot(botID int) {
 
 // Planet finding functions
 func (s *Server) findNearestRepairPlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	minDist := MaxSearchDistance
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet.Owner == p.Team && (planet.Flags&game.PlanetRepair) != 0 {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
+	return s.nearestPlanet(p, func(pl *game.Planet) bool {
+		return pl.Owner == p.Team && (pl.Flags&game.PlanetRepair) != 0
+	})
 }
 
 func (s *Server) findNearestFuelPlanet(p *game.Player) *game.Planet {
-	var nearest *game.Planet
-	minDist := MaxSearchDistance
-
-	for i := range s.gameState.Planets {
-		planet := s.gameState.Planets[i]
-		if planet.Owner == p.Team && (planet.Flags&game.PlanetFuel) != 0 {
-			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-			if dist < minDist {
-				minDist = dist
-				nearest = planet
-			}
-		}
-	}
-	return nearest
+	return s.nearestPlanet(p, func(pl *game.Planet) bool {
+		return pl.Owner == p.Team && (pl.Flags&game.PlanetFuel) != 0
+	})
 }
 
 // AutoBalanceBots adds or removes bots to balance teams
@@ -1019,16 +986,7 @@ func (s *Server) AutoBalanceBots() {
 
 	// If no one is on the server, don't add bots
 	if maxCount == 0 {
-		select {
-		case s.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": "Auto-balance: no players on server, no bots added",
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		s.broadcastInfo("Auto-balance: no players on server, no bots added")
 		return
 	}
 
@@ -1052,16 +1010,7 @@ func (s *Server) AutoBalanceBots() {
 
 	// Send feedback message
 	if totalBotsAdded == 0 {
-		select {
-		case s.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": "Auto-balance: teams already balanced, no bots added",
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		s.broadcastInfo("Auto-balance: teams already balanced, no bots added")
 	} else {
 		// Build a descriptive message about what was added
 		var messages []string
@@ -1083,16 +1032,7 @@ func (s *Server) AutoBalanceBots() {
 		}
 
 		messageText := fmt.Sprintf("Auto-balance: added %s", strings.Join(messages, ", "))
-		select {
-		case s.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": messageText,
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		s.broadcastInfo(messageText)
 	}
 }
 

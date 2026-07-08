@@ -107,6 +107,26 @@ type ServerMessage struct {
 	Data any    `json:"data"`
 }
 
+// tryBroadcast sends msg to the broadcast channel without blocking;
+// the message is dropped if the channel is full.
+func (s *Server) tryBroadcast(msg ServerMessage) {
+	select {
+	case s.broadcast <- msg:
+	default:
+	}
+}
+
+// broadcastInfo broadcasts a plain informational chat message to all clients.
+func (s *Server) broadcastInfo(text string) {
+	s.tryBroadcast(ServerMessage{
+		Type: MsgTypeMessage,
+		Data: map[string]interface{}{
+			"text": text,
+			"type": "info",
+		},
+	})
+}
+
 // Client represents a connected player
 type Client struct {
 	ID       int

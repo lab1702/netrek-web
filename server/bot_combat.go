@@ -458,13 +458,8 @@ func (s *Server) isTorpedoThreatening(p *game.Player, torp *game.Torpedo) bool {
 	dy := p.Y - torpY
 	angleToPlayer := math.Atan2(dy, dx)
 
-	// Calculate angle difference
-	angleDiff := math.Abs(angleToPlayer - torpDir)
-	if angleDiff > math.Pi {
-		angleDiff = 2*math.Pi - angleDiff
-	}
-
 	// If torpedo is heading towards us, it's a threat
+	angleDiff := AngleDifference(angleToPlayer, torpDir)
 	if angleDiff < math.Pi/4 && dist < 4000 { // Within 45 degrees and closer range
 		return true
 	}

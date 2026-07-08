@@ -356,10 +356,7 @@ func (c *Client) handleQuit(data json.RawMessage) {
 	c.server.gameState.Mu.Unlock()
 
 	// Broadcast self-destruct message after releasing lock (non-blocking)
-	select {
-	case c.server.broadcast <- selfDestructMsg:
-	default:
-	}
+	c.server.tryBroadcast(selfDestructMsg)
 
 	// Broadcast pre-captured team counts to all clients
 	c.server.broadcastTeamCountsData(teamCounts)

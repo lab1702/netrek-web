@@ -34,16 +34,13 @@ func (s *Server) checkTournamentMode() {
 
 	if !wasInTMode && shouldBeInTMode {
 		// Entering tournament mode - announce BEFORE resetting so players understand the teleport
-		select {
-		case s.broadcast <- ServerMessage{
+		s.tryBroadcast(ServerMessage{
 			Type: MsgTypeMessage,
 			Data: map[string]interface{}{
 				"text": "⚔️ TOURNAMENT MODE ACTIVATING! 4v4 minimum reached. Resetting galaxy and teleporting all players to home worlds...",
 				"type": "warning",
 			},
-		}:
-		default:
-		}
+		})
 
 		s.gameState.T_mode = true
 		s.gameState.T_start = s.gameState.Frame
@@ -148,31 +145,13 @@ func (s *Server) checkTournamentMode() {
 		}
 
 		// Announce T-mode is now active
-		select {
-		case s.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": "⚔️ TOURNAMENT MODE ACTIVE! 30 minute time limit. Fight for victory!",
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		s.broadcastInfo("⚔️ TOURNAMENT MODE ACTIVE! 30 minute time limit. Fight for victory!")
 	} else if wasInTMode && !shouldBeInTMode {
 		// Leaving tournament mode
 		s.gameState.T_mode = false
 
 		// Announce T-mode end
-		select {
-		case s.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": "Tournament mode deactivated - not enough players",
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		s.broadcastInfo("Tournament mode deactivated - not enough players")
 	}
 
 	// Ensure every active participant has a tournament stats entry. Entries are
@@ -226,38 +205,29 @@ func (s *Server) checkTournamentMode() {
 
 		// Announce time warnings
 		if s.gameState.T_remain == 600 && s.gameState.Frame%10 == 0 { // 10 minutes
-			select {
-			case s.broadcast <- ServerMessage{
+			s.tryBroadcast(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "⏰ 10 minutes remaining in tournament!",
 					"type": "warning",
 				},
-			}:
-			default:
-			}
+			})
 		} else if s.gameState.T_remain == 300 && s.gameState.Frame%10 == 0 { // 5 minutes
-			select {
-			case s.broadcast <- ServerMessage{
+			s.tryBroadcast(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "⏰ 5 minutes remaining in tournament!",
 					"type": "warning",
 				},
-			}:
-			default:
-			}
+			})
 		} else if s.gameState.T_remain == 60 && s.gameState.Frame%10 == 0 { // 1 minute
-			select {
-			case s.broadcast <- ServerMessage{
+			s.tryBroadcast(ServerMessage{
 				Type: MsgTypeMessage,
 				Data: map[string]interface{}{
 					"text": "⏰ 1 minute remaining in tournament!",
 					"type": "warning",
 				},
-			}:
-			default:
-			}
+			})
 		}
 	}
 }

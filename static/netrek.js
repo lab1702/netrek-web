@@ -223,7 +223,6 @@ let gameState = {
     frame: 0,
     lastUpdate: 0,
     updateInterval: 0,
-    interpolation: true,
     quitRequested: false // Track if player has requested to quit
 };
 
@@ -1254,7 +1253,7 @@ function lerp(start, end, t) {
 const MAX_INTERP_JUMP_SQ = 2000 * 2000;
 
 function getInterpolatedPosition(current, previous, entityId) {
-    if (!gameState.interpolation || !previous || !current) {
+    if (!previous || !current) {
         return current;
     }
     
@@ -1599,17 +1598,7 @@ function renderTactical() {
         // Show explosion effect only when torpedo hits something (status = 3)
         // Do not show explosion when torpedo simply expires (fuse = 1)
         if (torp.status === 3) {
-            ctx.save();
-            ctx.fillStyle = '#ff0';
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 0.4;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            drawExplosion(ctx, screenX, screenY);
         } else {
             ctx.fillStyle = teamColors[torp.team] || '#888';
             ctx.fillRect(screenX - 2, screenY - 2, 4, 4);
@@ -1629,17 +1618,7 @@ function renderTactical() {
         
         // Show explosion effect when plasma hits something (status = 3)
         if (plasma.status === 3) {
-            ctx.save();
-            ctx.fillStyle = '#ff0';
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 0.4;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            drawExplosion(ctx, screenX, screenY);
         } else {
             // Draw plasma as 8x8 square (looks like torpedo but bigger)
             const size = 8; // twice regular torpedo size
@@ -1648,55 +1627,31 @@ function renderTactical() {
         }
     }
     
-    // Draw tractor/pressor beams
+    // Draw tractor (blue) and pressor (orange) beams
+    const beamStyles = [
+        { field: 'tractoring', color: '#00f', dash: [10, 5] },
+        { field: 'pressoring', color: '#f80', dash: [5, 10] }
+    ];
     for (let i = 0; i < gameState.players.length; i++) {
         const player = gameState.players[i];
         if (!player || player.status !== 2) continue;
-        
-        // Draw tractor beam
-        if (player.tractoring >= 0 && player.tractoring < gameState.players.length) {
-            const target = gameState.players[player.tractoring];
-            if (target && target.status === 2) {
-                const startX = centerX + (player.x - myPlayer.x) * scale;
-                const startY = centerY + (player.y - myPlayer.y) * scale;
-                const endX = centerX + (target.x - myPlayer.x) * scale;
-                const endY = centerY + (target.y - myPlayer.y) * scale;
 
-                // Draw tractor beam (blue)
-                ctx.save();
-                ctx.strokeStyle = '#00f';
-                ctx.globalAlpha = 0.6;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([10, 5]);
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(endX, endY);
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
+        for (const beam of beamStyles) {
+            const targetId = player[beam.field];
+            if (targetId < 0 || targetId >= gameState.players.length) continue;
+            const target = gameState.players[targetId];
+            if (!target || target.status !== 2) continue;
 
-        // Draw pressor beam
-        if (player.pressoring >= 0 && player.pressoring < gameState.players.length) {
-            const target = gameState.players[player.pressoring];
-            if (target && target.status === 2) {
-                const startX = centerX + (player.x - myPlayer.x) * scale;
-                const startY = centerY + (player.y - myPlayer.y) * scale;
-                const endX = centerX + (target.x - myPlayer.x) * scale;
-                const endY = centerY + (target.y - myPlayer.y) * scale;
-
-                // Draw pressor beam (orange)
-                ctx.save();
-                ctx.strokeStyle = '#f80';
-                ctx.globalAlpha = 0.6;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 10]);
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(endX, endY);
-                ctx.stroke();
-                ctx.restore();
-            }
+            ctx.save();
+            ctx.strokeStyle = beam.color;
+            ctx.globalAlpha = 0.6;
+            ctx.lineWidth = 2;
+            ctx.setLineDash(beam.dash);
+            ctx.beginPath();
+            ctx.moveTo(centerX + (player.x - myPlayer.x) * scale, centerY + (player.y - myPlayer.y) * scale);
+            ctx.lineTo(centerX + (target.x - myPlayer.x) * scale, centerY + (target.y - myPlayer.y) * scale);
+            ctx.stroke();
+            ctx.restore();
         }
     }
     
@@ -1911,6 +1866,33 @@ function renderTactical() {
     ctx.globalAlpha = 1;
 }
 
+// Draw a yellow projectile blast at screen coordinates
+function drawExplosion(ctx, x, y) {
+    ctx.save();
+    ctx.fillStyle = '#ff0';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// Scaled centroid (median or mean) of objects with x/y; [null, null] if empty
+function centroid(objs, useMedian, scale) {
+    if (objs.length === 0) return [null, null];
+    const one = vals => {
+        if (!useMedian) return vals.reduce((a, b) => a + b, 0) / vals.length * scale;
+        vals.sort((a, b) => a - b);
+        const mid = vals.length >> 1;
+        return (vals.length & 1 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2) * scale;
+    };
+    return [one(objs.map(o => o.x)), one(objs.map(o => o.y))];
+}
+
 function renderGalactic() {
     const ctx = canvases.galacticCtx;
     const width = canvases.galactic.width;
@@ -2016,51 +1998,13 @@ function renderGalactic() {
         for (const team of teams) {
             const color = teamColors[team] || '#fff';
 
-            // Collect positions of alive players on this team
-            const playerXs = [], playerYs = [];
-            for (const player of gameState.players) {
-                if (player && player.status === 2 && player.team === team) {
-                    playerXs.push(player.x);
-                    playerYs.push(player.y);
-                }
-            }
-
-            let playerCX = null, playerCY = null;
-            if (playerXs.length > 0) {
-                if (useMedian) {
-                    playerXs.sort((a, b) => a - b);
-                    playerYs.sort((a, b) => a - b);
-                    const mid = playerXs.length >> 1;
-                    playerCX = (playerXs.length & 1 ? playerXs[mid] : (playerXs[mid - 1] + playerXs[mid]) / 2) * scale;
-                    playerCY = (playerYs.length & 1 ? playerYs[mid] : (playerYs[mid - 1] + playerYs[mid]) / 2) * scale;
-                } else {
-                    playerCX = (playerXs.reduce((a, b) => a + b, 0) / playerXs.length) * scale;
-                    playerCY = (playerYs.reduce((a, b) => a + b, 0) / playerYs.length) * scale;
-                }
-            }
-
-            // Collect positions of planets owned by this team
-            const planetXs = [], planetYs = [];
-            for (const planet of gameState.planets) {
-                if (planet && planet.owner === team) {
-                    planetXs.push(planet.x);
-                    planetYs.push(planet.y);
-                }
-            }
-
-            let planetCX = null, planetCY = null;
-            if (planetXs.length > 0) {
-                if (useMedian) {
-                    planetXs.sort((a, b) => a - b);
-                    planetYs.sort((a, b) => a - b);
-                    const mid = planetXs.length >> 1;
-                    planetCX = (planetXs.length & 1 ? planetXs[mid] : (planetXs[mid - 1] + planetXs[mid]) / 2) * scale;
-                    planetCY = (planetYs.length & 1 ? planetYs[mid] : (planetYs[mid - 1] + planetYs[mid]) / 2) * scale;
-                } else {
-                    planetCX = (planetXs.reduce((a, b) => a + b, 0) / planetXs.length) * scale;
-                    planetCY = (planetYs.reduce((a, b) => a + b, 0) / planetYs.length) * scale;
-                }
-            }
+            // Centroid of alive players on this team, and of planets it owns
+            const [playerCX, playerCY] = centroid(
+                gameState.players.filter(p => p && p.status === 2 && p.team === team),
+                useMedian, scale);
+            const [planetCX, planetCY] = centroid(
+                gameState.planets.filter(p => p && p.owner === team),
+                useMedian, scale);
 
             // Draw arrow from planet centroid to player centroid
             if (playerCX !== null && planetCX !== null) {

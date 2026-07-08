@@ -22,7 +22,6 @@ func (c *Client) handleMove(data json.RawMessage) {
 	}
 
 	// Validate direction and speed
-	moveData.Dir = validateDirection(moveData.Dir)
 	if math.IsNaN(moveData.Speed) || math.IsInf(moveData.Speed, 0) {
 		moveData.Speed = 0
 	}
@@ -40,16 +39,7 @@ func (c *Client) handleMove(data json.RawMessage) {
 		p.Orbiting = -1
 		p.Bombing = false // Stop bombing when leaving orbit
 		// Send message about breaking orbit (non-blocking to avoid deadlock while holding lock)
-		select {
-		case c.server.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": fmt.Sprintf("%s has left orbit", formatPlayerName(p)),
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		c.server.broadcastInfo(fmt.Sprintf("%s has left orbit", formatPlayerName(p)))
 	}
 
 	// Set desired direction and speed
@@ -64,16 +54,7 @@ func (c *Client) handleMove(data json.RawMessage) {
 		if p.RepairRequest {
 			p.RepairRequest = false
 			// Send message about canceling repair request (non-blocking)
-			select {
-			case c.server.broadcast <- ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": fmt.Sprintf("%s canceled repair request", formatPlayerName(p)),
-					"type": "info",
-				},
-			}:
-			default:
-			}
+			c.server.broadcastInfo(fmt.Sprintf("%s canceled repair request", formatPlayerName(p)))
 		}
 		p.Repairing = false
 	}
@@ -133,16 +114,7 @@ func (c *Client) handleLock(data json.RawMessage) {
 		p.Bombing = false // Stop bombing when leaving orbit
 		p.Beaming = false // Stop beaming when leaving orbit
 		// Send message about breaking orbit (non-blocking)
-		select {
-		case c.server.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": fmt.Sprintf("%s has left orbit", formatPlayerName(p)),
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		c.server.broadcastInfo(fmt.Sprintf("%s has left orbit", formatPlayerName(p)))
 	}
 
 	// Validate target and set course

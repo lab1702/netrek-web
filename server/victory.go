@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 	"log"
+	"math/bits"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -16,32 +18,6 @@ var resetPending atomic.Bool
 // teamIndexToFlag converts a team array index (0-3) to a team flag (TeamFed, TeamRom, etc.)
 func teamIndexToFlag(index int) int {
 	return 1 << index // 0->1(Fed), 1->2(Rom), 2->4(Kli), 3->8(Ori)
-}
-
-// teamFlagToIndex converts a team flag to an array index
-func teamFlagToIndex(team int) int {
-	switch team {
-	case game.TeamFed:
-		return 0
-	case game.TeamRom:
-		return 1
-	case game.TeamKli:
-		return 2
-	case game.TeamOri:
-		return 3
-	default:
-		return -1
-	}
-}
-
-// countBitsSet counts the number of bits set in an integer (for counting teams)
-func countBitsSet(n int) int {
-	count := 0
-	for n > 0 {
-		count += n & 1
-		n >>= 1
-	}
-	return count
 }
 
 // checkVictoryConditions checks for genocide or conquest victory
@@ -121,7 +97,7 @@ func (s *Server) checkVictoryConditions() {
 			inPlayFlags |= p.Team
 		}
 	}
-	teamsInPlay = countBitsSet(inPlayFlags)
+	teamsInPlay = bits.OnesCount(uint(inPlayFlags))
 
 	// Build bitmask of teams that have ever had players in this game
 	for _, p := range s.gameState.Players {
@@ -131,7 +107,7 @@ func (s *Server) checkVictoryConditions() {
 	}
 
 	// Count number of distinct teams that have played
-	numTeamsPlayed := countBitsSet(teamsEverPlayed)
+	numTeamsPlayed := bits.OnesCount(uint(teamsEverPlayed))
 
 	// Only check for genocide if:
 	// - At least 2 different teams have played
@@ -228,29 +204,17 @@ func getTeamNamesFromFlag(teamFlag int) []string {
 	return names
 }
 
-// formatTeamNames formats a list of team names for display
+// formatTeamNames formats a list of team names for display,
+// e.g. "Federation", "Federation & Romulan", "Federation, Romulan & Klingon"
 func formatTeamNames(names []string) string {
-	if len(names) == 0 {
+	switch len(names) {
+	case 0:
 		return "No Teams" // More descriptive than "Unknown"
-	}
-	if len(names) == 1 {
+	case 1:
 		return names[0]
+	default:
+		return strings.Join(names[:len(names)-1], ", ") + " & " + names[len(names)-1]
 	}
-	if len(names) == 2 {
-		return names[0] + " & " + names[1]
-	}
-	// For 3+ teams, use commas with final "&"
-	result := ""
-	for i, name := range names {
-		if i == len(names)-1 {
-			result += " & " + name
-		} else if i > 0 {
-			result += ", " + name
-		} else {
-			result = name
-		}
-	}
-	return result
 }
 
 // announceVictory sends victory message to all clients
@@ -376,14 +340,5 @@ func (s *Server) resetGame() {
 	s.gameState.Mu.Unlock()
 
 	// Announce game reset
-	select {
-	case s.broadcast <- ServerMessage{
-		Type: MsgTypeMessage,
-		Data: map[string]interface{}{
-			"text": "🔄 Game reset! All players returned to lobby. Choose team & ship again.",
-			"type": "info",
-		},
-	}:
-	default:
-	}
+	s.broadcastInfo("🔄 Game reset! All players returned to lobby. Choose team & ship again.")
 }

@@ -28,16 +28,7 @@ func (c *Client) handleRepair(data json.RawMessage) {
 			p.RepairRequest = true
 			p.DesSpeed = 0 // Start slowing down
 			// Send message about slowing to repair (non-blocking)
-			select {
-			case c.server.broadcast <- ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": fmt.Sprintf("%s is slowing to repair", formatPlayerName(p)),
-					"type": "info",
-				},
-			}:
-			default:
-			}
+			c.server.broadcastInfo(fmt.Sprintf("%s is slowing to repair", formatPlayerName(p)))
 			return
 		}
 
@@ -54,16 +45,7 @@ func (c *Client) handleRepair(data json.RawMessage) {
 		// Cancel repair request
 		p.RepairRequest = false
 		// Send message about canceling repair (non-blocking)
-		select {
-		case c.server.broadcast <- ServerMessage{
-			Type: MsgTypeMessage,
-			Data: map[string]interface{}{
-				"text": fmt.Sprintf("%s canceled repair request", formatPlayerName(p)),
-				"type": "info",
-			},
-		}:
-		default:
-		}
+		c.server.broadcastInfo(fmt.Sprintf("%s canceled repair request", formatPlayerName(p)))
 	} else {
 		// Exit repair mode
 		p.Repairing = false
@@ -166,28 +148,10 @@ func (c *Client) handleBomb(data json.RawMessage) {
 		p.Bombing = !p.Bombing
 		if p.Bombing && planet.Armies > 0 {
 			// Send message about starting bombing (non-blocking)
-			select {
-			case c.server.broadcast <- ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": fmt.Sprintf("%s is bombing %s", formatPlayerName(p), planet.Name),
-					"type": "info",
-				},
-			}:
-			default:
-			}
+			c.server.broadcastInfo(fmt.Sprintf("%s is bombing %s", formatPlayerName(p), planet.Name))
 		} else if !p.Bombing {
 			// Send message about stopping bombing (non-blocking)
-			select {
-			case c.server.broadcast <- ServerMessage{
-				Type: MsgTypeMessage,
-				Data: map[string]interface{}{
-					"text": fmt.Sprintf("%s stopped bombing %s", formatPlayerName(p), planet.Name),
-					"type": "info",
-				},
-			}:
-			default:
-			}
+			c.server.broadcastInfo(fmt.Sprintf("%s stopped bombing %s", formatPlayerName(p), planet.Name))
 		}
 	}
 }
