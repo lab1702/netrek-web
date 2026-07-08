@@ -8,7 +8,7 @@ Netrek-Web is a browser-based real-time multiplayer space combat game faithful t
 
 ## Dependencies
 
-Go 1.25+. Single external dependency: `github.com/gorilla/websocket v1.5.3`.
+Go 1.26+. Single external dependency: `github.com/gorilla/websocket v1.5.3`.
 
 ## Build & Run Commands
 

@@ -57,7 +57,7 @@ Server is now running at `http://localhost:8080`
 
 ### Build from Source
 
-Prerequisites: Go 1.25+
+Prerequisites: Go 1.26+
 
 ```bash
 git clone https://github.com/lab1702/netrek-web.git
