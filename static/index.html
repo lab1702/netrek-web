@@ -3,256 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NETREK-WEB - Classic Multiplayer Space Combat</title>
+    <title>netrek-web — classic multiplayer space combat</title>
+    <link rel="stylesheet" href="lab1702.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: 'Courier New', monospace;
-            background: #000;
-            color: #0f0;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            line-height: 1.6;
+            background: var(--bg-0);
+            color: var(--fg-1);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(0, 255, 0, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(0, 255, 0, 0.04) 0%, transparent 50%);
         }
-        
+
         .container {
-            max-width: 800px;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        /* === MAIN TITLE SECTION === */
-        h1 {
-            font-size: 3.5em;
-            margin-bottom: 15px;
-            text-shadow: 0 0 15px #0f0;
-            animation: glow 3s ease-in-out infinite alternate;
-        }
-        
-        @keyframes glow {
-            from { text-shadow: 0 0 15px #0f0; }
-            to { text-shadow: 0 0 25px #0f0, 0 0 35px #0a0; }
-        }
-        
-        .subtitle {
-            font-size: 1.1em;
-            color: #0a0;
-            margin-bottom: 20px;
-        }
-        
-        .warning {
-            color: #ff0;
-            margin: 15px 0;
-            font-size: 1em;
-        }
-        
-        /* === PLAY BUTTON === */
-        .play-button {
-            display: inline-block;
-            padding: 18px 35px;
-            font-size: 1.4em;
-            background: transparent;
-            border: 2px solid #0f0;
-            color: #0f0;
-            text-decoration: none;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        
-        .play-button:hover {
-            background: #0f0;
-            color: #000;
-            box-shadow: 0 0 25px #0f0;
-            transform: scale(1.05);
-        }
-        
-        .play-button::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: -100%;
+            max-width: 720px;
             width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #0f0, transparent);
-            animation: scan 3s linear infinite;
+            padding: 48px 24px;
         }
-        
-        @keyframes scan {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        
-        /* === ESSENTIAL CONTROLS === */
-        .essentials-container {
-            margin: 20px 0 40px 0;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            padding: 20px;
-            border: 1px solid #0a0;
-            background: rgba(0, 255, 0, 0.03);
-        }
-        
-        .essentials-container h3 {
-            color: #0f0;
-            margin-bottom: 20px;
-            font-size: 1.1em;
+
+        /* === HEADER === */
+        .hero {
             text-align: center;
+            padding: 32px 24px;
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-2);
+            background: var(--bg-1);
+            background-image: var(--scanlines);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 24px;
         }
-        
+
+        h1 {
+            font-family: var(--font-mono);
+            font-size: 34px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--fg-1);
+        }
+
+        h1 .accent { color: var(--amber); }
+
+        h1 .cursor {
+            color: var(--amber);
+            animation: blink 1.1s steps(1) infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .subtitle {
+            color: var(--fg-2);
+            margin-top: 8px;
+        }
+
+        .warnings {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 16px;
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            color: var(--amber);
+        }
+
+        .play-button { margin-top: 24px; height: 44px; padding: 0 24px; font-size: 14px; text-transform: lowercase; }
+
+        /* === CARDS === */
+        .card { margin-bottom: 24px; }
+
+        .card-label {
+            display: flex;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-1);
+        }
+
+        .card-body { padding: 16px; }
+
         .essentials-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 30px;
+            gap: 24px;
         }
-        
-        .control-column {
-            text-align: left;
-        }
-        
+
         .control-column h4 {
-            color: #0f0;
-            margin-bottom: 15px;
-            font-size: 1em;
-            text-align: center;
-            border-bottom: 1px solid #0a0;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: var(--tracking-label);
+            color: var(--fg-2);
             padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-1);
+            margin-bottom: 8px;
         }
-        
+
         .control-list {
             list-style: none;
-            padding: 0;
         }
-        
+
         .control-list li {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #030;
-            font-size: 0.9em;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--bg-2);
+            font-size: 12.5px;
         }
-        
-        .control-list li:last-child {
-            border-bottom: none;
-        }
-        
+
+        .control-list li:last-child { border-bottom: none; }
+
         .key {
-            color: #0f0;
-            font-weight: bold;
+            font-family: var(--font-mono);
+            color: var(--amber);
         }
-        
-        .action {
-            color: #0a0;
-        }
-        
-        /* === FEATURES === */
-        .features {
-            margin: 40px 0;
-            padding: 20px;
-            border: 1px solid #0a0;
-            background: rgba(0, 255, 0, 0.02);
-        }
-        
-        .features h3 {
-            color: #0f0;
-            margin-bottom: 15px;
-        }
-        
-        .feature-list {
-            list-style: none;
-            padding: 0;
-            text-align: left;
-        }
-        
-        .feature-list li {
-            padding: 8px 0;
-            color: #0a0;
-            border-left: 3px solid #0f0;
-            padding-left: 15px;
-            margin: 5px 0;
-        }
-        
+
+        .action { color: var(--fg-2); }
+
         /* === FOOTER === */
         .footer {
-            margin-top: 40px;
-            padding-top: 15px;
-            border-top: 1px solid #0a0;
-            color: #080;
-            font-size: 0.8em;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-1);
+            color: var(--fg-3);
+            font-size: 12.5px;
         }
-        
+
+        .footer p + p { margin-top: 8px; }
+
         /* === RESPONSIVE === */
         @media (max-width: 640px) {
             .essentials-grid {
                 grid-template-columns: 1fr;
                 gap: 20px;
             }
-            
-            h1 {
-                font-size: 2.5em;
-            }
-            
-            .container {
-                padding: 15px;
-            }
+
+            h1 { font-size: 26px; }
+
+            .container { padding: 24px 16px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- === MAIN HEADER === -->
-        <h1>NETREK-WEB</h1>
-        <p class="subtitle">Web Implementation of the Classic Internet Space Battle Game</p>
-        <p class="warning">⚠️ PROOF OF CONCEPT - Work in Progress ⚠️</p>
-        <p class="warning">⚠️ This needs a keyboard and 3-button mouse for the full experience ⚠️</p>
+        <div class="hero">
+            <h1>netrek<span class="accent">-web</span><span class="cursor">▊</span></h1>
+            <p class="subtitle">web implementation of the classic internet space battle game</p>
+            <div class="warnings">
+                <span>⚠ proof of concept — work in progress</span>
+                <span>⚠ needs a keyboard and 3-button mouse for the full experience</span>
+            </div>
+            <a href="game.html" class="l7-btn l7-btn--solid play-button">launch game →</a>
+        </div>
 
         <!-- === ESSENTIAL CONTROLS === -->
-        <div class="essentials-container">
-            <h3>Essential Controls</h3>
-            <div class="essentials-grid">
-                <div class="control-column">
-                    <h4>Mouse Commands</h4>
-                    <ul class="control-list">
-                        <li><span class="key">Left Click</span> <span class="action">Fire Torpedo</span></li>
-                        <li><span class="key">Middle Click</span> <span class="action">Fire Phaser</span></li>
-                        <li><span class="key">Right Click</span> <span class="action">Set Course</span></li>
-                    </ul>
-                </div>
-                
-                <div class="control-column">
-                    <h4>Keyboard Commands</h4>
-                    <ul class="control-list">
-                        <li><span class="key">0-9</span> <span class="action">Set Speed</span></li>
-                        <li><span class="key">S</span> <span class="action">Shields</span></li>
-                        <li><span class="key">C</span> <span class="action">Cloak</span></li>
-                        <li><span class="key">?</span> <span class="action">Help</span></li>
-                    </ul>
+        <div class="l7-card card">
+            <div class="card-label"><span class="l7-label">essential controls</span></div>
+            <div class="card-body">
+                <div class="essentials-grid">
+                    <div class="control-column">
+                        <h4>mouse</h4>
+                        <ul class="control-list">
+                            <li><span class="key">left click</span> <span class="action">fire torpedo</span></li>
+                            <li><span class="key">middle click</span> <span class="action">fire phaser</span></li>
+                            <li><span class="key">right click</span> <span class="action">set course</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="control-column">
+                        <h4>keyboard</h4>
+                        <ul class="control-list">
+                            <li><span class="key">0-9</span> <span class="action">set speed</span></li>
+                            <li><span class="key">s</span> <span class="action">shields</span></li>
+                            <li><span class="key">c</span> <span class="action">cloak</span></li>
+                            <li><span class="key">?</span> <span class="action">help</span></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- === LAUNCH BUTTON === -->
-        <a href="game.html" class="play-button">Launch Game</a>
-
         <!-- === FOOTER === -->
         <div class="footer">
             <p>This interpretation of Netrek was created by lab1702, who used to play from the MTEK lab at the Chalmers University of Technology, Gothenburg, Sweden in the early 90s.</p>
-            <p>---</p>
             <p>Tech: server written in Go, client written in vanilla JavaScript, communication via WebSockets.</p>
             <p>All code generated with the help of AI coding assistants as a way for me to learn how to use AI.</p>
         </div>

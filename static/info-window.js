@@ -44,15 +44,16 @@ class InfoWindow {
             position: absolute;
             left: ${x}px;
             top: ${y}px;
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #ccc;
+            background: var(--bg-1);
+            border: 1px solid var(--border-2);
+            border-radius: var(--radius-2);
             padding: 8px;
-            font-family: 'Courier New', monospace;
+            font-family: var(--font-mono);
             font-size: 12px;
-            color: #ccc;
+            color: var(--fg-2);
             z-index: 1000;
             min-width: 250px;
-            box-shadow: 0 0 10px rgba(200, 200, 200, 0.3);
+            box-shadow: var(--shadow-overlay);
         `;
         
         // Adjust position if too close to any edge

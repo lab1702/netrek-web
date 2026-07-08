@@ -141,7 +141,7 @@ function updateTeamDisplay(data) {
 
         if (count === maxCount && maxCount > minCount + 1) {
             // This team has significantly more players - disable it
-            teamLabels[i].style.color = '#f88';
+            teamLabels[i].style.color = 'var(--danger)';
             teamRadios[i].disabled = true;
             teamLabels[i].style.opacity = '0.5';
             teamLabels[i].style.cursor = 'not-allowed';
@@ -158,15 +158,15 @@ function updateTeamDisplay(data) {
 
             if (count === minCount) {
                 // This team has fewer players - suggest it
-                teamLabels[i].style.color = '#0f0';
+                teamLabels[i].style.color = 'var(--green)';
                 teamLabels[i].dataset.originalText = teamLabels[i].textContent;
                 teamLabels[i].dataset.hasStar = '1';
-                teamLabels[i].textContent += ' \u2B50';
+                teamLabels[i].textContent += ' \u2605';
                 if (firstAvailableIndex === -1) {
                     firstAvailableIndex = i;
                 }
             } else {
-                teamLabels[i].style.color = '#0f0';
+                teamLabels[i].style.color = 'var(--green)';
                 if (firstAvailableIndex === -1) {
                     firstAvailableIndex = i;
                 }
@@ -2282,7 +2282,7 @@ function updatePlayerList() {
 
     // Build header using DOM APIs
     const header = document.createElement('div');
-    header.style.cssText = 'border-bottom: 1px solid #808080; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; color: #c0c0c0;';
+    header.style.cssText = 'border-bottom: 1px solid var(--border-1); margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 9px; letter-spacing: var(--tracking-label); color: var(--fg-3);';
     const headerLeft = document.createElement('span');
     const headerIdLabel = document.createElement('span');
     headerIdLabel.style.fontFamily = 'monospace';

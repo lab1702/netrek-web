@@ -3,114 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Netrek Web</title>
+    <title>netrek-web</title>
+    <link rel="stylesheet" href="lab1702.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        /* lab1702 design system for all UI chrome.
+           In-game team colors (red/yellow/green/cyan) are historical
+           Netrek colors and intentionally NOT tokenized. */
         body {
-            font-family: 'Courier New', monospace;
-            background: #000;
-            color: #0f0;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            background: var(--bg-0);
+            color: var(--fg-1);
             overflow: hidden;
         }
-        
+
         #login {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: #111;
-            border: 2px solid #0f0;
-            padding: 20px;
-            border-radius: 5px;
+            background: var(--bg-1);
+            border: 1px solid var(--border-1);
+            padding: 24px;
+            border-radius: var(--radius-2);
+            box-shadow: var(--shadow-card);
         }
-        
+
         #login h1 {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             text-align: center;
-            color: #0f0;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--fg-1);
         }
-        
+
+        #login h1 .accent { color: var(--amber); }
+
         #login input[type="text"] {
             display: block;
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            background: #000;
-            border: 1px solid #0f0;
-            color: #0f0;
-            font-family: inherit;
+            margin: 12px 0;
         }
-        
+
         .radio-group {
-            margin: 15px 0;
-            padding: 10px;
-            border: 1px solid #0f0;
-            background: #000;
+            margin: 12px 0;
+            padding: 12px;
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-1);
+            background: var(--bg-0);
         }
-        
+
         .radio-group-title {
-            color: #0f0;
+            color: var(--fg-3);
             margin-bottom: 10px;
-            font-weight: bold;
+            font-weight: 500;
             text-transform: uppercase;
-            font-size: 12px;
+            letter-spacing: var(--tracking-label);
+            font-size: 11px;
         }
-        
+
         .radio-options {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
         }
-        
+
         .radio-option {
             display: flex;
             align-items: center;
-            color: #0f0;
-            font-size: 14px;
+            color: var(--fg-2);
+            font-size: 12.5px;
         }
-        
+
         .radio-option input[type="radio"] {
-            margin-right: 6px;
-            accent-color: #0f0;
+            margin-right: 8px;
+            accent-color: var(--amber);
         }
-        
+
         .radio-option label {
             cursor: pointer;
             user-select: none;
+            transition: color var(--dur-fast) var(--ease-out);
         }
-        
+
+        .radio-option input[type="radio"]:checked + label {
+            color: var(--fg-1);
+        }
+
         .radio-option input[type="radio"]:not(:disabled) + label:hover {
-            color: #0ff;
+            color: var(--amber);
         }
-        
+
         .radio-option input[type="radio"]:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
+
         .radio-option input[type="radio"]:disabled + label {
             cursor: not-allowed;
             opacity: 0.5;
         }
-        
-        #login button {
+
+        #login > button {
             width: 100%;
-            padding: 10px;
-            background: #0f0;
-            color: #000;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-            font-family: inherit;
-        }
-        
-        #login button:hover {
-            background: #0a0;
         }
         
         #game {
@@ -125,19 +119,18 @@
             top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #808080;
+            background: var(--bg-1);
+            border: 1px solid var(--border-1);
             padding: 8px 20px;
-            border-radius: 5px;
+            border-radius: var(--radius-2);
             display: flex;
             gap: 20px;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 13px;
+            font-weight: 600;
             z-index: 100;
-            font-family: 'Courier New', monospace;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            box-shadow: var(--shadow-card);
         }
-        
+
         .counter-item {
             text-shadow: 0 0 5px currentColor;
         }
@@ -176,55 +169,56 @@
         
         canvas {
             display: block;
-            border: 2px solid #808080;
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-2);
         }
-        
+
         #tactical {
             background: #000;
         }
-        
+
         #galactic-map {
             background: #000;
         }
-        
+
         #dashboard {
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
             height: 100px;
-            background: linear-gradient(to bottom, #1a1a1a, #0a0a0a);
-            border-top: 2px solid #808080;
+            background: var(--bg-1);
+            border-top: 1px solid var(--border-1);
             padding: 15px 20px;
             display: flex;
             justify-content: space-evenly;
             align-items: center;
             gap: 20px;
-            box-shadow: 0 -5px 20px rgba(0, 255, 0, 0.1);
         }
-        
+
         .stat {
             text-align: center;
             padding: 5px 15px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(0, 255, 0, 0.2);
-            border-radius: 5px;
+            background: var(--bg-0);
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-1);
             min-width: 80px;
         }
-        
+
         .stat-label {
-            font-size: 11px;
-            color: #aaa;
-            letter-spacing: 1px;
+            font-size: 10px;
+            color: var(--fg-3);
+            letter-spacing: var(--tracking-label);
+            text-transform: uppercase;
             margin-bottom: 3px;
-            font-weight: bold;
+            font-weight: 500;
         }
-        
+
         .stat-value {
             font-size: 18px;
-            color: #0f0;
-            font-weight: bold;
-            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            color: var(--fg-1);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
         
         
@@ -232,17 +226,19 @@
             flex: 1 1 200px;
             max-width: 320px;
             height: calc(100vh - 130px); /* Account for dashboard + padding */
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #808080;
+            background: var(--bg-1);
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-2);
             z-index: 10;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         .message-panel {
             display: flex;
             flex-direction: column;
-            border-bottom: 1px solid #404040;
+            border-bottom: 1px solid var(--border-1);
             min-height: 0; /* Important for flex children with overflow */
         }
         
@@ -259,12 +255,14 @@
         }
 
         .message-label {
-            background: rgba(128, 128, 128, 0.1);
-            color: #c0c0c0;
-            padding: 2px 5px;
+            background: var(--bg-2);
+            color: var(--fg-3);
+            padding: 3px 5px;
             font-size: 10px;
-            font-weight: bold;
-            border-bottom: 1px solid #606060;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: var(--tracking-label);
+            border-bottom: 1px solid var(--border-1);
             text-align: center;
         }
 
@@ -296,8 +294,9 @@
             flex: 1 1 200px;
             max-width: 320px;
             height: calc(100vh - 130px); /* Account for dashboard + padding */
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid #808080;
+            background: var(--bg-1);
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-2);
             padding: 5px;
             overflow-y: auto;
             font-size: 9px;
@@ -320,171 +319,162 @@
             bottom: 110px;
             left: 10px;
             font-size: 11px;
-            color: #888;
-            background: rgba(0, 0, 0, 0.8);
+            color: var(--fg-3);
+            background: var(--bg-1);
             padding: 5px;
-            border: 1px solid #444;
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-1);
         }
-        
+
         #message-input {
             display: none;
             position: absolute;
             bottom: 50%;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #0f0;
-            padding: 10px;
+            background: var(--bg-1);
+            border: 1px solid var(--amber-dim);
+            border-radius: var(--radius-2);
+            box-shadow: var(--shadow-overlay), 0 0 12px var(--amber-glow);
+            padding: 12px;
             z-index: 1000;
         }
-        
+
         #message-input input {
-            background: #000;
-            border: 1px solid #0f0;
-            color: #0f0;
-            padding: 5px;
             width: 400px;
-            font-family: inherit;
         }
-        
+
         #message-input .prompt {
-            color: #0f0;
-            margin-bottom: 5px;
+            color: var(--fg-3);
+            text-transform: uppercase;
+            letter-spacing: var(--tracking-label);
+            font-size: 11px;
+            margin-bottom: 8px;
         }
-        
+
         #help-window {
             display: none;
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #0f0;
-            padding: 20px;
+            background: var(--bg-1);
+            border: 1px solid var(--border-1);
+            border-radius: var(--radius-2);
+            box-shadow: var(--shadow-overlay);
+            padding: 24px;
             z-index: 1001;
             max-width: 800px;
             max-height: 80vh;
             overflow-y: auto;
         }
-        
+
         #help-window h2 {
-            color: #0f0;
+            color: var(--fg-1);
+            font-size: 16px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: var(--tracking-label);
             margin-bottom: 15px;
             text-align: center;
-            border-bottom: 1px solid #0f0;
+            border-bottom: 1px solid var(--border-1);
             padding-bottom: 10px;
         }
-        
+
         #help-window .help-section {
             margin-bottom: 20px;
         }
-        
+
         #help-window .help-section h3 {
-            color: #0f0;
+            color: var(--fg-3);
             margin-bottom: 10px;
-            font-size: 14px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: var(--tracking-label);
         }
-        
+
         #help-window .help-item {
             display: flex;
             margin-bottom: 5px;
             font-size: 12px;
         }
-        
+
         #help-window .help-key {
-            color: #ff0;
-            min-width: 80px;
-            font-weight: bold;
+            color: var(--amber);
+            min-width: 100px;
+            font-weight: 500;
         }
-        
+
         #help-window .help-desc {
-            color: #0f0;
+            color: var(--fg-2);
         }
-        
+
         #help-window .close-help {
             margin-top: 15px;
             text-align: center;
-            color: #999;
+            color: var(--fg-3);
             font-size: 11px;
         }
-        
+
         #practice-panel {
             position: fixed;
             top: 50%;
             right: 20px;
             transform: translateY(-50%);
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #0f0;
+            background: var(--bg-1);
+            border: 1px solid var(--border-1);
             padding: 20px;
-            border-radius: 5px;
+            border-radius: var(--radius-2);
+            box-shadow: var(--shadow-overlay);
             display: none;
             z-index: 10000;
             min-width: 200px;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
         }
-        
+
         #practice-panel.show {
             display: block;
         }
-        
+
         .practice-header {
-            color: #0f0;
-            font-size: 16px;
-            font-weight: bold;
+            color: var(--fg-1);
+            font-size: 13px;
+            font-weight: 600;
             margin-bottom: 15px;
             text-align: center;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: var(--tracking-label);
         }
-        
+
         .practice-buttons {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-        
-        .practice-buttons button {
-            background: transparent;
-            border: 1px solid #0f0;
-            color: #0f0;
-            padding: 8px 15px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            transition: all 0.3s;
-            text-transform: uppercase;
-        }
-        
-        .practice-buttons button:hover {
-            background: #0f0;
-            color: #000;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-        }
-        
+
         .practice-help {
             margin-top: 15px;
             padding-top: 15px;
-            border-top: 1px solid rgba(0, 255, 0, 0.3);
-            color: #0a0;
+            border-top: 1px solid var(--border-1);
+            color: var(--fg-3);
             font-size: 11px;
             text-align: center;
         }
-        
+
+        /* Alert colors below are game-semantic (yellow/red alert), not theme */
         #alert-status {
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
             bottom: calc(100px + 10px); /* Dashboard height + 10px gap */
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid;
+            background: var(--bg-1);
+            border: 1px solid;
             padding: 10px 20px;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
+            border-radius: var(--radius-2);
             font-size: 18px;
-            font-weight: bold;
+            font-weight: 600;
             text-align: center;
             z-index: 200;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
             text-shadow: 0 0 10px currentColor;
             letter-spacing: 2px;
         }
@@ -525,11 +515,11 @@
 </head>
 <body>
     <div id="login">
-        <h1>NETREK WEB</h1>
-        <div id="serverStats" style="color: #0f0; text-align: center; margin-bottom: 15px; font-size: 14px;">
+        <h1>netrek<span class="accent">-web</span></h1>
+        <div id="serverStats" style="color: var(--fg-2); text-align: center; margin-bottom: 15px; font-size: 12.5px;">
             <span id="totalPlayers">Loading server...</span>
         </div>
-        <input type="text" id="playerName" placeholder="Enter your name" maxlength="16" pattern="[a-zA-Z0-9]*" onkeypress="return /[a-zA-Z0-9]/.test(event.key)" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')">
+        <input type="text" id="playerName" class="l7-input" placeholder="enter your name" maxlength="16" pattern="[a-zA-Z0-9]*" onkeypress="return /[a-zA-Z0-9]/.test(event.key)" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')">
         
         <div class="radio-group">
             <div class="radio-group-title">Select Team</div>
@@ -583,16 +573,16 @@
             </div>
         </div>
         
-        <button onclick="connect()">Enter Game</button>
-        <div style="margin-top: 20px; font-size: 12px; color: #0f0;">
-            <strong>Quick Reference:</strong><br>
-            <span style="color: #ff0;">Movement:</span> Right-click to set course | 0-9: Set speed | !@#: Speed 10-12<br>
-            <span style="color: #ff0;">Combat:</span> Left-click: Torpedo | Middle-click: Phaser | P: Plasma | D: Detonate<br>
-            <span style="color: #ff0;">Systems:</span> S: Shields | C: Cloak | R: Repair | T: Tractor | Y: Pressor<br>
-            <span style="color: #ff0;">Planets:</span> O: Orbit | B: Bomb | Z: Beam up | X: Beam down<br>
-            <span style="color: #ff0;">Info:</span> L: Lock-on | I: Info window | ?: Help | Q: Quit<br>
-            <span style="color: #ff0;">Chat:</span> A: All msg | Shift+T: Team msg | Esc: Cancel<br>
-            <span style="color: #ff0;">Practice:</span> \: Toggle bot panel
+        <button class="l7-btn l7-btn--solid" onclick="connect()">enter game →</button>
+        <div style="margin-top: 20px; font-size: 11px; line-height: 1.7; color: var(--fg-2);">
+            <span class="l7-label">quick reference</span><br>
+            <span style="color: var(--amber);">Movement:</span> Right-click to set course | 0-9: Set speed | !@#: Speed 10-12<br>
+            <span style="color: var(--amber);">Combat:</span> Left-click: Torpedo | Middle-click: Phaser | P: Plasma | D: Detonate<br>
+            <span style="color: var(--amber);">Systems:</span> S: Shields | C: Cloak | R: Repair | T: Tractor | Y: Pressor<br>
+            <span style="color: var(--amber);">Planets:</span> O: Orbit | B: Bomb | Z: Beam up | X: Beam down<br>
+            <span style="color: var(--amber);">Info:</span> L: Lock-on | I: Info window | ?: Help | Q: Quit<br>
+            <span style="color: var(--amber);">Chat:</span> A: All msg | Shift+T: Team msg | Esc: Cancel<br>
+            <span style="color: var(--amber);">Practice:</span> \: Toggle bot panel
         </div>
     </div>
     
@@ -684,8 +674,8 @@
     </div>
     
     <div id="message-input">
-        <div class="prompt">Enter message:</div>
-        <input type="text" id="message-text" maxlength="80">
+        <div class="prompt">enter message</div>
+        <input type="text" id="message-text" class="l7-input" maxlength="80">
     </div>
     
     <div id="help-window">
@@ -829,9 +819,9 @@
     <div id="practice-panel">
         <div class="practice-header">Practice Mode</div>
         <div class="practice-buttons">
-            <button onclick="balanceTeams()">Balance Teams</button>
-            <button onclick="fillWithBots()">Fill All Slots</button>
-            <button onclick="clearBots()">Clear All Bots</button>
+            <button class="l7-btn l7-btn--outline" onclick="balanceTeams()">balance teams</button>
+            <button class="l7-btn l7-btn--outline" onclick="fillWithBots()">fill all slots</button>
+            <button class="l7-btn l7-btn--outline" onclick="clearBots()">clear all bots</button>
         </div>
         <div class="practice-help">Press \ (backslash) to toggle or Escape to close this panel</div>
     </div>
