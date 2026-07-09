@@ -56,8 +56,7 @@ func (s *Server) AddBot(team int, ship game.ShipType) bool {
 	p.BotCooldown = 0
 
 	// Set initial position based on team (clamped to galaxy bounds)
-	p.X = math.Max(0, math.Min(game.GalaxyWidth, float64(game.TeamHomeX[team])+float64(rand.Intn(10000)-5000)))
-	p.Y = math.Max(0, math.Min(game.GalaxyHeight, float64(game.TeamHomeY[team])+float64(rand.Intn(10000)-5000)))
+	p.X, p.Y = spawnPosition(team)
 	p.Dir = rand.Float64() * 2 * math.Pi
 
 	// Initialize ship stats

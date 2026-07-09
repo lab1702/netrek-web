@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"time"
 
@@ -171,25 +170,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	p.Status = game.StatusAlive
 
 	// Set starting position near home planet with random offset (like original Netrek)
-	var homeX, homeY float64
-	switch loginData.Team {
-	case game.TeamFed:
-		homeX, homeY = 20000, 80000 // Earth
-	case game.TeamRom:
-		homeX, homeY = 20000, 20000 // Romulus
-	case game.TeamKli:
-		homeX, homeY = 80000, 20000 // Klingus
-	case game.TeamOri:
-		homeX, homeY = 80000, 80000 // Orion
-	default:
-		homeX, homeY = 50000, 50000 // Center
-	}
-
-	// Add random offset between -5000 and +5000 (from original: random() % 10000 - 5000)
-	offsetX := float64(rand.Intn(10000) - 5000)
-	offsetY := float64(rand.Intn(10000) - 5000)
-	p.X = math.Max(0, math.Min(game.GalaxyWidth, homeX+offsetX))
-	p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
+	p.X, p.Y = spawnPosition(loginData.Team)
 
 	// Movement
 	p.Dir = 0

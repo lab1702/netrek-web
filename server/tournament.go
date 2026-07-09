@@ -117,15 +117,9 @@ func (s *Server) checkTournamentMode() {
 				p.KilledBy = -1
 				p.WhyDead = game.KillNone
 
-				// Reset position to near home world
-				homeX := float64(game.TeamHomeX[p.Team])
-				homeY := float64(game.TeamHomeY[p.Team])
-
-				// Add random offset to prevent ships spawning on top of each other
-				offsetX := float64(rand.Intn(10000) - 5000)
-				offsetY := float64(rand.Intn(10000) - 5000)
-				p.X = math.Max(0, math.Min(game.GalaxyWidth, homeX+offsetX))
-				p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
+				// Reset position to near home world (random offset prevents
+				// ships spawning on top of each other)
+				p.X, p.Y = spawnPosition(p.Team)
 
 				// Random starting direction
 				p.Dir = rand.Float64() * 2 * math.Pi

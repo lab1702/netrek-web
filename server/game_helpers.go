@@ -115,26 +115,7 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	p.AccFrac = 0 // Reset fractional acceleration accumulator
 
 	// Set position near home planet with random offset (like original Netrek)
-	// Original uses: pl->pl_x + (random() % 10000) - 5000
-	var homeX, homeY float64
-	switch p.Team {
-	case game.TeamFed:
-		homeX, homeY = 20000, 80000 // Earth
-	case game.TeamRom:
-		homeX, homeY = 20000, 20000 // Romulus
-	case game.TeamKli:
-		homeX, homeY = 80000, 20000 // Klingus
-	case game.TeamOri:
-		homeX, homeY = 80000, 80000 // Orion
-	default:
-		homeX, homeY = 50000, 50000 // Center if no team
-	}
-
-	// Add random offset between -5000 and +5000 for both X and Y
-	offsetX := float64(rand.Intn(10000) - 5000)
-	offsetY := float64(rand.Intn(10000) - 5000)
-	p.X = math.Max(0, math.Min(game.GalaxyWidth, homeX+offsetX))
-	p.Y = math.Max(0, math.Min(game.GalaxyHeight, homeY+offsetY))
+	p.X, p.Y = spawnPosition(p.Team)
 
 	// Random starting direction
 	p.Dir = rand.Float64() * 2 * math.Pi
@@ -275,6 +256,15 @@ type TeamCountData struct {
 	Rom   int
 	Kli   int
 	Ori   int
+}
+
+// spawnPosition returns a random spawn point near the team's home planet,
+// offset by ±5000 in each axis and clamped to the galaxy.
+// Original uses: pl->pl_x + (random() % 10000) - 5000
+func spawnPosition(team int) (x, y float64) {
+	x = float64(game.TeamHomeX[team]) + float64(rand.Intn(10000)-5000)
+	y = float64(game.TeamHomeY[team]) + float64(rand.Intn(10000)-5000)
+	return math.Max(0, math.Min(game.GalaxyWidth, x)), math.Max(0, math.Min(game.GalaxyHeight, y))
 }
 
 // computeTeamCounts calculates team counts from current game state.

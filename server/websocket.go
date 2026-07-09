@@ -637,37 +637,17 @@ func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	s.gameState.Mu.RLock()
-	defer s.gameState.Mu.RUnlock()
-
-	// Count players per team
-	teamCounts := map[string]int{
-		"fed": 0,
-		"rom": 0,
-		"kli": 0,
-		"ori": 0,
-	}
-
-	totalPlayers := 0
-	for _, p := range s.gameState.Players {
-		// Count all connected players including dead/exploding (they're still on the team)
-		if p.Connected && p.Status != game.StatusFree {
-			totalPlayers++
-			switch p.Team {
-			case game.TeamFed:
-				teamCounts["fed"]++
-			case game.TeamRom:
-				teamCounts["rom"]++
-			case game.TeamKli:
-				teamCounts["kli"]++
-			case game.TeamOri:
-				teamCounts["ori"]++
-			}
-		}
-	}
+	counts := s.computeTeamCounts()
+	s.gameState.Mu.RUnlock()
 
 	response := map[string]interface{}{
-		"total": totalPlayers,
-		"teams": teamCounts,
+		"total": counts.Total,
+		"teams": map[string]int{
+			"fed": counts.Fed,
+			"rom": counts.Rom,
+			"kli": counts.Kli,
+			"ori": counts.Ori,
+		},
 	}
 
 	_ = json.NewEncoder(w).Encode(response)
