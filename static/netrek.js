@@ -255,8 +255,8 @@ let dashboardEls = {};
 // Centroid mode for team markers on galactic map: 'none', 'average', 'median'
 let centroidMode = 'none';
 
-// Ship names
-const shipNames = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
+// Ship class abbreviations, indexed by ship type (shared with info-window.js)
+window.SHIP_ABBR = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB'];
 
 // Performance tracking
 let fps = 0;
@@ -1920,20 +1920,8 @@ function renderGalactic() {
         // Only apply scouting rules in tournament mode
         const hasInfo = gameState.tMode ? !!(planet.info & myTeam) : true;
         
-        // Use simplified planet renderer
-        if (window.planetRenderer) {
-            window.planetRenderer.drawGalacticPlanet(ctx, planet, x, y, hasInfo);
-        } else {
-            // Fallback to text labels
-            ctx.font = '9px monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            // Show actual color if we have info, otherwise gray
-            ctx.fillStyle = hasInfo ? (teamColors[planet.owner] || '#888') : '#444';
-            // Always show planet label
-            const label = planet.label || (planet.name || '???').substring(0, 3).toUpperCase();
-            ctx.fillText(label, x, y);
-        }
+        // Use simplified planet renderer (loaded synchronously before this script)
+        window.planetRenderer.drawGalacticPlanet(ctx, planet, x, y, hasInfo);
     }
     
     // Draw players
@@ -2080,11 +2068,11 @@ function updateDashboard() {
     }
 
     // Update stats with current/max format where applicable
-    const maxShields = getMaxShields(player.ship);
-    const maxDamage = getMaxDamage(player.ship);
-    const maxFuel = getMaxFuel(player.ship);
-    const maxSpeed = getMaxSpeed(player.ship);
-    const maxArmies = getMaxArmies(player.ship);
+    const maxShields = getMaxStat(player.ship, 'shields');
+    const maxDamage = getMaxStat(player.ship, 'damage');
+    const maxFuel = getMaxStat(player.ship, 'fuel');
+    const maxSpeed = getMaxStat(player.ship, 'speed');
+    const maxArmies = getMaxStat(player.ship, 'armies');
 
     if (dashboardEls.shields) dashboardEls.shields.textContent = `${player.shields || 0} / ${maxShields}`;
     if (dashboardEls.damage) dashboardEls.damage.textContent = `${player.damage || 0} / ${maxDamage}`;
@@ -2265,7 +2253,7 @@ function updatePlayerList() {
     for (const player of visiblePlayers) {
         const isDead = player.status === 4 || player.status === 3; // Dead or exploding
         const teamClass = `team-${getTeamName(player.team).toLowerCase()}`;
-        const shipType = shipNames[player.ship] || 'XX';
+        const shipType = window.SHIP_ABBR[player.ship] || 'XX';
         const kills = player.kills || 0;
         const killsStreak = player.killsStreak || 0;
         const deaths = player.deaths || 0;
@@ -2593,83 +2581,32 @@ const SHIP_STATS = [
     { shields: 500, damage: 600, fuel: 60000, speed: 2,  armies: 25 }, // Starbase
 ];
 
-function getMaxShields(shipType) {
-    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].shields) || 100;
-}
+const SHIP_STAT_DEFAULTS = { shields: 100, damage: 100, fuel: 10000, speed: 10, armies: 10 };
 
-function getMaxDamage(shipType) {
-    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].damage) || 100;
+function getMaxStat(shipType, field) {
+    return (SHIP_STATS[shipType] && SHIP_STATS[shipType][field]) || SHIP_STAT_DEFAULTS[field];
 }
 
 // Bot control functions for practice mode
 
-function balanceTeams() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        // Not connected to server
-        return;
+// Send a slash command to the server if connected
+function sendCommand(text) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        sendMessage({ type: 'message', data: { text, to: 'all' } });
     }
-    
-    sendMessage({ 
-        type: 'message', 
-        data: { 
-            text: '/balance',
-            to: 'all'
-        } 
-    });
+}
+
+function balanceTeams() {
+    sendCommand('/balance');
 }
 
 function clearBots() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        // Not connected to server
-        return;
-    }
-    
-    sendMessage({ 
-        type: 'message', 
-        data: { 
-            text: '/clearbots',
-            to: 'all'
-        } 
-    });
+    sendCommand('/clearbots');
 }
 
 function fillWithBots() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        // Not connected to server
-        return;
+    // Only ask when there are free slots to fill
+    if (gameState.players.some(p => !p || p.status === 0)) {
+        sendCommand('/fillbots');
     }
-    
-    // Count how many empty slots are available
-    let freeSlots = 0;
-    for (let i = 0; i < gameState.players.length; i++) {
-        const player = gameState.players[i];
-        if (!player || player.status === 0) { // Free slot
-            freeSlots++;
-        }
-    }
-    
-    if (freeSlots === 0) {
-        return;
-    }
-    
-    // Send command to fill all slots with bots
-    sendMessage({ 
-        type: 'message', 
-        data: { 
-            text: '/fillbots',
-            to: 'all'
-        } 
-    });
-}
-
-function getMaxFuel(shipType) {
-    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].fuel) || 10000;
-}
-
-function getMaxSpeed(shipType) {
-    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].speed) || 10;
-}
-
-function getMaxArmies(shipType) {
-    return (SHIP_STATS[shipType] && SHIP_STATS[shipType].armies) || 10;
 }

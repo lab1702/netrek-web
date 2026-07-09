@@ -4094,7 +4094,6 @@ function convertShipBitmap(bitmapData, width, height, color) {
 }
 
 // Export for use in other modules
-window.allTeamShipBitmaps = allTeamShipBitmaps;
 window.teamBitmapMap = teamBitmapMap;
 window.convertShipBitmap = convertShipBitmap;
 window.shipDimensions = shipDimensions;

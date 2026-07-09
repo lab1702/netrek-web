@@ -137,62 +137,14 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		course = phaserData.Dir
 	}
 
+	// Find the nearest enemy ship on the phaser line; keep rangeSq so the
+	// plasma scan below only considers plasmas closer than the hit ship.
+	target, targetDist, rangeSq := c.server.phaserTargetInLine(p, course, myPhaserRange)
+
 	// (C, D) is a point on the phaser line, relative to me
 	// Using 10*PHASEDIST like original to prevent round-off errors
 	C := math.Cos(course) * 10 * float64(game.PhaserDist)
 	D := math.Sin(course) * 10 * float64(game.PhaserDist)
-
-	// Initialize search parameters
-	var target *game.Player
-	var targetDist float64
-	rangeSq := myPhaserRange*myPhaserRange + 1 // +1 to ensure we check exact range
-
-	// Check all enemy players using the original line-to-circle algorithm
-	for _, enemy := range c.server.gameState.Players {
-		if enemy == nil || enemy.Status != game.StatusAlive || enemy.Team == p.Team {
-			continue
-		}
-
-		// (A, B) is the position of the possible target relative to me
-		A := enemy.X - p.X
-		B := enemy.Y - p.Y
-
-		// Quick bounds check
-		if math.Abs(A) >= myPhaserRange || math.Abs(B) >= myPhaserRange {
-			continue
-		}
-
-		// Check if within phaser range
-		thisRangeSq := A*A + B*B
-		if thisRangeSq >= rangeSq {
-			continue
-		}
-
-		// Calculate point on phaser line nearest to target
-		// s is the parameter for the point on the line closest to the target
-		s := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
-
-		if s < 0 {
-			s = 0 // Handle case where target is behind the ship
-		}
-
-		E := C * s
-		F := D * s
-
-		// Check if the closest point on the phaser line is within hit distance
-		dx := E - A
-		dy := F - B
-
-		// Use ZAPPLAYERDIST for hit detection
-		if dx*dx+dy*dy <= float64(game.ZAPPLAYERDIST*game.ZAPPLAYERDIST) {
-			// A hit! Update if this is closer than previous target
-			if target == nil || thisRangeSq < targetDist*targetDist {
-				target = enemy
-				targetDist = math.Sqrt(thisRangeSq)
-				rangeSq = thisRangeSq // Narrow search to closer targets
-			}
-		}
-	}
 
 	// Check plasma torpedoes (if they exist)
 	for _, plasma := range c.server.gameState.Plasmas {

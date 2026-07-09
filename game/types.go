@@ -556,13 +556,8 @@ type GameState struct {
 	TournamentStats map[int]*TournamentPlayerStats // Player ID -> stats
 }
 
-// NewGameState creates a new game state with INL mode enabled by default
+// NewGameState creates a new game state with INL planet flags
 func NewGameState() *GameState {
-	return NewGameStateWithMode(true)
-}
-
-// NewGameStateWithMode creates a new game state with optional INL mode
-func NewGameStateWithMode(inlMode bool) *GameState {
 	gs := &GameState{
 		Torps:           make([]*Torpedo, 0),
 		Plasmas:         make([]*Plasma, 0),
@@ -591,11 +586,7 @@ func NewGameStateWithMode(inlMode bool) *GameState {
 
 	// Initialize planets
 	InitPlanets(gs)
-
-	// Apply INL mode flags if requested
-	if inlMode {
-		InitINLPlanetFlags(gs)
-	}
+	InitINLPlanetFlags(gs)
 
 	return gs
 }

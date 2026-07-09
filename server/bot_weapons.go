@@ -28,62 +28,9 @@ func (s *Server) targetVelocity(t *game.Player) Vector2D {
 // - Weapon spread patterns
 // - Enhanced targeting algorithms
 
-// fireBotTorpedo fires a torpedo from a bot
+// fireBotTorpedo fires a single intercept-aimed torpedo from a bot
 func (s *Server) fireBotTorpedo(p *game.Player, target *game.Player) {
-	// Can't fire while cloaked or repairing (same rules as human players)
-	if p.Cloaked || p.Repairing {
-		return
-	}
-
-	shipStats := game.ShipData[p.Ship]
-
-	// Check torpedo count
-	if p.NumTorps >= game.MaxTorps {
-		return
-	}
-
-	// Check fuel (same formula as human handler)
-	torpCost := shipStats.TorpDamage * shipStats.TorpFuelMult
-	if p.Fuel < torpCost {
-		return
-	}
-
-	// Check weapon temperature
-	if p.WTemp > shipStats.MaxWpnTemp-100 {
-		return
-	}
-
-	// Use unified intercept solver
-	shooterPos := Point2D{X: p.X, Y: p.Y}
-	targetPos := Point2D{X: target.X, Y: target.Y}
-	targetVel := s.targetVelocity(target)
-	projSpeed := float64(shipStats.TorpSpeed * 20) // Convert to units/tick
-
-	// Calculate intercept direction
-	fireDir, _ := InterceptDirectionSimple(shooterPos, targetPos, targetVel, projSpeed)
-
-	// Add small random jitter to make bot torpedoes harder to dodge
-	fireDir += randomJitterRad()
-
-	// Create torpedo
-	torp := &game.Torpedo{
-		ID:     s.nextTorpID,
-		Owner:  p.ID,
-		X:      p.X,
-		Y:      p.Y,
-		Dir:    fireDir,
-		Speed:  float64(shipStats.TorpSpeed * 20), // 20 units per tick
-		Damage: shipStats.TorpDamage,
-		Fuse:   shipStats.TorpFuse,
-		Status: game.TorpMove, // Moving
-		Team:   p.Team,        // Set team color
-	}
-
-	s.gameState.Torps = append(s.gameState.Torps, torp)
-	s.nextTorpID++
-	p.NumTorps++
-	p.Fuel -= torpCost
-	p.WTemp += 50
+	s.fireTorpedoSpread(p, target, 1)
 }
 
 // fireBotPhaser fires a phaser from a bot using the same line-to-circle hit
@@ -118,52 +65,8 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	// Bot aims directly at target
 	course := math.Atan2(target.Y-p.Y, target.X-p.X)
 
-	// Use the same line-to-circle algorithm as human phasers:
-	// (C, D) is a point on the phaser line, relative to the bot
-	C := math.Cos(course) * 10 * float64(game.PhaserDist)
-	D := math.Sin(course) * 10 * float64(game.PhaserDist)
-
-	var hitTarget *game.Player
-	var hitDist float64
-	rangeSq := myPhaserRange*myPhaserRange + 1
-
-	for _, enemy := range s.gameState.Players {
-		if enemy == nil || enemy.Status != game.StatusAlive || enemy.Team == p.Team {
-			continue
-		}
-
-		A := enemy.X - p.X
-		B := enemy.Y - p.Y
-
-		if math.Abs(A) >= myPhaserRange || math.Abs(B) >= myPhaserRange {
-			continue
-		}
-
-		thisRangeSq := A*A + B*B
-		if thisRangeSq >= rangeSq {
-			continue
-		}
-
-		// Calculate point on phaser line nearest to target
-		paramS := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
-		if paramS < 0 {
-			paramS = 0
-		}
-
-		E := C * paramS
-		F := D * paramS
-
-		dx := E - A
-		dy := F - B
-
-		if dx*dx+dy*dy <= float64(game.ZAPPLAYERDIST*game.ZAPPLAYERDIST) {
-			if hitTarget == nil || thisRangeSq < hitDist*hitDist {
-				hitTarget = enemy
-				hitDist = math.Sqrt(thisRangeSq)
-				rangeSq = thisRangeSq
-			}
-		}
-	}
+	// Use the same line-to-circle algorithm as human phasers
+	hitTarget, hitDist, _ := s.phaserTargetInLine(p, course, myPhaserRange)
 
 	// Consume fuel and increase weapon temp regardless of hit (same as human)
 	p.Fuel -= phaserCost
@@ -203,6 +106,65 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 			"range":  myPhaserRange,
 		},
 	})
+}
+
+// phaserTargetInLine finds the nearest enemy ship hit by a phaser fired from
+// shooter along course, using the original Netrek line-to-circle algorithm.
+// Returns the hit player (nil if none), its distance, and the final search
+// radius squared, which callers reuse to bound follow-up scans (e.g. plasmas).
+func (s *Server) phaserTargetInLine(shooter *game.Player, course, phaserRange float64) (*game.Player, float64, float64) {
+	// (C, D) is a point on the phaser line, relative to the shooter
+	// Using 10*PHASEDIST like original to prevent round-off errors
+	C := math.Cos(course) * 10 * float64(game.PhaserDist)
+	D := math.Sin(course) * 10 * float64(game.PhaserDist)
+
+	var target *game.Player
+	var targetDist float64
+	rangeSq := phaserRange*phaserRange + 1 // +1 to ensure we check exact range
+
+	// Check all enemy players using the original line-to-circle algorithm
+	for _, enemy := range s.gameState.Players {
+		if enemy == nil || enemy.Status != game.StatusAlive || enemy.Team == shooter.Team {
+			continue
+		}
+
+		// (A, B) is the position of the possible target relative to the shooter
+		A := enemy.X - shooter.X
+		B := enemy.Y - shooter.Y
+
+		// Quick bounds check
+		if math.Abs(A) >= phaserRange || math.Abs(B) >= phaserRange {
+			continue
+		}
+
+		// Check if within phaser range
+		thisRangeSq := A*A + B*B
+		if thisRangeSq >= rangeSq {
+			continue
+		}
+
+		// Parameter of the point on the phaser line closest to the target
+		t := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
+		if t < 0 {
+			t = 0 // Handle case where target is behind the ship
+		}
+
+		// Check if the closest point on the phaser line is within hit distance
+		dx := C*t - A
+		dy := D*t - B
+
+		// Use ZAPPLAYERDIST for hit detection
+		if dx*dx+dy*dy <= float64(game.ZAPPLAYERDIST*game.ZAPPLAYERDIST) {
+			// A hit! Update if this is closer than previous target
+			if target == nil || thisRangeSq < targetDist*targetDist {
+				target = enemy
+				targetDist = math.Sqrt(thisRangeSq)
+				rangeSq = thisRangeSq // Narrow search to closer targets
+			}
+		}
+	}
+
+	return target, targetDist, rangeSq
 }
 
 // fireBotPhaserAtPlasma fires a phaser at an incoming plasma torpedo to destroy it

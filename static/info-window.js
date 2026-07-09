@@ -115,8 +115,7 @@ class InfoWindow {
 
     // Build player info HTML
     _buildPlayerHtml(player, playerIndex) {
-        const shipTypes = ['SC', 'DD', 'CA', 'BB', 'AS', 'SB', 'GA'];
-        const shipName = shipTypes[player.ship] || '??';
+        const shipName = window.SHIP_ABBR[player.ship] || '??';
 
         let html = '';
         html += `<div style="color: ${this.getTeamColor(player.team)}; font-weight: bold;">`;
@@ -129,9 +128,9 @@ class InfoWindow {
         const kd = player.deaths > 0 ? (player.kills / player.deaths).toFixed(2) : Math.floor(player.kills).toFixed(1);
         html += `<div>${escapeHtml(shipName)} (${escapeHtml(Math.floor(player.killsStreak || 0))} / ${escapeHtml(Math.floor(player.kills))} / ${escapeHtml(player.deaths || 0)} / ${escapeHtml(kd)})</div>`;
 
-        const maxShields = getMaxShields(player.ship);
-        const maxDamage = getMaxDamage(player.ship);
-        const maxFuel = getMaxFuel(player.ship);
+        const maxShields = getMaxStat(player.ship, 'shields');
+        const maxDamage = getMaxStat(player.ship, 'damage');
+        const maxFuel = getMaxStat(player.ship, 'fuel');
         const shieldPct = Math.round((player.shields / maxShields) * 100);
         const damagePct = Math.round((player.damage / maxDamage) * 100);
         const fuelPct = Math.round((player.fuel / maxFuel) * 100);
