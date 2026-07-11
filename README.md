@@ -1,5 +1,7 @@
 # NETREK-WEB
 
+![Netrek-Web screenshot](netrek-web.png)
+
 A browser-based version of the classic Netrek game. Play instantly in your web browser - no installation required!
 
 ## Quick Start
