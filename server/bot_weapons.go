@@ -65,47 +65,9 @@ func (s *Server) fireBotPhaser(p *game.Player, target *game.Player) {
 	// Bot aims directly at target
 	course := math.Atan2(target.Y-p.Y, target.X-p.X)
 
-	// Use the same line-to-circle algorithm as human phasers
-	hitTarget, hitDist, _ := s.phaserTargetInLine(p, course, myPhaserRange)
-
-	// Consume fuel and increase weapon temp regardless of hit (same as human)
 	p.Fuel -= phaserCost
 	p.WTemp += 70
-
-	if hitTarget == nil {
-		// Miss — send phaser visual with no target
-		s.tryBroadcast(ServerMessage{
-			Type: "phaser",
-			Data: map[string]interface{}{
-				"from":  p.ID,
-				"to":    -1,
-				"dir":   course,
-				"range": myPhaserRange,
-			},
-		})
-		return
-	}
-
-	// Calculate damage based on distance using original formula
-	damage := float64(shipStats.PhaserDamage) * (1.0 - hitDist/myPhaserRange)
-	game.ApplyDamageWithShields(hitTarget, int(damage))
-
-	// Check if target destroyed
-	if hitTarget.Damage >= game.ShipData[hitTarget.Ship].MaxDamage {
-		s.killPlayer(hitTarget, p.ID, game.KillPhaser, int(damage))
-	}
-
-	// Create phaser visual for all players.
-	// Use "target" (not "to") so the broadcast router does not treat this
-	// as a private message routed only to the player that was hit.
-	s.tryBroadcast(ServerMessage{
-		Type: "phaser",
-		Data: map[string]interface{}{
-			"from":   p.ID,
-			"target": hitTarget.ID,
-			"range":  myPhaserRange,
-		},
-	})
+	s.resolvePhaser(p, course)
 }
 
 // phaserTargetInLine finds the nearest enemy ship hit by a phaser fired from
@@ -198,52 +160,14 @@ func (s *Server) fireBotPhaserAtPlasma(p *game.Player, plasma *game.Plasma) bool
 	// Calculate phaser direction to plasma
 	phaserDir := math.Atan2(plasma.Y-p.Y, plasma.X-p.X)
 
-	// Check if phaser would hit the plasma using ZAPPLASMADIST
-	// This mirrors the logic in combat_handlers.go
-	C := 10.0 * float64(game.PhaserDist) * math.Cos(phaserDir)
-	D := 10.0 * float64(game.PhaserDist) * math.Sin(phaserDir)
-
-	A := plasma.X - p.X
-	B := plasma.Y - p.Y
-
-	s_param := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
-	if s_param < 0 {
-		return false
-	}
-
-	E := C * s_param
-	F := D * s_param
-	dx := E - A
-	dy := F - B
-
-	// Use ZAPPLASMADIST for plasma hit detection
-	if dx*dx+dy*dy > float64(game.ZAPPLASMADIST*game.ZAPPLASMADIST) {
-		return false
-	}
-
-	// Destroy the plasma - mark as exploding; updatePlasmas() will decrement NumPlasma
-	plasma.Status = game.TorpDet // Detonate
-
-	// Send phaser visual to plasma location
-	s.tryBroadcast(ServerMessage{
-		Type: "phaser",
-		Data: map[string]interface{}{
-			"from":  p.ID,
-			"to":    -2, // Special code for plasma hit
-			"x":     plasma.X,
-			"y":     plasma.Y,
-			"range": myPhaserRange,
-		},
-	})
-
 	p.Fuel -= phaserCost
 	p.WTemp += 70
-
-	return true
+	s.resolvePhaser(p, phaserDir)
+	return true // A shot was fired, even if another object intercepted it.
 }
 
 // tryPhaserNearbyPlasma checks for enemy plasma in range and attempts to phaser it
-// Returns true if a plasma was phasered
+// Returns true if a shot was fired at plasma (it may hit an intervening object).
 func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 	// Can't fire while cloaked or repairing
 	if p.Cloaked || p.Repairing {

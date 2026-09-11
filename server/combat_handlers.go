@@ -130,8 +130,6 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 	p.Fuel -= phaserCost
 	p.WTemp += 70
 
-	myPhaserRange := game.PhaserRange(shipStats)
-
 	// Get phaser direction (use provided direction or calculate from target)
 	var course float64
 	if phaserData.Target >= 0 && phaserData.Target < game.MaxPlayers {
@@ -147,116 +145,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 		course = phaserData.Dir
 	}
 
-	// Find the nearest enemy ship on the phaser line; keep rangeSq so the
-	// plasma scan below only considers plasmas closer than the hit ship.
-	target, targetDist, rangeSq := c.server.phaserTargetInLine(p, course, myPhaserRange)
-
-	// (C, D) is a point on the phaser line, relative to me
-	// Using 10*PHASEDIST like original to prevent round-off errors
-	C := math.Cos(course) * 10 * float64(game.PhaserDist)
-	D := math.Sin(course) * 10 * float64(game.PhaserDist)
-
-	// Check plasma torpedoes (if they exist)
-	for _, plasma := range c.server.gameState.Plasmas {
-		if plasma == nil || plasma.Status != game.TorpMove || plasma.OwnedBy(p) {
-			continue
-		}
-
-		// Check if plasma is enemy
-		if plasma.Team == p.Team {
-			continue
-		}
-
-		A := plasma.X - p.X
-		B := plasma.Y - p.Y
-
-		if math.Abs(A) >= myPhaserRange || math.Abs(B) >= myPhaserRange {
-			continue
-		}
-
-		thisRangeSq := A*A + B*B
-		if thisRangeSq >= rangeSq {
-			continue
-		}
-
-		s := (A*C + B*D) / (10.0 * float64(game.PhaserDist) * 10.0 * float64(game.PhaserDist))
-		if s < 0 {
-			continue
-		}
-
-		E := C * s
-		F := D * s
-		dx := E - A
-		dy := F - B
-
-		// Use ZAPPLASMADIST for plasma hit detection
-		if dx*dx+dy*dy <= float64(game.ZAPPLASMADIST*game.ZAPPLASMADIST) {
-			// Destroy the plasma - mark as exploding; updatePlasmas() will decrement NumPlasma
-			plasma.Status = game.TorpDet // Detonate
-
-			log.Printf("Phaser destroyed plasma: player %d destroyed plasma from player %d", p.ID, plasma.Owner)
-
-			// Send phaser visual to plasma location (non-blocking)
-			c.server.tryBroadcast(ServerMessage{
-				Type: "phaser",
-				Data: map[string]interface{}{
-					"from":  p.ID,
-					"to":    -2, // Special code for plasma hit
-					"x":     plasma.X,
-					"y":     plasma.Y,
-					"range": myPhaserRange,
-				},
-			})
-			return // Plasma takes priority if hit
-		}
-	}
-
-	// Fire at target if found
-	if target != nil {
-		// Calculate damage based on distance using original formula
-		damage := float64(shipStats.PhaserDamage) * (1.0 - targetDist/myPhaserRange)
-		log.Printf("Phaser hit: player %d hit player %d for %.1f damage at range %.0f", p.ID, target.ID, damage, targetDist)
-
-		// Apply damage to shields first, then hull (round instead of truncate)
-		actualDamage := game.ApplyDamageWithShields(target, int(math.Round(damage)))
-
-		if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-			c.server.killPlayer(target, p.ID, game.KillPhaser, actualDamage)
-		} else if c.server.gameState.T_mode {
-			// Non-lethal hit: still track damage for tournament stats, matching
-			// the torpedo and plasma hit paths.
-			if stats, ok := c.server.gameState.TournamentStats[p.ID]; ok {
-				stats.DamageDealt += actualDamage
-			}
-			if stats, ok := c.server.gameState.TournamentStats[target.ID]; ok {
-				stats.DamageTaken += actualDamage
-			}
-		}
-
-		// Send phaser visual to all players (non-blocking).
-		// Use "target" (not "to") so the broadcast router does not treat this
-		// as a private message routed only to the player that was hit.
-		c.server.tryBroadcast(ServerMessage{
-			Type: "phaser",
-			Data: map[string]interface{}{
-				"from":   p.ID,
-				"target": target.ID,
-				"range":  myPhaserRange,
-			},
-		})
-	} else {
-		// No target - phaser fires but misses
-		// Send phaser visual with direction but no target (non-blocking)
-		c.server.tryBroadcast(ServerMessage{
-			Type: "phaser",
-			Data: map[string]interface{}{
-				"from":  p.ID,
-				"to":    -1,     // -1 indicates no target
-				"dir":   course, // Direction the phaser was fired
-				"range": myPhaserRange,
-			},
-		})
-	}
+	c.server.resolvePhaser(p, course)
 }
 
 // handlePlasma processes plasma torpedo fire commands

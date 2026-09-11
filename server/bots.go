@@ -230,7 +230,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 		if defendersCleared && !targetStillThreatening {
 			// Defenders are cleared, resume planet approach
 			dist := game.Distance(p.X, p.Y, approachPlanet.X, approachPlanet.Y)
-			if dist < OrbitDistance {
+			if dist < OrbitDistance && p.Speed <= float64(game.ORBSPEED) {
 				// Close enough to planet, clear approach ID and let normal logic take over
 				p.BotPlanetApproachID = -1
 			} else {
@@ -258,7 +258,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 
 		if targetPlanet != nil {
 			dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
-			if dist < OrbitDistance {
+			if dist < OrbitDistance && p.Speed <= float64(game.ORBSPEED) {
 				// Start orbiting for repair
 				s.enterOrbit(p, targetPlanet)
 				p.Shields_up = false
@@ -295,7 +295,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if targetPlanet != nil {
 				dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
 
-				if dist < OrbitDistance {
+				if dist < OrbitDistance && p.Speed <= float64(game.ORBSPEED) {
 					// At planet
 					if p.Orbiting != targetPlanet.ID {
 						s.enterOrbit(p, targetPlanet)
@@ -375,7 +375,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			// Check for defenders around the target planet
 			defenderInfo := s.detectPlanetDefenders(targetPlanet, p.Team)
 
-			if dist < OrbitDistance {
+			if dist < OrbitDistance && p.Speed <= float64(game.ORBSPEED) {
 				// At planet - perform appropriate action
 				if p.Orbiting != targetPlanet.ID {
 					s.enterOrbit(p, targetPlanet)
@@ -583,7 +583,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			// Hit and run tactics on enemy infrastructure
 			if planet := s.findPlanetToRaid(p); planet != nil {
 				dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
-				if dist < OrbitDistance {
+				if dist < OrbitDistance && p.Speed <= float64(game.ORBSPEED) {
 					// Quick bomb and run
 					if planet.Armies > 0 && planet.Owner != p.Team {
 						s.enterOrbit(p, planet)
@@ -675,7 +675,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 
 		if safetyPlanet != nil {
 			dist := game.Distance(p.X, p.Y, safetyPlanet.X, safetyPlanet.Y)
-			if dist < OrbitDistance {
+			if dist < OrbitDistance && p.Speed <= float64(game.ORBSPEED) {
 				// Safe at friendly planet - repair
 				s.enterOrbit(p, safetyPlanet)
 				p.Shields_up = false
@@ -734,7 +734,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 		if threatenedPlanet != nil {
 			// Move to defend threatened planet
 			dist := game.Distance(p.X, p.Y, threatenedPlanet.X, threatenedPlanet.Y)
-			if dist > 4000 {
+			if dist > OrbitDistance || p.Speed > float64(game.ORBSPEED) {
 				// Move closer to threatened planet
 				p.Orbiting = -1
 				p.Repairing = false
@@ -756,7 +756,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 		// Team controls less than 1/4 - stay near core planets
 		if corePlanet != nil {
 			dist := game.Distance(p.X, p.Y, corePlanet.X, corePlanet.Y)
-			if dist > 3000 {
+			if dist > OrbitDistance || p.Speed > float64(game.ORBSPEED) {
 				// Move back to core area
 				p.Orbiting = -1
 				p.Repairing = false

@@ -38,6 +38,8 @@ func (c *Client) handleMove(data json.RawMessage) {
 	if p.Orbiting >= 0 {
 		p.Orbiting = -1
 		p.Bombing = false // Stop bombing when leaving orbit
+		p.Beaming = false
+		p.BeamingUp = false
 		// Send message about breaking orbit (non-blocking to avoid deadlock while holding lock)
 		c.server.broadcastInfo(fmt.Sprintf("%s has left orbit", formatPlayerName(p)))
 	}
@@ -113,6 +115,7 @@ func (c *Client) handleLock(data json.RawMessage) {
 		p.Orbiting = -1
 		p.Bombing = false // Stop bombing when leaving orbit
 		p.Beaming = false // Stop beaming when leaving orbit
+		p.BeamingUp = false
 		// Send message about breaking orbit (non-blocking)
 		c.server.broadcastInfo(fmt.Sprintf("%s has left orbit", formatPlayerName(p)))
 	}
@@ -156,6 +159,7 @@ func (c *Client) handleOrbit(data json.RawMessage) {
 		p.Orbiting = -1
 		p.Bombing = false // Stop bombing when breaking orbit
 		p.Beaming = false // Stop beaming when breaking orbit
+		p.BeamingUp = false
 		return
 	}
 
