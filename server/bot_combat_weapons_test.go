@@ -236,71 +236,31 @@ func TestCoordinateTeamAttack(t *testing.T) {
 	})
 }
 
-func TestDetonatePassingTorpedoes(t *testing.T) {
-	gs := game.NewGameState()
-	server := &Server{
-		gameState: gs,
-		broadcast: make(chan ServerMessage, 10),
+func TestBotCombatPreservesInFlightTorpedoes(t *testing.T) {
+	for _, scenario := range []string{"passing", "direct", "clustered"} {
+		t.Run(scenario, func(t *testing.T) {
+			s, _, bot := newTestClientAndPlayer(game.TeamFed, game.ShipCruiser)
+			bot.IsBot, bot.Fuel, bot.NumTorps = true, 0, 1
+			bot.X, bot.Y = 50000, 50000
+			enemy := s.gameState.Players[1]
+			enemy.Status, enemy.Team, enemy.Ship = game.StatusAlive, game.TeamRom, game.ShipCruiser
+			enemy.X, enemy.Y = 52000, 50000
+			torp := &game.Torpedo{Owner: bot.ID, Team: bot.Team, X: 50500, Y: 50000, Speed: 300, Status: game.TorpMove, Fuse: 50}
+			if scenario == "passing" {
+				torp.Dir = math.Pi / 2
+			}
+			if scenario == "clustered" {
+				other := s.gameState.Players[2]
+				other.Status, other.Team, other.Ship = game.StatusAlive, game.TeamRom, game.ShipCruiser
+				other.X, other.Y = 52750, 50000
+			}
+			s.gameState.Torps = []*game.Torpedo{torp}
+			s.engageCombat(bot, enemy, 2000)
+			if torp.Fuse != 50 {
+				t.Fatal("combat discarded an in-flight shot without damage")
+			}
+		})
 	}
-
-	bot := gs.Players[0]
-	bot.Status = game.StatusAlive
-	bot.Team = game.TeamFed
-
-	enemy := gs.Players[1]
-	enemy.Status = game.StatusAlive
-	enemy.Team = game.TeamRom
-	enemy.X, enemy.Y = 52000, 50000
-
-	t.Run("Torpedo passing enemy is detonated", func(t *testing.T) {
-		// Place torpedo 1500 units west of enemy, heading north (perpendicular)
-		// Distance = 1500, which is > 800 and < 2500, so detonation zone applies
-		torp := &game.Torpedo{
-			Owner:  bot.ID,
-			Team:   game.TeamFed,
-			X:      50500,
-			Y:      50000,
-			Dir:    math.Pi / 2, // Heading north (perpendicular to enemy)
-			Speed:  300,
-			Status: game.TorpMove,
-			Fuse:   50,
-		}
-		gs.Torps = []*game.Torpedo{torp}
-		bot.NumTorps = 1
-
-		server.DetonatePassingTorpedoes(bot)
-		if torp.Fuse != 1 {
-			t.Errorf("torpedo passing by enemy should be detonated (fuse=1), got fuse=%d", torp.Fuse)
-		}
-	})
-
-	t.Run("Torpedo heading directly at enemy is not detonated", func(t *testing.T) {
-		dirToEnemy := math.Atan2(enemy.Y-50000, enemy.X-50500)
-		torp := &game.Torpedo{
-			Owner:  bot.ID,
-			Team:   game.TeamFed,
-			X:      50500,
-			Y:      50000,
-			Dir:    dirToEnemy, // Heading straight at enemy
-			Speed:  300,
-			Status: game.TorpMove,
-			Fuse:   50,
-		}
-		gs.Torps = []*game.Torpedo{torp}
-		bot.NumTorps = 1
-
-		server.DetonatePassingTorpedoes(bot)
-		if torp.Fuse == 1 {
-			t.Error("torpedo heading directly at enemy should not be detonated early")
-		}
-	})
-
-	t.Run("No torpedoes does nothing", func(t *testing.T) {
-		gs.Torps = nil
-		bot.NumTorps = 0
-		// Should not panic
-		server.DetonatePassingTorpedoes(bot)
-	})
 }
 
 func TestPhaserRangeHelper(t *testing.T) {

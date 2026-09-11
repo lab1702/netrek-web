@@ -235,7 +235,7 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 			currentTarget := s.gameState.Players[p.BotTarget]
 			if currentTarget.Status == game.StatusAlive && currentTarget.Team != p.Team {
 				dist := game.Distance(p.X, p.Y, currentTarget.X, currentTarget.Y)
-				if dist < 30000 { // Extended range for target persistence
+				if dist < 30000 && (!currentTarget.Cloaked || dist <= TargetCloakDetectRange) { // Extended range for visible targets
 					// Persistence bonus prevents target thrashing
 					bestScore = s.calculateTargetScore(p, currentTarget, dist) + TargetPersistenceBonus
 					bestTarget = currentTarget
@@ -257,8 +257,8 @@ func (s *Server) selectBestCombatTarget(p *game.Player) *game.Player {
 		}
 
 		dist := game.Distance(p.X, p.Y, other.X, other.Y)
-		if dist > 25000 {
-			continue // Too far
+		if dist > 25000 || (other.Cloaked && dist > TargetCloakDetectRange) {
+			continue // Too far or hidden by cloak
 		}
 
 		score := s.calculateTargetScore(p, other, dist)

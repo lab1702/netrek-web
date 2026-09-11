@@ -67,6 +67,12 @@ function updatePlanetCounter() {
         }
     });
     
+    // Overall ownership totals are public even when individual planets are unscouted.
+    if (Array.isArray(gameState.planetCounts) && gameState.planetCounts.length === 4) {
+        [counts[1], counts[2], counts[4], counts[8]] = gameState.planetCounts;
+        counts[0] = gameState.planets.length - gameState.planetCounts.reduce((a, b) => a + b, 0);
+    }
+
     // Update the display using cached refs
     if (dashboardEls.fedPlanets) dashboardEls.fedPlanets.textContent = counts[1];
     if (dashboardEls.romPlanets) dashboardEls.romPlanets.textContent = counts[2];
@@ -444,13 +450,7 @@ async function init() {
         }
 
         // Keyboard
-        document.addEventListener('keydown', (e) => {
-            // Prevent Firefox Quick Find when pressing / for slash commands
-            if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-                e.preventDefault();
-            }
-            handleKeyPress(e.key);
-        });
+        document.addEventListener('keydown', handleDocumentKeyDown);
     }
     
     // Start render loop using requestAnimationFrame with 10 FPS target
@@ -634,6 +634,12 @@ function setupInputHandlers() {
         e.preventDefault();
         return false;
     });
+}
+
+function handleDocumentKeyDown(e) {
+    if (e.target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) e.preventDefault();
+    handleKeyPress(e.key);
 }
 
 function handleKeyPress(key) {
@@ -1158,6 +1164,7 @@ function handleServerMessage(msg) {
             gameState.frame = msg.data.frame;
             gameState.players = Array.isArray(msg.data.players) ? msg.data.players : [];
             gameState.planets = Array.isArray(msg.data.planets) ? msg.data.planets : [];
+            gameState.planetCounts = msg.data.planetCounts;
             gameState.torps = Array.isArray(msg.data.torps) ? msg.data.torps : [];
             gameState.plasmas = Array.isArray(msg.data.plasmas) ? msg.data.plasmas : [];
             gameState.gameOver = msg.data.gameOver || false;

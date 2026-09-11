@@ -115,7 +115,6 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 			p.EngineOverheat = true
 			// Random duration between 100-250 frames (10-25 seconds at 10 FPS)
 			p.OverheatTimer = rand.Intn(150) + 100
-			p.DesSpeed = 0 // Stop the ship
 			// Disable tractor/pressor beams
 			p.Tractoring = -1
 			p.Pressoring = -1

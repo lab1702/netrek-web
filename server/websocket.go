@@ -582,53 +582,90 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 	return pendingMsgs
 }
 
-// sendGameState sends the current game state to all clients
+// gameUpdate is the public state delivered to one team.
+type gameUpdate struct {
+	Frame        int64                         `json:"frame"`
+	Players      [game.MaxPlayers]*game.Player `json:"players"`
+	Planets      [game.MaxPlanets]*game.Planet `json:"planets"`
+	Torps        []*game.Torpedo               `json:"torps"`
+	Plasmas      []*game.Plasma                `json:"plasmas"`
+	PlanetCounts [4]int                        `json:"planetCounts"`
+	GameOver     bool                          `json:"gameOver"`
+	Winner       int                           `json:"winner,omitempty"`
+	WinType      string                        `json:"winType,omitempty"`
+	TMode        bool                          `json:"tMode"`
+	TRemain      int                           `json:"tRemain,omitempty"`
+}
+
+// snapshotForTeam removes information hidden from this team. TeamNone is the
+// lobby view. Caller must hold gameState.Mu until the snapshot is serialized.
+func (s *Server) snapshotForTeam(team int) gameUpdate {
+	gs := s.gameState
+	update := gameUpdate{
+		Frame: gs.Frame, Torps: gs.Torps, Plasmas: gs.Plasmas,
+		GameOver: gs.GameOver, Winner: gs.Winner, WinType: gs.WinType,
+		TMode: gs.T_mode, TRemain: gs.T_remain,
+	}
+	for i, p := range gs.Players {
+		if p.Cloaked && (team == game.TeamNone || p.Team != team) {
+			continue
+		}
+		update.Players[i] = p
+	}
+	for i, planet := range gs.Planets {
+		if planet == nil {
+			continue
+		}
+		for j := range update.PlanetCounts {
+			if planet.Owner == 1<<j {
+				update.PlanetCounts[j]++
+			}
+		}
+		copy := *planet
+		if gs.T_mode {
+			copy.Info &= team
+			if copy.Info == 0 {
+				copy.Owner, copy.Armies, copy.Flags = game.TeamNone, 0, 0
+			}
+		}
+		update.Planets[i] = &copy
+	}
+	return update
+}
+
+// sendGameState serializes at most one snapshot per team and sends it directly
+// to that team's clients. Never put authoritative state on the shared broadcast.
 func (s *Server) sendGameState() {
+	// Match reset/unregister lock order, keeping slot identity and team coherent.
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	s.gameState.Mu.RLock()
+	defer s.gameState.Mu.RUnlock()
 
-	// Marshal game state to JSON while holding the lock to prevent races.
-	// Use pointers from GameState arrays directly to avoid copying large structs.
-	update := struct {
-		Frame    int64           `json:"frame"`
-		Players  []*game.Player  `json:"players"`
-		Planets  []*game.Planet  `json:"planets"`
-		Torps    []*game.Torpedo `json:"torps"`
-		Plasmas  []*game.Plasma  `json:"plasmas"`
-		GameOver bool            `json:"gameOver"`
-		Winner   int             `json:"winner,omitempty"`
-		WinType  string          `json:"winType,omitempty"`
-		TMode    bool            `json:"tMode"`
-		TRemain  int             `json:"tRemain,omitempty"`
-	}{
-		Frame:    s.gameState.Frame,
-		Players:  s.gameState.Players[:],
-		Planets:  s.gameState.Planets[:],
-		Torps:    s.gameState.Torps,
-		Plasmas:  s.gameState.Plasmas,
-		GameOver: s.gameState.GameOver,
-		Winner:   s.gameState.Winner,
-		WinType:  s.gameState.WinType,
-		TMode:    s.gameState.T_mode,
-		TRemain:  s.gameState.T_remain,
-	}
-
-	data, err := json.Marshal(update)
-	s.gameState.Mu.RUnlock()
-
-	if err != nil {
-		log.Printf("Error marshaling game state: %v", err)
-		return
-	}
-
-	// Non-blocking send to prevent the game loop from stalling if the
-	// broadcast channel is full (e.g. due to heavy chat traffic).
-	select {
-	case s.broadcast <- ServerMessage{
-		Type: MsgTypeUpdate,
-		Data: json.RawMessage(data),
-	}:
-	default:
-		log.Printf("Warning: broadcast channel full, dropping game state update")
+	messages := make(map[int]ServerMessage)
+	for _, client := range s.clients {
+		team := game.TeamNone
+		id := client.GetPlayerID()
+		if id >= 0 && id < game.MaxPlayers {
+			p := s.gameState.Players[id]
+			if p.Status != game.StatusFree && p.OwnerClientID == client.ID {
+				team = p.Team
+			}
+		}
+		msg, ok := messages[team]
+		if !ok {
+			data, err := json.Marshal(s.snapshotForTeam(team))
+			if err != nil {
+				log.Printf("Error marshaling game state: %v", err)
+				continue
+			}
+			msg = ServerMessage{Type: MsgTypeUpdate, Data: json.RawMessage(data)}
+			messages[team] = msg
+		}
+		select {
+		case client.send <- msg:
+		default:
+		}
 	}
 }
 

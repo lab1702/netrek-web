@@ -33,7 +33,7 @@ func (s *Server) updatePlanetInteractions() {
 
 		// Handle planet damage for non-orbiting ships near hostile planets
 		// This also happens every 5 frames matching plfight()
-		if p.Orbiting < 0 && s.gameState.Frame%5 == 0 {
+		if p.Status == game.StatusAlive && p.Orbiting < 0 && s.gameState.Frame%5 == 0 {
 			s.updatePlanetCombat(p, i)
 		}
 	}

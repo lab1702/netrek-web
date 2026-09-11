@@ -48,19 +48,7 @@ func (s *Server) checkVictoryConditions() {
 		}
 	}
 
-	// Count planets per team
-	for _, planet := range s.gameState.Planets {
-		switch planet.Owner {
-		case game.TeamFed:
-			s.gameState.TeamPlanets[0]++
-		case game.TeamRom:
-			s.gameState.TeamPlanets[1]++
-		case game.TeamKli:
-			s.gameState.TeamPlanets[2]++
-		case game.TeamOri:
-			s.gameState.TeamPlanets[3]++
-		}
-	}
+	s.updateTeamPlanetCounts()
 
 	// Check for genocide (all players of other teams eliminated)
 	// But require that multiple teams were playing (had players at some point)
@@ -287,14 +275,12 @@ func (s *Server) resetGame() {
 	// Lock ordering: s.mu first, then s.gameState.Mu.
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.gameState.Mu.Lock()
 
 	// Reset all connected clients back to lobby (no player slot assigned)
 	for _, client := range s.clients {
 		client.SetPlayerID(-1) // Back to lobby - no slot assigned
 	}
-
-	// Reset game state in-place (do not replace the pointer)
-	s.gameState.Mu.Lock()
 
 	// Reset all player slots
 	for i := 0; i < game.MaxPlayers; i++ {
@@ -341,4 +327,24 @@ func (s *Server) resetGame() {
 
 	// Announce game reset
 	s.broadcastInfo("🔄 Game reset! All players returned to lobby. Choose team & ship again.")
+}
+
+// updateTeamPlanetCounts refreshes ownership after the current tick's captures.
+// Caller must hold gameState.Mu.
+func (s *Server) updateTeamPlanetCounts() {
+	s.gameState.TeamPlanets = [4]int{}
+	// Count planets per team
+	for _, planet := range s.gameState.Planets {
+		switch planet.Owner {
+		case game.TeamFed:
+			s.gameState.TeamPlanets[0]++
+		case game.TeamRom:
+			s.gameState.TeamPlanets[1]++
+		case game.TeamKli:
+			s.gameState.TeamPlanets[2]++
+		case game.TeamOri:
+			s.gameState.TeamPlanets[3]++
+		}
+	}
+
 }

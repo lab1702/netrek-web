@@ -499,55 +499,6 @@ func (s *Server) starbaseDefenseWeaponLogic(p *game.Player, enemy *game.Player, 
 	}
 }
 
-// detonatePassingTorpedoes checks each torpedo individually and only detonates
-// torpedoes that are passing by enemies (not heading for direct hits).
-// This avoids the previous bug where ALL torpedoes were detonated when one triggered.
-func (s *Server) detonatePassingTorpedoes(p *game.Player) {
-	if p.NumTorps == 0 {
-		return
-	}
-
-	for _, torp := range s.gameState.Torps {
-		if !torp.OwnedBy(p) || torp.Status != game.TorpMove {
-			continue
-		}
-
-		// Check if this specific torpedo should be detonated
-		nearbyEnemyCount := 0
-		for _, enemy := range s.gameState.Players {
-			if enemy.Status != game.StatusAlive || enemy.Team == p.Team {
-				continue
-			}
-
-			dist := game.Distance(torp.X, torp.Y, enemy.X, enemy.Y)
-			if dist < 3000 {
-				nearbyEnemyCount++
-			}
-
-			// Detonate if enemy is in blast radius but torpedo won't hit directly
-			if dist < 2500 && dist > 800 {
-				dx := enemy.X - torp.X
-				dy := enemy.Y - torp.Y
-				angleToEnemy := math.Atan2(dy, dx)
-				angleDiff := AngleDifference(angleToEnemy, torp.Dir)
-
-				// Only detonate if torpedo is clearly passing by (not heading at) the enemy
-				if angleDiff > math.Pi/4 {
-					torp.Fuse = 1 // Detonate this specific torpedo
-					break         // Move to next torpedo
-				}
-			}
-
-			// Detonate if this enemy is close and we already found
-			// another enemy nearby (avoids O(n^2) inner loop).
-			if dist < 3000 && nearbyEnemyCount >= 2 {
-				torp.Fuse = 1 // Detonate for area damage on clustered enemies
-				break         // Move to next torpedo
-			}
-		}
-	}
-}
-
 // maxJitterDeg is the maximum random angle deviation in degrees for bot torpedo firing
 const maxJitterDeg = 5.0
 

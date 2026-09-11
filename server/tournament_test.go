@@ -367,6 +367,7 @@ func TestTournamentTimeoutCoVictory(t *testing.T) {
 	server.gameState.TeamPlanets[1] = 15 // Romulan
 	server.gameState.TeamPlanets[2] = 10 // Klingon
 	server.gameState.TeamPlanets[3] = 0  // Orion
+	setTournamentPlanetOwners(server)
 
 	server.checkTournamentMode()
 
@@ -453,6 +454,7 @@ func TestTournamentTimeoutSingleWinnerUnchanged(t *testing.T) {
 	server.gameState.TeamPlanets[1] = 15 // Romulan
 	server.gameState.TeamPlanets[2] = 5  // Klingon
 	server.gameState.TeamPlanets[3] = 0  // Orion
+	setTournamentPlanetOwners(server)
 
 	server.checkTournamentMode()
 
@@ -541,6 +543,7 @@ func TestTournamentTimeoutThreeWayTie(t *testing.T) {
 	server.gameState.TeamPlanets[1] = 13 // Romulan
 	server.gameState.TeamPlanets[2] = 13 // Klingon
 	server.gameState.TeamPlanets[3] = 1  // Orion
+	setTournamentPlanetOwners(server)
 
 	server.checkTournamentMode()
 

@@ -16,7 +16,7 @@ func (s *Server) checkTournamentMode() {
 	teamCounts := make(map[int]int)
 	for _, p := range s.gameState.Players {
 		if p.Connected && (p.Status == game.StatusAlive ||
-			p.Status == game.StatusExplode || p.Status == game.StatusDead) {
+			(p.Status == game.StatusExplode && p.WhyDead != game.KillQuit) || p.Status == game.StatusDead) {
 			teamCounts[p.Team]++
 		}
 	}
@@ -68,10 +68,15 @@ func (s *Server) checkTournamentMode() {
 		s.gameState.Torps = make([]*game.Torpedo, 0)
 		s.gameState.Plasmas = make([]*game.Plasma, 0)
 
-		// Reset all active players to spawn positions
+		s.gameState.TournamentStats = make(map[int]*game.TournamentPlayerStats)
+
+		// Reset every participant, including pilots waiting to respawn.
 		for i := range s.gameState.Players {
 			p := s.gameState.Players[i]
-			if p.Status == game.StatusAlive && p.Connected {
+			if p.Connected && (p.Status == game.StatusAlive || p.Status == game.StatusDead ||
+				(p.Status == game.StatusExplode && p.WhyDead != game.KillQuit)) {
+				p.Status = game.StatusAlive
+				p.RespawnMsgSent = false
 				// Initialize tournament stats
 				s.gameState.TournamentStats[p.ID] = &game.TournamentPlayerStats{}
 
@@ -170,6 +175,7 @@ func (s *Server) checkTournamentMode() {
 
 		// Check for time limit
 		if s.gameState.T_remain <= 0 && !s.gameState.GameOver {
+			s.updateTeamPlanetCounts()
 			// Time's up - determine winner(s) by planets owned
 			// First pass: find the maximum planet count
 			maxPlanets := 0

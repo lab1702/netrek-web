@@ -50,11 +50,6 @@ func (s *Server) CoordinateTeamAttack(p *game.Player, target *game.Player) int {
 	return s.coordinateTeamAttack(p, target)
 }
 
-// DetonatePassingTorpedoes exposes the private detonatePassingTorpedoes for testing
-func (s *Server) DetonatePassingTorpedoes(p *game.Player) {
-	s.detonatePassingTorpedoes(p)
-}
-
 // SelectBotBehavior exposes the private selectBotBehavior for testing
 func (s *Server) SelectBotBehavior(p *game.Player) string {
 	return s.selectBotBehavior(p)

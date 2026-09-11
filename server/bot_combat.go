@@ -87,17 +87,17 @@ func (s *Server) engageCombat(p *game.Player, target *game.Player, dist float64)
 	// Broadcast high-value targets to nearby allies
 	s.broadcastTargetToAllies(p, target, p.BotTargetValue)
 
-	// Check for torpedo detonation opportunities for area denial
-	// Only detonate specific torpedoes that are passing by enemies, not all in-flight
-	s.detonatePassingTorpedoes(p)
-
 	// Cloaking tactics for scouts and destroyers — decide before weapons
 	// so that a cloaking bot doesn't fire and cloak in the same tick.
-	if (p.Ship == game.ShipScout || p.Ship == game.ShipDestroyer) && p.Fuel > 3000 {
-		if s.shouldUseCloaking(p, target, dist) {
+	if p.Ship == game.ShipScout || p.Ship == game.ShipDestroyer {
+		if p.Cloaked {
+			if p.Fuel < 1500 || dist < 1000 {
+				p.Cloaked = false
+			}
+		} else if p.Fuel > 3000 && s.shouldUseCloaking(p, target, dist) {
 			p.Cloaked = true
-		} else if p.Cloaked && (p.Fuel < 1500 || dist < 1000) {
-			p.Cloaked = false
+			p.Tractoring = -1
+			p.Pressoring = -1
 		}
 	}
 

@@ -150,3 +150,13 @@ test('chat punctuation and markup render as literal text', () => {
     assert.ok(message.textContent.endsWith(text));
     assert.equal(message.children.length, 0);
 });
+
+test('slash entry in an editable chat field keeps its default text insertion', () => {
+    const f = fixture();
+    let prevented = false;
+    f.context.handleDocumentKeyDown({ key: '/', target: { closest: () => ({}) }, preventDefault: () => prevented = true });
+    assert.equal(prevented, false);
+    f.read('handleKeyPress = () => {}');
+    f.context.handleDocumentKeyDown({ key: '/', target: { closest: () => null }, preventDefault: () => prevented = true });
+    assert.equal(prevented, true);
+});
