@@ -24,6 +24,7 @@ func newTestClientAndPlayer(team int, ship game.ShipType) (*Server, *Client, *ga
 	p.Ship = ship
 	p.Name = "TestPlayer"
 	p.Connected = true
+	p.OwnerClientID = client.ID
 	shipStats := game.ShipData[ship]
 	p.Shields = shipStats.MaxShields
 	p.Fuel = shipStats.MaxFuel

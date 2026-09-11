@@ -68,6 +68,12 @@ func (c *Client) handleLogin(data json.RawMessage) {
 	// Find a player slot
 	c.server.gameState.Mu.Lock()
 
+	if !c.server.teamCanSpawn(loginData.Team) {
+		c.sendMsg(ServerMessage{Type: MsgTypeError, Data: "Your team owns no planets in tournament mode. Choose another team."})
+		c.server.gameState.Mu.Unlock()
+		return
+	}
+
 	playerID := -1
 
 	// Check team balance
@@ -89,8 +95,8 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 		// Find the maximum team size
 		maxCount := 0
-		for _, count := range teamCounts {
-			if count > maxCount {
+		for team, count := range teamCounts {
+			if c.server.teamCanSpawn(team) && count > maxCount {
 				maxCount = count
 			}
 		}
@@ -103,7 +109,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 			// Check if at least one other team has fewer players
 			hasFewerTeam := false
 			for team, count := range teamCounts {
-				if team != loginData.Team && count < requestedTeamCount {
+				if team != loginData.Team && c.server.teamCanSpawn(team) && count < requestedTeamCount {
 					hasFewerTeam = true
 					break
 				}
@@ -275,15 +281,13 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 // handleQuit handles player quit/self-destruct request
 func (c *Client) handleQuit(data json.RawMessage) {
-	// Capture playerID once to avoid race between multiple GetPlayerID() calls
-	playerID := c.GetPlayerID()
-	if playerID < 0 || playerID >= game.MaxPlayers {
+	c.server.gameState.Mu.Lock()
+	p := c.getPlayer()
+	if p == nil || p.OwnerClientID != c.ID {
+		c.server.gameState.Mu.Unlock()
 		return
 	}
-
-	c.server.gameState.Mu.Lock()
-
-	p := c.server.gameState.Players[playerID]
+	playerID := p.ID
 	if p.Status != game.StatusAlive {
 		// If already dead, just disconnect
 		c.server.gameState.Mu.Unlock()

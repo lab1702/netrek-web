@@ -194,6 +194,7 @@ func TestHandleMessageQuitSetsQuitting(t *testing.T) {
 	player.Team = game.TeamFed
 	player.Ship = game.ShipCruiser
 	player.Name = "TestPlayer"
+	player.OwnerClientID = client.ID
 	server.gameState.Mu.Unlock()
 
 	if client.quitting.Load() {

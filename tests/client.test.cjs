@@ -51,8 +51,10 @@ function fixture() {
         deliver(type, data, extra = {}) { this.onmessage?.({ data: JSON.stringify({ type, data, ...extra }) }); }
     }
     const timers = [];
+    let now = 1000;
+    class Clock extends Date { static now() { return now; } }
     const context = vm.createContext({
-        console, Date, WebSocket: Socket,
+        console, Date: Clock, WebSocket: Socket,
         window: { location: { pathname: '/game.html', protocol: 'http:', host: 'localhost' }, addEventListener() {} },
         document: {
             getElementById: id => ids[id] || null,
@@ -66,7 +68,7 @@ function fixture() {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/netrek.js'), 'utf8'), context);
     vm.runInContext('init = async () => {}; updateDashboard = () => {}; updatePlayerList = () => {}; updateTeamStats = () => {};', context);
     const read = expression => vm.runInContext(expression, context);
-    return { context, ids, labels, teams, ships, sockets, timers, read };
+    return { context, ids, labels, teams, ships, sockets, timers, read, advance: ms => now += ms };
 }
 
 function accepted(f, slot = 0) {
@@ -170,4 +172,57 @@ test('authoritative unassignment returns to lobby even if the old slot was reuse
     assert.equal(f.read('uiState.inOutfitScreen'), true);
     assert.equal(f.ids.login.style.display, 'block');
     assert.equal(f.ids.game.style.display, 'none');
+});
+
+test('phaser expiry and capacity do not depend on rendering', () => {
+    const f = fixture();
+    const socket = accepted(f);
+    for (let i = 0; i < 1000; i++) socket.deliver('phaser', {from:0, target:-1});
+    assert.ok(f.read('gameState.phasers.length') <= 128);
+    f.advance(1000);
+    socket.deliver('phaser', {from:1, target:-1});
+    assert.equal(f.read('gameState.phasers.length'), 1);
+    assert.equal(f.read('gameState.phasers[0].from'), 1);
+    f.advance(1000);
+    f.context.decayPhasers();
+    assert.equal(f.read('gameState.phasers.length'), 0);
+});
+
+test('tractor and pressor controls honor each ship range including the boundary', () => {
+    for (const [ship, range] of [4200, 5400, 6000, 7200, 4200, 9000].entries()) {
+        const f = fixture();
+        const socket = accepted(f);
+        f.read(`gameState.players = [{status:2, team:1, ship:${ship}, x:50000, y:50000}, {status:2, team:2, x:${50000+range}, y:50000}]`);
+        socket.sent.length = 0;
+        f.context.handleKeyPress('t');
+        f.context.handleKeyPress('y');
+        assert.deepEqual(socket.sent.map(m => m.type), ['tractor', 'pressor']);
+        f.read('gameState.players[1].x += 1');
+        socket.sent.length = 0;
+        f.context.handleKeyPress('t');
+        f.context.handleKeyPress('y');
+        assert.equal(socket.sent.length, 0);
+    }
+});
+
+test('a phaser whose target vanished does not leak canvas state', () => {
+    const f = fixture();
+    const socket = accepted(f);
+    let depth = 0;
+    const ctx = new Proxy({save: () => depth++, restore: () => depth--}, {
+        get: (target, key) => target[key] || (() => {}),
+    });
+    f.context.testCanvasContext = ctx;
+    f.read('canvases.tactical = {width:600, height:600}; canvases.tacticalCtx = testCanvasContext; gameState.players = [{status:4, team:1, x:50000, y:50000}];');
+    socket.deliver('phaser', {from:0, target:1});
+    f.context.renderTactical();
+    assert.equal(depth, 0);
+    assert.equal(f.read('gameState.phasers.length'), 0);
+});
+
+test('lobby balances surviving teams and disables eliminated teams', () => {
+    const f = fixture();
+    f.context.updateTeamDisplay({total:8, teams:{fed:0, rom:4, kli:4, ori:0}, spawnTeams:6});
+    assert.deepEqual(f.teams.map(r => r.disabled), [true, false, false, true]);
+    assert.ok(f.teams.some(r => r.checked && !r.disabled));
 });

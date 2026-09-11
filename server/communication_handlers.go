@@ -64,24 +64,17 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 	// Limit message length; preserve plain text for the client.
 	msgData.Text = sanitizeText(msgData.Text)
 
-	// Read sender info and cache player teams in a single lock acquisition
-	// to avoid stale routing between two separate RLock calls.
-	playerID := c.GetPlayerID()
+	// Keep client assignments and slot ownership stable through delivery.
+	// This is the same server -> game-state lock order used by reset and snapshots.
+	c.server.mu.RLock()
+	defer c.server.mu.RUnlock()
 	c.server.gameState.Mu.RLock()
-	p := c.getPlayer() // ownership-checked: nil if the slot was reassigned
-	if p == nil {
-		c.server.gameState.Mu.RUnlock()
+	defer c.server.gameState.Mu.RUnlock()
+	p := c.getPlayer()
+	if p == nil || p.OwnerClientID != c.ID || !p.Connected || p.Status == game.StatusFree {
 		return
 	}
-	senderName := formatPlayerName(p)
-	team := p.Team
-	playerTeams := make(map[int]int)
-	for i, pl := range c.server.gameState.Players {
-		if pl.Status != game.StatusFree {
-			playerTeams[i] = pl.Team
-		}
-	}
-	c.server.gameState.Mu.RUnlock()
+	playerID, senderName, team := p.ID, formatPlayerName(p), p.Team
 
 	// Send to team members only
 	teamMsg := ServerMessage{
@@ -94,19 +87,11 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 		},
 	}
 
-	// Iterate clients under s.mu only (no nested gameState lock)
-	c.server.mu.RLock()
-	defer c.server.mu.RUnlock()
 	for _, client := range c.server.clients {
-		pid := client.GetPlayerID()
-		if pid >= 0 && pid < game.MaxPlayers {
-			if playerTeams[pid] == team {
-				select {
-				case client.send <- teamMsg:
-				default:
-					// Client's send channel is full, skip
-				}
-			}
+		recipient := client.getPlayer()
+		if recipient != nil && recipient.OwnerClientID == client.ID && recipient.Connected &&
+			recipient.Status != game.StatusFree && recipient.Team == team {
+			client.sendMsg(teamMsg)
 		}
 	}
 }
@@ -129,23 +114,19 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 	// Limit message length; preserve plain text for the client.
 	msgData.Text = sanitizeText(msgData.Text)
 
-	// Read player info under game state lock
-	playerID := c.GetPlayerID()
+	c.server.mu.RLock()
+	defer c.server.mu.RUnlock()
 	c.server.gameState.Mu.RLock()
-	p := c.getPlayer() // ownership-checked: nil if the slot was reassigned
+	defer c.server.gameState.Mu.RUnlock()
+	p := c.getPlayer()
 	targetPlayer := c.server.gameState.Players[msgData.Target]
-	if p == nil || targetPlayer == nil {
-		c.server.gameState.Mu.RUnlock()
+	if p == nil || p.OwnerClientID != c.ID || !p.Connected || p.Status == game.StatusFree ||
+		targetPlayer == nil || !targetPlayer.Connected || targetPlayer.Status == game.StatusFree {
 		return
 	}
-	// Don't deliver messages to disconnected or free players
-	if !targetPlayer.Connected || targetPlayer.Status == game.StatusFree {
-		c.server.gameState.Mu.RUnlock()
-		return
-	}
+	playerID := p.ID
 	senderName := formatPlayerName(p)
 	targetName := formatPlayerName(targetPlayer)
-	c.server.gameState.Mu.RUnlock()
 
 	// Send to target and sender only
 	privMsg := ServerMessage{
@@ -158,16 +139,9 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 		},
 	}
 
-	c.server.mu.RLock()
-	defer c.server.mu.RUnlock()
 	for _, client := range c.server.clients {
-		cid := client.GetPlayerID()
-		if cid == msgData.Target || cid == playerID {
-			select {
-			case client.send <- privMsg:
-			default:
-				// Client's send channel is full, skip
-			}
+		if client.ID == targetPlayer.OwnerClientID || client.ID == p.OwnerClientID {
+			client.sendMsg(privMsg)
 		}
 	}
 }

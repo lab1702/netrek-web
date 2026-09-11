@@ -488,20 +488,8 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 		if p.Status == game.StatusDead && p.Connected {
 			// Check if team owns planets during t-mode
 			if s.gameState.T_mode {
-				teamPlanetCount := 0
-				switch p.Team {
-				case game.TeamFed:
-					teamPlanetCount = s.gameState.TeamPlanets[0]
-				case game.TeamRom:
-					teamPlanetCount = s.gameState.TeamPlanets[1]
-				case game.TeamKli:
-					teamPlanetCount = s.gameState.TeamPlanets[2]
-				case game.TeamOri:
-					teamPlanetCount = s.gameState.TeamPlanets[3]
-				}
-
-				// Cannot respawn if team owns no planets in t-mode
-				if teamPlanetCount == 0 {
+				// Cannot respawn if team owns no planets in t-mode.
+				if !s.teamCanSpawn(p.Team) {
 					// Send message to player once (check if not already sent)
 					if !p.RespawnMsgSent {
 						p.RespawnMsgSent = true
@@ -680,7 +668,8 @@ func (s *Server) HandleTeamStats(w http.ResponseWriter, r *http.Request) {
 	s.gameState.Mu.RUnlock()
 
 	response := map[string]interface{}{
-		"total": counts.Total,
+		"total":      counts.Total,
+		"spawnTeams": counts.SpawnTeams,
 		"teams": map[string]int{
 			"fed": counts.Fed,
 			"rom": counts.Rom,

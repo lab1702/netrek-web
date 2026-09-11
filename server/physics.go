@@ -311,7 +311,7 @@ func (s *Server) updateTractorBeams() {
 
 			if targetID >= 0 && targetID < game.MaxPlayers {
 				target := s.gameState.Players[targetID]
-				if target.Status == game.StatusAlive {
+				if target.Status == game.StatusAlive && !(target.Cloaked && target.Team != p.Team) {
 					dist := game.Distance(p.X, p.Y, target.X, target.Y)
 
 					// Get ship stats for range check
@@ -381,7 +381,7 @@ func (s *Server) updateTractorBeams() {
 						}
 					}
 				} else {
-					// Target died, release beam
+					// Target died or became hidden, release beam
 					p.Tractoring = -1
 					p.Pressoring = -1
 				}

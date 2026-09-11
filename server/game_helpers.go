@@ -261,11 +261,12 @@ func (s *Server) countStarbasesByTeam() map[int]int {
 
 // TeamCountData holds pre-computed team counts for broadcasting
 type TeamCountData struct {
-	Total int
-	Fed   int
-	Rom   int
-	Kli   int
-	Ori   int
+	SpawnTeams int // Team bitmask of current tournament spawn eligibility
+	Total      int
+	Fed        int
+	Rom        int
+	Kli        int
+	Ori        int
 }
 
 // spawnPosition returns a random spawn point near the team's home planet,
@@ -281,6 +282,11 @@ func spawnPosition(team int) (x, y float64) {
 // Caller must hold gameState.Mu lock (read or write).
 func (s *Server) computeTeamCounts() TeamCountData {
 	counts := TeamCountData{}
+	for _, team := range []int{game.TeamFed, game.TeamRom, game.TeamKli, game.TeamOri} {
+		if s.teamCanSpawn(team) {
+			counts.SpawnTeams |= team
+		}
+	}
 	for _, p := range s.gameState.Players {
 		if p.Status != game.StatusFree && p.Connected {
 			counts.Total++
@@ -305,7 +311,8 @@ func (s *Server) broadcastTeamCountsData(counts TeamCountData) {
 	s.tryBroadcast(ServerMessage{
 		Type: MsgTypeTeamUpdate,
 		Data: map[string]interface{}{
-			"total": counts.Total,
+			"total":      counts.Total,
+			"spawnTeams": counts.SpawnTeams,
 			"teams": map[string]int{
 				"fed": counts.Fed,
 				"rom": counts.Rom,

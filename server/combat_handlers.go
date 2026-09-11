@@ -489,7 +489,8 @@ func (c *Client) handleBeamEngage(data json.RawMessage, pressor bool) {
 		// Check if target is valid and in range
 		if beamData.TargetID >= 0 && beamData.TargetID < game.MaxPlayers {
 			target := c.server.gameState.Players[beamData.TargetID]
-			if target != nil && target.Status == game.StatusAlive && target.ID != p.ID {
+			if target != nil && target.Status == game.StatusAlive && target.ID != p.ID &&
+				!(target.Cloaked && target.Team != p.Team) {
 				// Check range (using ship-specific range)
 				dist := game.Distance(p.X, p.Y, target.X, target.Y)
 				tractorRange := float64(game.TractorDist) * game.ShipData[p.Ship].TractorRange

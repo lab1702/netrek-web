@@ -162,3 +162,17 @@ func (c *Client) sendMsg(msg ServerMessage) {
 	default:
 	}
 }
+
+// teamCanSpawn applies the same tournament eligibility to joins and respawns.
+// Caller must hold gameState.Mu. Read planets directly to include recent captures.
+func (s *Server) teamCanSpawn(team int) bool {
+	if !s.gameState.T_mode {
+		return true
+	}
+	for _, planet := range s.gameState.Planets {
+		if planet.Owner == team {
+			return true
+		}
+	}
+	return false
+}

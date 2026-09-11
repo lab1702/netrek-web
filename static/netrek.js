@@ -127,8 +127,10 @@ function updateTeamDisplay(data) {
 
     // Highlight teams with fewer players for balance
     const counts = countTexts;
-    const minCount = Math.min(...counts);
-    const maxCount = Math.max(...counts);
+    const spawnTeams = data.spawnTeams ?? 15;
+    const eligibleCounts = counts.filter((_, i) => spawnTeams & (1 << i));
+    const minCount = Math.min(...eligibleCounts);
+    const maxCount = Math.max(...eligibleCounts);
 
     const teamLabels = elems.labels;
     const teamRadios = elems.radios;
@@ -139,10 +141,11 @@ function updateTeamDisplay(data) {
     for (let i = 0; i < teamLabels.length; i++) {
         if (!teamLabels[i] || !teamRadios[i]) continue;
         const count = counts[i];
-        teamLabels[i].classList.toggle('recommended', count === minCount);
+        const canSpawn = !!(spawnTeams & (1 << i));
+        teamLabels[i].classList.toggle('recommended', canSpawn && count === minCount);
 
-        if (count === maxCount && maxCount > minCount) {
-            // This team has significantly more players - disable it
+        if (!canSpawn || (count === maxCount && maxCount > minCount)) {
+            // Elimination or team balance prevents joining this team
             teamLabels[i].style.color = 'var(--danger)';
             teamRadios[i].disabled = true;
             teamLabels[i].style.opacity = '0.5';
@@ -209,6 +212,10 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }, 5000);
 });
+
+// About ten frames at 60 Hz; expiry also works while animation is suspended.
+const PHASER_DURATION_MS = 1000 / 6;
+const MAX_PHASER_EFFECTS = 128;
 
 let ws = null;
 let wsCompressionActive = false;
@@ -759,14 +766,14 @@ function handleKeyPress(key) {
         case 'y':
             // Find nearest enemy for pressor beam
             let nearestPressor = -1;
-            let nearestPressorDistSq = 6000 * 6000;
+            let nearestPressorDistSq = getMaxStat(player.ship, 'beamRange') ** 2;
             for (let i = 0; i < gameState.players.length; i++) {
                 const other = gameState.players[i];
                 if (other && other.status === 2 && other.team !== player.team) {
                     const dx = other.x - player.x;
                     const dy = other.y - player.y;
                     const distSq = dx * dx + dy * dy;
-                    if (distSq < nearestPressorDistSq) {
+                    if (distSq <= nearestPressorDistSq) {
                         nearestPressorDistSq = distSq;
                         nearestPressor = i;
                     }
@@ -791,14 +798,14 @@ function handleKeyPress(key) {
             } else {
                 // Find nearest enemy for tractor beam
                 let nearestEnemy = -1;
-                let nearestDistSq = 6000 * 6000;
+                let nearestDistSq = getMaxStat(player.ship, 'beamRange') ** 2;
                 for (let i = 0; i < gameState.players.length; i++) {
                     const other = gameState.players[i];
                     if (other && other.status === 2 && other.team !== player.team) {
                         const dx = other.x - player.x;
                         const dy = other.y - player.y;
                         const distSq = dx * dx + dy * dy;
-                        if (distSq < nearestDistSq) {
+                        if (distSq <= nearestDistSq) {
                             nearestDistSq = distSq;
                             nearestEnemy = i;
                         }
@@ -1244,7 +1251,9 @@ function handleServerMessage(msg) {
             break;
             
         case 'phaser':
-            // Add phaser beam to render
+            // Prune and cap on receipt even when background tabs stop rendering.
+            decayPhasers();
+            if (gameState.phasers.length >= MAX_PHASER_EFFECTS) gameState.phasers.shift();
             gameState.phasers.push({
                 from: msg.data.from,
                 to: msg.data.to,
@@ -1253,7 +1262,8 @@ function handleServerMessage(msg) {
                 x: msg.data.x || 0,     // X coordinate for plasma hits
                 y: msg.data.y || 0,     // Y coordinate for plasma hits
                 range: msg.data.range || 5000, // Ship-specific phaser range, fallback to 5000
-                life: 10 // Frames to display
+                expiresAt: Date.now() + PHASER_DURATION_MS,
+                life: 10 // Normalized fade strength
             });
             break;
             
@@ -1342,19 +1352,18 @@ function render() {
     // requestAnimationFrame loop continues in renderLoop()
 }
 
-// decayPhasers ages phaser beams and drops expired ones. It is called on the
-// render paths that skip the main draw loop (outfit/victory screens, no local
-// player) so the phaser list can't grow without bound while the server keeps
-// pushing beam messages — which would leak memory and produce a burst of stale
-// beams the moment normal rendering resumes.
+// Age by elapsed time, including when the render loop has been suspended.
 function decayPhasers() {
-    gameState.phasers = gameState.phasers.filter(p => { p.life--; return p.life > 0; });
+    const now = Date.now();
+    gameState.phasers = gameState.phasers.filter(p => {
+        p.life = Math.min(10, 10 * (p.expiresAt - now) / PHASER_DURATION_MS);
+        return p.life > 0;
+    });
 }
 
 function renderTactical() {
-    // Decay phasers even when not rendering to prevent unbounded accumulation
+    decayPhasers();
     if (uiState.inOutfitScreen) {
-        decayPhasers();
         return;
     }
 
@@ -1438,20 +1447,17 @@ function renderTactical() {
         ctx.fillText(getVictoryCountdownMessage(), centerX, centerY + 60);
         
         ctx.restore();
-        decayPhasers(); // age beams so they don't pile up during the victory screen
         return; // Don't render game elements during victory screen
     }
 
     // Don't render if we don't have a valid player
     if (gameState.myPlayerID < 0) {
-        decayPhasers();
         return;
     }
 
     // Get my player
     const myPlayer = gameState.players[gameState.myPlayerID];
     if (!myPlayer) {
-        decayPhasers();
         return;
     }
     
@@ -1530,8 +1536,6 @@ function renderTactical() {
         const fromPlayer = gameState.players[phaser.from];
         if (!fromPlayer) return false;
 
-        ctx.save();
-        
         const fromX = centerX + (fromPlayer.x - myPlayer.x) * scale;
         const fromY = centerY + (fromPlayer.y - myPlayer.y) * scale;
         let toX, toY;
@@ -1553,6 +1557,8 @@ function renderTactical() {
             toY = fromY + Math.sin(phaser.dir) * phaserRange;
         }
         
+        ctx.save();
+
         // Draw phaser beam with gradient
         const gradient = ctx.createLinearGradient(fromX, fromY, toX, toY);
         let color = teamColors[fromPlayer.team] || '#fff';
@@ -1606,7 +1612,6 @@ function renderTactical() {
         }
         
         ctx.restore();
-        phaser.life--;
         return true;
     });
 
@@ -2600,15 +2605,15 @@ function getTeamName(team) {
 // Ship stats lookup table indexed by ship type (0=SC, 1=DD, 2=CA, 3=BB, 4=AS, 5=SB)
 // Must match server-side game.ShipData values
 const SHIP_STATS = [
-    { shields: 75,  damage: 75,  fuel: 5000,  speed: 12, armies: 2  }, // Scout
-    { shields: 85,  damage: 85,  fuel: 7000,  speed: 10, armies: 5  }, // Destroyer
-    { shields: 100, damage: 100, fuel: 10000, speed: 9,  armies: 10 }, // Cruiser
-    { shields: 130, damage: 130, fuel: 14000, speed: 8,  armies: 6  }, // Battleship
-    { shields: 80,  damage: 200, fuel: 6000,  speed: 8,  armies: 20 }, // Assault
-    { shields: 500, damage: 600, fuel: 60000, speed: 2,  armies: 25 }, // Starbase
+    { shields: 75,  damage: 75,  fuel: 5000,  speed: 12, armies: 2,  beamRange: 4200 }, // Scout
+    { shields: 85,  damage: 85,  fuel: 7000,  speed: 10, armies: 5,  beamRange: 5400 }, // Destroyer
+    { shields: 100, damage: 100, fuel: 10000, speed: 9,  armies: 10, beamRange: 6000 }, // Cruiser
+    { shields: 130, damage: 130, fuel: 14000, speed: 8,  armies: 6,  beamRange: 7200 }, // Battleship
+    { shields: 80,  damage: 200, fuel: 6000,  speed: 8,  armies: 20, beamRange: 4200 }, // Assault
+    { shields: 500, damage: 600, fuel: 60000, speed: 2,  armies: 25, beamRange: 9000 }, // Starbase
 ];
 
-const SHIP_STAT_DEFAULTS = { shields: 100, damage: 100, fuel: 10000, speed: 10, armies: 10 };
+const SHIP_STAT_DEFAULTS = { shields: 100, damage: 100, fuel: 10000, speed: 10, armies: 10, beamRange: 6000 };
 
 function getMaxStat(shipType, field) {
     return (SHIP_STATS[shipType] && SHIP_STATS[shipType][field]) || SHIP_STAT_DEFAULTS[field];
