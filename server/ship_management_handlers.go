@@ -25,6 +25,8 @@ func (c *Client) handleRepair(data json.RawMessage) {
 	if !p.Repairing && !p.RepairRequest {
 		// If moving while not orbiting, set repair request and slow down
 		if p.Speed > 0 && p.Orbiting < 0 {
+			p.LockType = "none"
+			p.LockTarget = -1
 			p.RepairRequest = true
 			p.DesSpeed = 0 // Start slowing down
 			// Send message about slowing to repair (non-blocking)

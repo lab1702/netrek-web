@@ -69,11 +69,6 @@ func (s *Server) updateProjectileList(list []*game.Torpedo, explDist float64, ki
 
 		// Decrement fuse every tick (now running at 10 ticks/sec)
 		t.Fuse--
-		if t.Fuse <= 0 {
-			// Projectile expired
-			decOwner()
-			continue
-		}
 
 		// Check if projectile went out of bounds - remove it
 		if t.X < 0 || t.X > game.GalaxyWidth || t.Y < 0 || t.Y > game.GalaxyHeight {
@@ -110,6 +105,13 @@ func (s *Server) updateProjectileList(list []*game.Torpedo, explDist float64, ki
 				t.Status = game.TorpDet
 				break
 			}
+		}
+
+		// The final movement can still hit. Keep a hit visible for one frame;
+		// otherwise expire immediately after checking its last position.
+		if t.Fuse <= 0 && t.Status != game.TorpDet {
+			decOwner()
+			continue
 		}
 
 		// Keep projectile in list (even if exploding, so it shows for one frame)

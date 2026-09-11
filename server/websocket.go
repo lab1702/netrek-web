@@ -103,8 +103,9 @@ type ClientMessage struct {
 
 // ServerMessage represents a message from server to client
 type ServerMessage struct {
-	Type string `json:"type"`
-	Data any    `json:"data"`
+	Type     string `json:"type"`
+	Data     any    `json:"data"`
+	PlayerID *int   `json:"player_id,omitempty"` // Authoritative connection assignment on updates
 }
 
 // tryBroadcast sends msg to the broadcast channel without blocking;
@@ -662,6 +663,7 @@ func (s *Server) sendGameState() {
 			msg = ServerMessage{Type: MsgTypeUpdate, Data: json.RawMessage(data)}
 			messages[team] = msg
 		}
+		msg.PlayerID = &id
 		select {
 		case client.send <- msg:
 		default:

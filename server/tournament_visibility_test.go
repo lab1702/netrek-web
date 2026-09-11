@@ -188,6 +188,9 @@ func TestGameUpdatesRespectTeamVisibility(t *testing.T) {
 		var update gameUpdate
 		select {
 		case msg := <-c.send:
+			if msg.PlayerID == nil || *msg.PlayerID != c.GetPlayerID() {
+				t.Fatal("snapshot omitted authoritative connection assignment")
+			}
 			if err := json.Unmarshal(msg.Data.(json.RawMessage), &update); err != nil {
 				t.Fatal(err)
 			}

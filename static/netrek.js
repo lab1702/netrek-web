@@ -1132,6 +1132,15 @@ function handleServerMessage(msg) {
             break;
             
         case 'update':
+            // Slot contents cannot prove ownership: another pilot can take the
+            // same slot between a reset and this update. Trust the connection's
+            // assignment, retaining quit animation until its ship becomes free.
+            if (!gameState.quitRequested && Number.isInteger(msg.player_id)) {
+                if (msg.player_id < 0 && gameState.myPlayerID >= 0) {
+                    showLoginScreenAfterReset();
+                }
+                gameState.myPlayerID = msg.player_id;
+            }
             // Store previous positions for interpolation (only fields needed)
             // Copy previous positions in-place to avoid allocating new arrays/objects every tick
             for (let pi = 0; pi < gameState.players.length; pi++) {

@@ -106,6 +106,14 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 	}
 
 	shipStats := game.ShipData[p.Ship]
+	// Target-ID aiming may only use positions visible to this pilot. Blind
+	// directional phasers still use normal collision detection against cloakers.
+	if phaserData.Target >= 0 && phaserData.Target < game.MaxPlayers {
+		target := c.server.gameState.Players[phaserData.Target]
+		if target.Cloaked && target.Team != p.Team {
+			return
+		}
+	}
 
 	// Check fuel (using ship-specific multiplier)
 	phaserCost := shipStats.PhaserDamage * shipStats.PhaserFuelMult

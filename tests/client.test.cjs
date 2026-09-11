@@ -48,7 +48,7 @@ function fixture() {
         open() { this.readyState = 1; this.onopen?.(); }
         send(value) { this.sent.push(JSON.parse(value)); }
         close() { this.readyState = 3; this.onclose?.(); }
-        deliver(type, data) { this.onmessage?.({ data: JSON.stringify({ type, data }) }); }
+        deliver(type, data, extra = {}) { this.onmessage?.({ data: JSON.stringify({ type, data, ...extra }) }); }
     }
     const timers = [];
     const context = vm.createContext({
@@ -159,4 +159,15 @@ test('slash entry in an editable chat field keeps its default text insertion', (
     f.read('handleKeyPress = () => {}');
     f.context.handleDocumentKeyDown({ key: '/', target: { closest: () => null }, preventDefault: () => prevented = true });
     assert.equal(prevented, true);
+});
+
+
+test('authoritative unassignment returns to lobby even if the old slot was reused', () => {
+    const f = fixture();
+    const socket = accepted(f, 0);
+    socket.deliver('update', { players: [{id:0, name:'Replacement', status:2, team:2}], planets: [], torps: [], plasmas: [] }, {player_id:-1});
+    assert.equal(f.read('gameState.myPlayerID'), -1);
+    assert.equal(f.read('uiState.inOutfitScreen'), true);
+    assert.equal(f.ids.login.style.display, 'block');
+    assert.equal(f.ids.game.style.display, 'none');
 });
