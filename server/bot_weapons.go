@@ -265,7 +265,7 @@ func (s *Server) tryPhaserNearbyPlasma(p *game.Player) bool {
 
 	for _, plasma := range s.gameState.Plasmas {
 		// Skip our own plasma or non-active plasma
-		if plasma.Owner == p.ID || plasma.Status != game.TorpMove {
+		if plasma.OwnedBy(p) || plasma.Status != game.TorpMove {
 			continue
 		}
 
@@ -329,16 +329,18 @@ func (s *Server) fireBotPlasma(p *game.Player, target *game.Player) bool {
 
 	// Create plasma
 	plasma := &game.Plasma{
-		ID:     s.nextPlasmaID,
-		Owner:  p.ID,
-		X:      p.X,
-		Y:      p.Y,
-		Dir:    fireDir,
-		Speed:  float64(shipStats.PlasmaSpeed * 20), // 20 units per tick
-		Damage: shipStats.PlasmaDamage,
-		Fuse:   shipStats.PlasmaFuse, // Use original fuse value directly
-		Status: game.TorpMove,        // Moving
-		Team:   p.Team,               // Set team color
+		ID:              s.nextPlasmaID,
+		Owner:           p.ID,
+		OwnerGeneration: p.Generation,
+		OwnerLife:       p.Life,
+		X:               p.X,
+		Y:               p.Y,
+		Dir:             fireDir,
+		Speed:           float64(shipStats.PlasmaSpeed * 20), // 20 units per tick
+		Damage:          shipStats.PlasmaDamage,
+		Fuse:            shipStats.PlasmaFuse, // Use original fuse value directly
+		Status:          game.TorpMove,        // Moving
+		Team:            p.Team,               // Set team color
 	}
 
 	s.gameState.Plasmas = append(s.gameState.Plasmas, plasma)
@@ -390,16 +392,18 @@ func (s *Server) fireTorpedoSpread(p, target *game.Player, count int) {
 
 		// Create torpedo
 		torp := &game.Torpedo{
-			ID:     s.nextTorpID,
-			Owner:  p.ID,
-			X:      p.X,
-			Y:      p.Y,
-			Dir:    fireDir,
-			Speed:  float64(shipStats.TorpSpeed * 20),
-			Damage: shipStats.TorpDamage,
-			Fuse:   shipStats.TorpFuse,
-			Status: game.TorpMove,
-			Team:   p.Team,
+			ID:              s.nextTorpID,
+			Owner:           p.ID,
+			OwnerGeneration: p.Generation,
+			OwnerLife:       p.Life,
+			X:               p.X,
+			Y:               p.Y,
+			Dir:             fireDir,
+			Speed:           float64(shipStats.TorpSpeed * 20),
+			Damage:          shipStats.TorpDamage,
+			Fuse:            shipStats.TorpFuse,
+			Status:          game.TorpMove,
+			Team:            p.Team,
 		}
 
 		s.gameState.Torps = append(s.gameState.Torps, torp)
@@ -504,7 +508,7 @@ func (s *Server) detonatePassingTorpedoes(p *game.Player) {
 	}
 
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID || torp.Status != game.TorpMove {
+		if !torp.OwnedBy(p) || torp.Status != game.TorpMove {
 			continue
 		}
 

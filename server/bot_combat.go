@@ -286,7 +286,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 	// Enhanced torpedo checking for all movement scenarios.
 	// Also computes shield-specific threat values in the same pass.
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner != p.ID && torp.Team != p.Team && torp.Status == game.TorpMove {
+		if !torp.OwnedBy(p) && torp.Team != p.Team && torp.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, torp.X, torp.Y)
 			if dist < threat.closestTorpDist {
 				threat.closestTorpDist = dist
@@ -339,7 +339,7 @@ func (s *Server) assessUniversalThreats(p *game.Player) CombatThreat {
 
 	// Check plasma threats (skip friendly plasma)
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner != p.ID && plasma.Team != p.Team && plasma.Status == game.TorpMove {
+		if !plasma.OwnedBy(p) && plasma.Team != p.Team && plasma.Status == game.TorpMove {
 			dist := game.Distance(p.X, p.Y, plasma.X, plasma.Y)
 			if dist < threat.closestPlasma {
 				threat.closestPlasma = dist

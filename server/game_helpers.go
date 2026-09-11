@@ -32,6 +32,7 @@ func formatPlayerName(p *game.Player) string {
 
 // respawnPlayer respawns a dead player at their home planet
 func (s *Server) respawnPlayer(p *game.Player) {
+	p.Life++
 	// IMPORTANT: Preserve the ship type for bots unless they have a pending refit
 	// Bots should respawn with the same ship type, just like human players
 	currentShipType := p.Ship
@@ -124,6 +125,15 @@ func (s *Server) respawnPlayer(p *game.Player) {
 	// Start with green alert
 	p.AlertLevel = "green"
 
+}
+
+// resetPlayerSlot starts a new pilot without inheriting gameplay or statistics.
+// Caller must hold gameState.Mu. Preserve the pointer used by the game arrays.
+func (s *Server) resetPlayerSlot(p *game.Player) {
+	generation := p.Generation + 1
+	*p = *game.NewPlayer(p.ID)
+	p.Generation = generation
+	delete(s.gameState.TournamentStats, p.ID)
 }
 
 // killPlayer handles all common state changes when a player is destroyed.

@@ -459,6 +459,8 @@ type Player struct {
 	Connected     bool      `json:"connected"`
 	LastUpdate    time.Time `json:"-"`
 	OwnerClientID int       `json:"-"` // Client ID that owns this slot (-1 if unowned/bot)
+	Generation    uint64    `json:"-"` // Changes whenever a new pilot takes this slot
+	Life          uint64    `json:"-"` // Changes on respawn, separating weapon counters
 
 	// Bot fields
 	IsBot               bool    `json:"isBot"`
@@ -481,16 +483,23 @@ type Player struct {
 
 // Torpedo represents a torpedo in space
 type Torpedo struct {
-	ID     int     `json:"id"`
-	Owner  int     `json:"owner"` // Player ID
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Dir    float64 `json:"dir"`
-	Speed  float64 `json:"speed"`
-	Damage int     `json:"damage"`
-	Fuse   int     `json:"fuse"`   // Ticks until explosion
-	Status int     `json:"status"` // Free, Move, Explode, Det
-	Team   int     `json:"team"`
+	OwnerGeneration uint64  `json:"-"`
+	OwnerLife       uint64  `json:"-"`
+	ID              int     `json:"id"`
+	Owner           int     `json:"owner"` // Player ID
+	X               float64 `json:"x"`
+	Y               float64 `json:"y"`
+	Dir             float64 `json:"dir"`
+	Speed           float64 `json:"speed"`
+	Damage          int     `json:"damage"`
+	Fuse            int     `json:"fuse"`   // Ticks until explosion
+	Status          int     `json:"status"` // Free, Move, Explode, Det
+	Team            int     `json:"team"`
+}
+
+// OwnedBy distinguishes a pilot from a later occupant of the same slot.
+func (t *Torpedo) OwnedBy(p *Player) bool {
+	return p != nil && t.Owner == p.ID && t.OwnerGeneration == p.Generation
 }
 
 // Plasma represents a plasma torpedo (same struct and lifecycle as Torpedo)
@@ -566,22 +575,7 @@ func NewGameState() *GameState {
 
 	// Initialize players
 	for i := 0; i < MaxPlayers; i++ {
-		gs.Players[i] = &Player{
-			ID:                  i,
-			Status:              StatusFree,
-			Tractoring:          -1,
-			Pressoring:          -1,
-			Orbiting:            -1,
-			LockType:            "none",
-			LockTarget:          -1,
-			BotDefenseTarget:    -1,
-			BotPlanetApproachID: -1,
-			BotTarget:           -1,
-			BotTargetLockTime:   0,
-			BotTargetValue:      0,
-			NextShipType:        -1, // No pending refit by default for fresh slots
-			OwnerClientID:       -1, // No owning client
-		}
+		gs.Players[i] = NewPlayer(i)
 	}
 
 	// Initialize planets
@@ -589,6 +583,26 @@ func NewGameState() *GameState {
 	InitINLPlanetFlags(gs)
 
 	return gs
+}
+
+// NewPlayer initializes an empty slot with all inactive-target sentinels.
+func NewPlayer(id int) *Player {
+	return &Player{
+		ID:                  id,
+		Status:              StatusFree,
+		Tractoring:          -1,
+		Pressoring:          -1,
+		Orbiting:            -1,
+		LockType:            "none",
+		LockTarget:          -1,
+		BotDefenseTarget:    -1,
+		BotPlanetApproachID: -1,
+		BotTarget:           -1,
+		BotTargetLockTime:   0,
+		BotTargetValue:      0,
+		NextShipType:        -1, // No pending refit by default for fresh slots
+		OwnerClientID:       -1, // No owning client
+	}
 }
 
 // Distance calculates distance between two points

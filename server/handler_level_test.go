@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
@@ -336,7 +337,7 @@ func TestHandleChatMessageBroadcasts(t *testing.T) {
 	}
 }
 
-func TestHandleChatMessageSanitizesXSS(t *testing.T) {
+func TestHandleChatMessagePreservesPlainText(t *testing.T) {
 	server, client, _ := newTestClientAndPlayer(game.TeamFed, game.ShipCruiser)
 
 	msgJSON := json.RawMessage(`{"text":"<script>alert('xss')</script>"}`)
@@ -349,11 +350,8 @@ func TestHandleChatMessageSanitizesXSS(t *testing.T) {
 		if text == "" {
 			t.Fatal("Expected message to be sent")
 		}
-		// The raw script tag should be escaped
-		for _, ch := range text {
-			// The actual message text is embedded in a larger formatted string
-			// but should never contain raw < or > since sanitizeText escapes them
-			_ = ch
+		if !strings.Contains(text, "<script>alert('xss')</script>") {
+			t.Fatalf("chat text was changed before safe textContent rendering: %q", text)
 		}
 	default:
 		t.Error("Expected message to be broadcast")

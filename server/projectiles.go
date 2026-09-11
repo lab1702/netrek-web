@@ -48,7 +48,7 @@ func (s *Server) updateProjectileList(list []*game.Torpedo, explDist float64, ki
 	for _, t := range list {
 		decOwner := func() {
 			if t.Owner >= 0 && t.Owner < game.MaxPlayers {
-				if owner := s.gameState.Players[t.Owner]; owner != nil {
+				if owner := s.gameState.Players[t.Owner]; t.OwnedBy(owner) && t.OwnerLife == owner.Life {
 					decCount(owner)
 				}
 			}
@@ -96,15 +96,12 @@ func (s *Server) updateProjectileList(list []*game.Torpedo, explDist float64, ki
 		for _, i := range nearbyPlayers {
 			p := s.gameState.Players[i]
 			// Skip if not alive or self-damage
-			if p.Status != game.StatusAlive || p.ID == t.Owner {
+			if p.Status != game.StatusAlive || t.OwnedBy(p) {
 				continue
 			}
-			// Prevent friendly fire - check if target is on same team as projectile owner
-			if t.Owner >= 0 && t.Owner < game.MaxPlayers {
-				owner := s.gameState.Players[t.Owner]
-				if owner != nil && p.Team == owner.Team {
-					continue
-				}
+			// Allegiance is fixed at launch even if the pilot's slot is reused.
+			if p.Team == t.Team {
+				continue
 			}
 
 			if game.Distance(t.X, t.Y, p.X, p.Y) <= explDist {
@@ -124,12 +121,19 @@ func (s *Server) updateProjectileList(list []*game.Torpedo, explDist float64, ki
 
 // handleProjectileHit processes a torpedo or plasma hit on a player
 func (s *Server) handleProjectileHit(t *game.Torpedo, target *game.Player, killType int) {
+	killerID := -1
+	if t.Owner >= 0 && t.Owner < game.MaxPlayers {
+		owner := s.gameState.Players[t.Owner]
+		if t.OwnedBy(owner) && owner.Connected {
+			killerID = t.Owner
+		}
+	}
 	actualDamage := game.ApplyDamageWithShields(target, t.Damage)
 	if target.Damage >= game.ShipData[target.Ship].MaxDamage {
-		s.killPlayer(target, t.Owner, killType, actualDamage)
+		s.killPlayer(target, killerID, killType, actualDamage)
 	} else if s.gameState.T_mode {
 		// Non-lethal hit: still track damage for tournament stats
-		if stats, ok := s.gameState.TournamentStats[t.Owner]; ok {
+		if stats, ok := s.gameState.TournamentStats[killerID]; ok {
 			stats.DamageDealt += actualDamage
 		}
 		if stats, ok := s.gameState.TournamentStats[target.ID]; ok {

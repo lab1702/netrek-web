@@ -25,8 +25,7 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 	// Check if ship has slowed down to 0 for repair request
 	if p.RepairRequest && p.Speed == 0 && p.Orbiting < 0 {
 		// Transition from repair request to actual repair
-		p.RepairRequest = false
-		p.Repairing = true
+		startRepair(p)
 		// Send message about starting repairs (private to the repairing player,
 		// matching the repair-completion message below).
 		s.tryBroadcast(ServerMessage{

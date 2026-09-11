@@ -171,6 +171,9 @@ The project includes comprehensive test coverage for all critical systems:
 # Run all tests
 go test ./...
 
+# Run browser-client regression tests (Node.js 18+)
+node --test tests/*.test.cjs
+
 # Run with verbose output
 go test -v ./...
 

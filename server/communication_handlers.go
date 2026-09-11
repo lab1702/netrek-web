@@ -18,7 +18,7 @@ func (c *Client) handleChatMessage(data json.RawMessage) {
 		return
 	}
 
-	// Sanitize the message text to prevent XSS
+	// Limit message length; preserve plain text for the client.
 	msgData.Text = sanitizeText(msgData.Text)
 
 	// Check for bot commands (after sanitization)
@@ -61,7 +61,7 @@ func (c *Client) handleTeamMessage(data json.RawMessage) {
 		return
 	}
 
-	// Sanitize the message text to prevent XSS
+	// Limit message length; preserve plain text for the client.
 	msgData.Text = sanitizeText(msgData.Text)
 
 	// Read sender info and cache player teams in a single lock acquisition
@@ -126,7 +126,7 @@ func (c *Client) handlePrivateMessage(data json.RawMessage) {
 		return
 	}
 
-	// Sanitize the message text to prevent XSS
+	// Limit message length; preserve plain text for the client.
 	msgData.Text = sanitizeText(msgData.Text)
 
 	// Read player info under game state lock

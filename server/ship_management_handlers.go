@@ -33,14 +33,7 @@ func (c *Client) handleRepair(data json.RawMessage) {
 		}
 
 		// If stopped or orbiting, enter repair mode immediately
-		p.Repairing = true
-		p.DesSpeed = 0       // Stop the ship
-		p.Shields_up = false // Lower shields
-		// Cancel any locks, beaming, bombing
-		p.Bombing = false
-		p.Beaming = false
-		p.Tractoring = -1
-		p.Pressoring = -1
+		startRepair(p)
 	} else if p.RepairRequest {
 		// Cancel repair request
 		p.RepairRequest = false
@@ -50,6 +43,21 @@ func (c *Client) handleRepair(data json.RawMessage) {
 		// Exit repair mode
 		p.Repairing = false
 	}
+}
+
+func startRepair(p *game.Player) {
+	p.RepairRequest = false
+	p.Repairing = true
+	p.RepairCounter = 0
+	p.DesSpeed = 0
+	p.Shields_up = false
+	p.LockType = "none"
+	p.LockTarget = -1
+	p.Bombing = false
+	p.Beaming = false
+	p.BeamingUp = false
+	p.Tractoring = -1
+	p.Pressoring = -1
 }
 
 // handleBeam handles army beaming

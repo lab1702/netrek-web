@@ -292,6 +292,12 @@ func (s *Server) updateTractorBeams() {
 			continue
 		}
 
+		if p.Cloaked {
+			p.Tractoring = -1
+			p.Pressoring = -1
+			continue
+		}
+
 		// Apply tractor/pressor beam physics (disabled when engines overheated, orbiting, or docked - like original)
 		if (p.Tractoring >= 0 || p.Pressoring >= 0) && !p.EngineOverheat && p.Orbiting < 0 {
 			var targetID int

@@ -161,6 +161,7 @@ func (c *Client) handleLogin(data json.RawMessage) {
 
 	// Set up the player (use pointer to modify in place)
 	p := c.server.gameState.Players[playerID]
+	c.server.resetPlayerSlot(p)
 
 	// Reset all player fields to prevent stale state inheritance
 	// Identity

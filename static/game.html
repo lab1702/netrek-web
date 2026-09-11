@@ -103,6 +103,9 @@
             opacity: 0.5;
         }
 
+        #login label.recommended::after { content: ' ★'; }
+        #login-error { color: var(--danger); }
+
         #login > button {
             width: 100%;
         }
@@ -561,6 +564,7 @@
             </div>
         </div>
         
+        <p id="login-error" role="alert"></p>
         <button class="l7-btn l7-btn--solid" onclick="connect()">enter game →</button>
         <div style="margin-top: 20px; font-size: 11px; line-height: 1.7; color: var(--fg-2);">
             <span class="l7-label">quick reference</span><br>

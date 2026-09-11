@@ -133,13 +133,9 @@ function updateTeamDisplay(data) {
     for (let i = 0; i < teamLabels.length; i++) {
         if (!teamLabels[i] || !teamRadios[i]) continue;
         const count = counts[i];
-        // Remove any existing star indicator
-        if (teamLabels[i].dataset.hasStar) {
-            teamLabels[i].textContent = teamLabels[i].dataset.originalText || teamLabels[i].textContent;
-            delete teamLabels[i].dataset.hasStar;
-        }
+        teamLabels[i].classList.toggle('recommended', count === minCount);
 
-        if (count === maxCount && maxCount > minCount + 1) {
+        if (count === maxCount && maxCount > minCount) {
             // This team has significantly more players - disable it
             teamLabels[i].style.color = 'var(--danger)';
             teamRadios[i].disabled = true;
@@ -159,9 +155,6 @@ function updateTeamDisplay(data) {
             if (count === minCount) {
                 // This team has fewer players - suggest it
                 teamLabels[i].style.color = 'var(--green)';
-                teamLabels[i].dataset.originalText = teamLabels[i].textContent;
-                teamLabels[i].dataset.hasStar = '1';
-                teamLabels[i].textContent += ' \u2605';
                 if (firstAvailableIndex === -1) {
                     firstAvailableIndex = i;
                 }
@@ -324,7 +317,8 @@ function formatTeamNames(names) {
 let renderIntervalId = null;
 let gameInitialized = false;
 let inputHandlersRegistered = false; // Prevent duplicate event listener registration
-let savedCredentials = null; // { name, team, ship } saved on first connect for reconnect
+let savedCredentials = null; // { name, team, ship } used for reconnect
+let pendingLogin = null;
 let reconnectDelay = 1000; // Exponential backoff delay for reconnection
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 10;
@@ -968,11 +962,9 @@ function reOutfit() {
     const team = teamRadio ? parseInt(teamRadio.value, 10) : 1;
     const ship = shipRadio ? parseInt(shipRadio.value, 10) : 0;
     
-    // Hide login, show game
-    document.getElementById('login').style.display = 'none';
-    document.getElementById('game').style.display = 'block';
-    uiState.inOutfitScreen = false;
-    
+    if (pendingLogin) return;
+    beginLogin(name, team, ship);
+
     // Send outfit message to rejoin with new selection
     sendMessage({
         type: 'login', // Server expects 'login' type for both initial and rejoin
@@ -981,6 +973,7 @@ function reOutfit() {
 }
 
 function connect() {
+    if (pendingLogin) return;
     // If already connected and in outfit screen, rejoin instead of reconnecting
     if (ws && ws.readyState === WebSocket.OPEN && uiState.inOutfitScreen) {
         reOutfit();
@@ -1002,9 +995,7 @@ function connect() {
     // Save credentials for reconnect so we don't re-read hidden form elements
     savedCredentials = { name, team, ship };
 
-    // Hide login, show game
-    document.getElementById('login').style.display = 'none';
-    document.getElementById('game').style.display = 'block';
+    // Keep the selection form visible until the server accepts the login.
 
     // Update compression indicator immediately
     updateCompressionIndicator();
@@ -1024,12 +1015,21 @@ function reconnect() {
     openWebSocket(savedCredentials.name, savedCredentials.team, savedCredentials.ship);
 }
 
+function beginLogin(name, team, ship) {
+    pendingLogin = { name, team, ship };
+    gameState.myPlayerID = -1;
+    uiState.inOutfitScreen = false;
+    document.getElementById('login-error').textContent = '';
+}
+
 function openWebSocket(name, team, ship) {
+    beginLogin(name, team, ship);
     // Close existing connection if any. Detach ALL handlers first: a closing
     // socket can still deliver buffered frames, and a stale onmessage would
     // mutate gameState for the new session (and onclose would trigger an
     // unwanted reconnect).
     if (ws) {
+        ws.onopen = null;
         ws.onclose = null;
         ws.onmessage = null;
         ws.onerror = null;
@@ -1045,10 +1045,6 @@ function openWebSocket(name, team, ship) {
     ws = new WebSocket(`${protocol}//${window.location.host}${wsPath}`);
 
     ws.onopen = () => {
-        // Connected to server - reset backoff
-        reconnectDelay = 1000;
-        reconnectAttempts = 0;
-
         // Clear stale game state from previous session to prevent rendering
         // ghost players/projectiles between reconnect and first server update.
         gameState.players = [];
@@ -1086,6 +1082,8 @@ function openWebSocket(name, team, ship) {
     // Capture the WebSocket instance for the closure to avoid stale reference
     const thisWs = ws;
     ws.onclose = () => {
+        pendingLogin = null;
+        gameState.myPlayerID = -1;
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
         // Only reconnect if this is still the current WebSocket and under retry limit
@@ -1116,7 +1114,14 @@ function handleServerMessage(msg) {
     if (msg.type === 'update' && (!msg.data || typeof msg.data !== 'object')) return;
     switch(msg.type) {
         case 'login_success':
+            if (pendingLogin) savedCredentials = { ...pendingLogin };
+            pendingLogin = null;
+            reconnectDelay = 1000;
+            reconnectAttempts = 0;
             gameState.myPlayerID = msg.data.player_id;
+            uiState.inOutfitScreen = false;
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
             addMessage(`Joined as player ${msg.data.player_id}`, 'info', null, null, 'messages-server');
             break;
             
@@ -1237,6 +1242,12 @@ function handleServerMessage(msg) {
             break;
             
         case 'error':
+            if (pendingLogin) {
+                pendingLogin = null;
+                gameState.myPlayerID = -1;
+                showLoginScreenAfterReset();
+                document.getElementById('login-error').textContent = String(msg.data);
+            }
             addMessage(msg.data, 'warning', null, null, 'messages-server');
             break;
     }

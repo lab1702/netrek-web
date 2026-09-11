@@ -56,16 +56,18 @@ func (c *Client) handleFire(data json.RawMessage) {
 
 	// Fire torpedo
 	torp := &game.Torpedo{
-		ID:     c.server.nextTorpID,
-		Owner:  p.ID,
-		X:      p.X,
-		Y:      p.Y,
-		Dir:    fireData.Dir,
-		Speed:  float64(shipStats.TorpSpeed * 20), // Warp speed: 20 units per tick at 10 ticks/sec
-		Damage: shipStats.TorpDamage,
-		Fuse:   shipStats.TorpFuse, // Use ship-specific torpedo fuse
-		Status: game.TorpMove,      // Moving
-		Team:   p.Team,
+		ID:              c.server.nextTorpID,
+		Owner:           p.ID,
+		OwnerGeneration: p.Generation,
+		OwnerLife:       p.Life,
+		X:               p.X,
+		Y:               p.Y,
+		Dir:             fireData.Dir,
+		Speed:           float64(shipStats.TorpSpeed * 20), // Warp speed: 20 units per tick at 10 ticks/sec
+		Damage:          shipStats.TorpDamage,
+		Fuse:            shipStats.TorpFuse, // Use ship-specific torpedo fuse
+		Status:          game.TorpMove,      // Moving
+		Team:            p.Team,
 	}
 
 	c.server.gameState.Torps = append(c.server.gameState.Torps, torp)
@@ -148,7 +150,7 @@ func (c *Client) handlePhaser(data json.RawMessage) {
 
 	// Check plasma torpedoes (if they exist)
 	for _, plasma := range c.server.gameState.Plasmas {
-		if plasma == nil || plasma.Status != game.TorpMove || plasma.Owner == p.ID {
+		if plasma == nil || plasma.Status != game.TorpMove || plasma.OwnedBy(p) {
 			continue
 		}
 
@@ -301,16 +303,18 @@ func (c *Client) handlePlasma(data json.RawMessage) {
 
 	// Fire plasma torpedo
 	plasma := &game.Plasma{
-		ID:     c.server.nextPlasmaID,
-		Owner:  p.ID,
-		X:      p.X,
-		Y:      p.Y,
-		Dir:    plasmaData.Dir,
-		Speed:  float64(shipStats.PlasmaSpeed * 20), // Warp speed: 20 units per tick at 10 ticks/sec
-		Damage: shipStats.PlasmaDamage,
-		Fuse:   shipStats.PlasmaFuse, // Use original fuse value directly (already scaled for our 10 FPS)
-		Status: game.TorpMove,        // Moving
-		Team:   p.Team,
+		ID:              c.server.nextPlasmaID,
+		Owner:           p.ID,
+		OwnerGeneration: p.Generation,
+		OwnerLife:       p.Life,
+		X:               p.X,
+		Y:               p.Y,
+		Dir:             plasmaData.Dir,
+		Speed:           float64(shipStats.PlasmaSpeed * 20), // Warp speed: 20 units per tick at 10 ticks/sec
+		Damage:          shipStats.PlasmaDamage,
+		Fuse:            shipStats.PlasmaFuse, // Use original fuse value directly (already scaled for our 10 FPS)
+		Status:          game.TorpMove,        // Moving
+		Team:            p.Team,
 	}
 
 	c.server.gameState.Plasmas = append(c.server.gameState.Plasmas, plasma)
@@ -345,7 +349,7 @@ func (c *Client) handleDetonate(data json.RawMessage) {
 	// Find and detonate enemy torpedoes near this player
 	detonatedCount := 0
 	for _, torp := range c.server.gameState.Torps {
-		if torp.Status != game.TorpMove || torp.Owner == p.ID {
+		if torp.Status != game.TorpMove || torp.OwnedBy(p) {
 			continue
 		}
 		// Only detonate enemy torpedoes using torp.Team directly
@@ -512,6 +516,8 @@ func (c *Client) handleCloak(data json.RawMessage) {
 
 		// Build message while holding lock
 		if p.Cloaked {
+			p.Tractoring = -1
+			p.Pressoring = -1
 			message = fmt.Sprintf("%s engaged cloaking device", formatPlayerName(p))
 		} else {
 			message = fmt.Sprintf("%s disengaged cloaking device", formatPlayerName(p))

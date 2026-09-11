@@ -2,8 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/lab1702/netrek-web/game"
 )
 
@@ -148,10 +152,37 @@ func TestHandleMessageAllTypesHaveConstants(t *testing.T) {
 // sets the quitting flag to prevent re-login.
 func TestHandleMessageQuitSetsQuitting(t *testing.T) {
 	server := NewServer()
+	connections := make(chan *websocket.Conn, 1)
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		connections <- conn
+	}))
+	t.Cleanup(httpServer.Close)
+	peer, _, err := websocket.DefaultDialer.Dial("ws"+httpServer.URL[4:], nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := <-connections
+	t.Cleanup(func() {
+		server.Shutdown()
+		// Wait for the quit goroutine to close its real connection.
+		peer.SetReadDeadline(time.Now().Add(2 * time.Second))
+		if _, _, err := peer.ReadMessage(); err == nil {
+			t.Error("quit did not close the connection")
+		} else if timeout, ok := err.(interface{ Timeout() bool }); ok && timeout.Timeout() {
+			t.Error("timed out waiting for quit cleanup")
+		}
+		peer.Close()
+		conn.Close()
+	})
 
 	client := &Client{
 		ID:     1,
 		server: server,
+		conn:   conn,
 		send:   make(chan ServerMessage, 64),
 	}
 	client.SetPlayerID(0)

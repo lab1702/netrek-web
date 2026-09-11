@@ -42,6 +42,7 @@ func (s *Server) AddBot(team int, ship game.ShipType) bool {
 
 	// Initialize bot player (p.ID is already set by NewGameState)
 	p := s.gameState.Players[botID]
+	s.resetPlayerSlot(p)
 	p.Name = fmt.Sprintf("[BOT] %s", BotNames[rand.Intn(len(BotNames))])
 	p.Team = team
 	p.Ship = ship
@@ -58,6 +59,7 @@ func (s *Server) AddBot(team int, ship game.ShipType) bool {
 	// Set initial position based on team (clamped to galaxy bounds)
 	p.X, p.Y = spawnPosition(team)
 	p.Dir = rand.Float64() * 2 * math.Pi
+	p.DesDir = p.Dir
 
 	// Initialize ship stats
 	shipStats := game.ShipData[p.Ship]
@@ -791,6 +793,9 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 
 // starbaseDefensiveCombat handles combat for starbases - aggressive defense
 func (s *Server) starbaseDefensiveCombat(p *game.Player, enemy *game.Player, dist float64) {
+	p.Repairing = false
+	p.RepairRequest = false
+	p.RepairCounter = 0
 	// Always shields up in combat
 	p.Shields_up = true
 
@@ -1037,6 +1042,9 @@ func (s *Server) AutoBalanceBots() {
 
 // starbaseDefendPlanet handles planet defense for starbase bots
 func (s *Server) starbaseDefendPlanet(p *game.Player, planet *game.Planet, enemy *game.Player, enemyDist float64) {
+	p.Repairing = false
+	p.RepairRequest = false
+	p.RepairCounter = 0
 	// Set defense target
 	p.BotDefenseTarget = planet.ID
 

@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/lab1702/netrek-web/game"
-	"html"
 	"strings"
 )
 
@@ -60,7 +59,7 @@ type MessageData struct {
 
 // Utility functions
 
-// sanitizeText escapes HTML special characters to prevent XSS
+// sanitizeText limits plain chat text. Clients render it with textContent.
 func sanitizeText(text string) string {
 	// Limit message length using runes to avoid splitting multi-byte characters
 	const maxMessageLength = 500
@@ -68,8 +67,7 @@ func sanitizeText(text string) string {
 	if len(runes) > maxMessageLength {
 		text = string(runes[:maxMessageLength])
 	}
-	// html.EscapeString escapes <, >, &, ' and "
-	return html.EscapeString(text)
+	return text
 }
 
 // sanitizeName removes non-alphanumeric characters and ensures name starts with a letter

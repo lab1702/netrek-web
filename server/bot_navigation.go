@@ -119,7 +119,7 @@ func (s *Server) calculateTorpedoDanger(p *game.Player, dir float64) float64 {
 	speed := p.Speed * 20 // Use actual current speed, not max
 
 	for _, torp := range s.gameState.Torps {
-		if torp.Owner == p.ID || torp.Team == p.Team || torp.Status != game.TorpMove {
+		if torp.OwnedBy(p) || torp.Team == p.Team || torp.Status != game.TorpMove {
 			continue
 		}
 
@@ -146,7 +146,7 @@ func (s *Server) calculatePlasmaDanger(p *game.Player, dir float64) float64 {
 	speed := p.Speed * 20 // Use actual current speed, not max
 
 	for _, plasma := range s.gameState.Plasmas {
-		if plasma.Owner == p.ID || plasma.Team == p.Team || plasma.Status != game.TorpMove {
+		if plasma.OwnedBy(p) || plasma.Team == p.Team || plasma.Status != game.TorpMove {
 			continue
 		}
 
