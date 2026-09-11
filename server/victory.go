@@ -5,15 +5,10 @@ import (
 	"log"
 	"math/bits"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/lab1702/netrek-web/game"
 )
-
-// resetPending guards against concurrent resetGame goroutines.
-// Only one reset goroutine can be active at a time.
-var resetPending atomic.Bool
 
 // teamIndexToFlag converts a team array index (0-3) to a team flag (TeamFed, TeamRom, etc.)
 func teamIndexToFlag(index int) int {
@@ -252,30 +247,40 @@ func (s *Server) announceVictory() {
 		log.Printf("Warning: victory broadcast dropped (channel full)")
 	}
 
-	// Schedule game reset after 10 seconds, respecting server shutdown.
-	// Guard with atomic bool to prevent concurrent reset goroutines.
-	if !resetPending.CompareAndSwap(false, true) {
-		return // Reset already scheduled
+	// Each round owns its timer. Another reset invalidates this generation,
+	// and a victory in a subsequent round can schedule its own timer.
+	if s.resetScheduled {
+		return
 	}
+	s.resetScheduled = true
+	round := s.roundGeneration
 	go func() {
-		defer resetPending.Store(false)
 		select {
 		case <-time.After(10 * time.Second):
-			s.resetGame()
+			s.resetRound(round, true)
 		case <-s.done:
-			// Server shutting down, skip reset
 		}
 	}()
 }
 
 // resetGame resets the game state for a new round
 func (s *Server) resetGame() {
+	s.resetRound(0, false)
+}
+
+func (s *Server) resetRound(expectedRound uint64, victoryOnly bool) {
 	// Hold both locks for the entire reset to prevent a client from logging
 	// in between the client reset and game state reset (TOCTOU fix).
 	// Lock ordering: s.mu first, then s.gameState.Mu.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gameState.Mu.Lock()
+	if victoryOnly && (s.roundGeneration != expectedRound || !s.gameState.GameOver) {
+		s.gameState.Mu.Unlock()
+		return
+	}
+	s.roundGeneration++
+	s.resetScheduled = false
 
 	// Reset all connected clients back to lobby (no player slot assigned)
 	for _, client := range s.clients {

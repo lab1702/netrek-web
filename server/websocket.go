@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -22,7 +23,8 @@ const (
 
 	// Maximum concurrent WebSocket connections to prevent memory exhaustion.
 	// Each connection spawns 2 goroutines and a 256-entry channel buffer.
-	maxConnections = 128
+	maxConnections        = 128
+	maxClientMessageBytes = 4096
 )
 
 // isValidOrigin checks if the origin is allowed to connect
@@ -161,9 +163,11 @@ type Server struct {
 	broadcast                chan ServerMessage
 	gameState                *game.GameState
 	nextID                   int
-	nextTorpID               int  // Monotonically increasing torpedo ID
-	nextPlasmaID             int  // Monotonically increasing plasma ID
-	galaxyReset              bool // Track if galaxy has been reset (true = already reset/empty)
+	nextTorpID               int    // Monotonically increasing torpedo ID
+	nextPlasmaID             int    // Monotonically increasing plasma ID
+	roundGeneration          uint64 // Protected by gameState.Mu
+	resetScheduled           bool   // Victory timer for the current round
+	galaxyReset              bool   // Track if galaxy has been reset (true = already reset/empty)
 	done                     chan struct{}
 	activeConns              atomic.Int32         // Atomic connection counter for race-free limit enforcement
 	playerGrid               *SpatialGrid         // Spatial index for efficient collision detection
@@ -386,6 +390,9 @@ func (s *Server) updateGame() []pendingPlayerMsg {
 	if !hasAnyPlayers {
 		// Only reset if we haven't already reset (transition from players to no players)
 		if !s.galaxyReset {
+			s.roundGeneration++
+			s.resetScheduled = false
+
 			// Re-initialize planets to startup state
 			game.InitPlanets(s.gameState)
 			game.InitINLPlanetFlags(s.gameState)
@@ -726,7 +733,7 @@ func (c *Client) readPump() {
 		c.conn.Close()
 	}()
 
-	c.conn.SetReadLimit(4096)
+	c.conn.SetReadLimit(maxClientMessageBytes)
 	c.conn.SetReadDeadline(time.Now().Add(wsReadTimeout))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(wsReadTimeout))
@@ -739,8 +746,7 @@ func (c *Client) readPump() {
 	rateLimitReset := time.Now()
 
 	for {
-		var msg ClientMessage
-		err := c.conn.ReadJSON(&msg)
+		_, reader, err := c.conn.NextReader()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
@@ -748,7 +754,7 @@ func (c *Client) readPump() {
 			break
 		}
 
-		// Rate limiting: reset counter each second, drop messages if over limit
+		// Check the rate before decompressing and decoding message bodies.
 		now := time.Now()
 		if now.Sub(rateLimitReset) >= time.Second {
 			messageCount = 0
@@ -756,9 +762,19 @@ func (c *Client) readPump() {
 		}
 		messageCount++
 		if messageCount > maxMessagesPerSecond {
-			continue // Drop excess messages silently
+			break // Disconnect excessive senders without draining their next body.
 		}
 
+		// NextReader exposes decompressed data. SetReadLimit alone only bounds
+		// the compressed frame payload, so enforce the application limit here.
+		data, err := io.ReadAll(io.LimitReader(reader, maxClientMessageBytes+1))
+		if err != nil || len(data) > maxClientMessageBytes {
+			break
+		}
+		var msg ClientMessage
+		if err := json.Unmarshal(data, &msg); err != nil {
+			break
+		}
 		c.handleMessage(msg)
 	}
 }

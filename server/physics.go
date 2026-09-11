@@ -72,7 +72,7 @@ func (s *Server) updatePlayerPhysics(p *game.Player, i int) {
 			// Formula from original Netrek: maxspeed = (max + 2) - (max + 1) * (damage / maxdamage)
 			damageRatio := float64(p.Damage) / float64(shipStats.MaxDamage)
 			maxSpeed = float64(shipStats.MaxSpeed+2) - float64(shipStats.MaxSpeed+1)*damageRatio
-			maxSpeed = math.Max(1, maxSpeed) // Minimum speed of 1
+			maxSpeed = math.Max(1, math.Min(float64(shipStats.MaxSpeed), maxSpeed))
 		}
 
 		// Engine overheat limits actual speed to 1 (from original daemon.c).
@@ -214,20 +214,11 @@ func (s *Server) updatePlayerLockOn(p *game.Player) {
 			// Auto-orbit when close to locked planet (same distance as manual orbit)
 			dist := game.Distance(p.X, p.Y, planet.X, planet.Y)
 			if dist < float64(game.EntOrbitDist) && p.Speed <= float64(game.ORBSPEED) {
-				// Close enough and slow enough to orbit
-				p.Orbiting = p.LockTarget
-				p.Speed = 0
-				p.DesSpeed = 0
-
-				// Clear lock when entering orbit
-				p.LockType = "none"
-				p.LockTarget = -1
-
-				// Update planet info - team now has scouted this planet
-				planet.Info |= p.Team
+				s.enterOrbit(p, planet)
 
 				// Send orbit confirmation
 				s.broadcastInfo(fmt.Sprintf("%s is orbiting %s", formatPlayerName(p), planet.Name))
+				return
 			} else if dist > 3000 {
 				// Far from planet - go fast
 				p.DesSpeed = float64(game.ShipData[p.Ship].MaxSpeed)
@@ -441,4 +432,19 @@ func (s *Server) updateAlertLevels() {
 			}
 		}
 	}
+}
+
+// enterOrbit initializes the orbital position and tangent from the approach
+// position. Caller must hold gameState.Mu and check orbit-entry eligibility.
+func (s *Server) enterOrbit(p *game.Player, planet *game.Planet) {
+	p.Orbiting = planet.ID
+	p.Speed, p.DesSpeed = 0, 0
+	p.LockType, p.LockTarget = "none", -1
+	p.Tractoring, p.Pressoring = -1, -1
+	angle := math.Atan2(p.Y-planet.Y, p.X-planet.X)
+	p.X = planet.X + float64(game.OrbitDist)*math.Cos(angle)
+	p.Y = planet.Y + float64(game.OrbitDist)*math.Sin(angle)
+	p.Dir = game.NormalizeAngle(angle + math.Pi/2)
+	p.DesDir = p.Dir
+	planet.Info |= p.Team
 }

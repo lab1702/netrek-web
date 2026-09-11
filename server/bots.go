@@ -260,9 +260,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			dist := game.Distance(p.X, p.Y, targetPlanet.X, targetPlanet.Y)
 			if dist < OrbitDistance {
 				// Start orbiting for repair
-				p.Orbiting = targetPlanet.ID
-				targetPlanet.Info |= p.Team // Update planet info
-				p.DesSpeed = 0
+				s.enterOrbit(p, targetPlanet)
 				p.Shields_up = false
 				// Activate repair mode if damaged over 50%
 				if needRepair && !p.Repairing {
@@ -300,9 +298,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				if dist < OrbitDistance {
 					// At planet
 					if p.Orbiting != targetPlanet.ID {
-						p.Orbiting = targetPlanet.ID
-						targetPlanet.Info |= p.Team // Update planet info
-						p.DesSpeed = 0
+						s.enterOrbit(p, targetPlanet)
 					}
 
 					// Neutral planets should have no armies, just beam down
@@ -382,9 +378,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 			if dist < OrbitDistance {
 				// At planet - perform appropriate action
 				if p.Orbiting != targetPlanet.ID {
-					p.Orbiting = targetPlanet.ID
-					targetPlanet.Info |= p.Team // Update planet info
-					p.DesSpeed = 0
+					s.enterOrbit(p, targetPlanet)
 				}
 
 				if targetPlanet.Owner == p.Team {
@@ -592,8 +586,7 @@ func (s *Server) updateBotHard(p *game.Player) {
 				if dist < OrbitDistance {
 					// Quick bomb and run
 					if planet.Armies > 0 && planet.Owner != p.Team {
-						p.Orbiting = planet.ID
-						planet.Info |= p.Team // Update planet info
+						s.enterOrbit(p, planet)
 						p.Bombing = true
 						p.DesSpeed = 0
 						p.BotCooldown = 30
@@ -684,9 +677,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 			dist := game.Distance(p.X, p.Y, safetyPlanet.X, safetyPlanet.Y)
 			if dist < OrbitDistance {
 				// Safe at friendly planet - repair
-				p.Orbiting = safetyPlanet.ID
-				safetyPlanet.Info |= p.Team // Update planet info
-				p.DesSpeed = 0
+				s.enterOrbit(p, safetyPlanet)
 				p.Shields_up = false
 				if needRepair {
 					p.Repairing = true
@@ -755,9 +746,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				return
 			} else {
 				// Close to threatened planet - defend it
-				p.Orbiting = threatenedPlanet.ID
-				threatenedPlanet.Info |= p.Team // Update planet info
-				p.DesSpeed = 0
+				s.enterOrbit(p, threatenedPlanet)
 				// Combat handled by priority check above, no need for duplicate logic
 				p.BotCooldown = 10
 				return
@@ -779,9 +768,7 @@ func (s *Server) updateStarbaseBot(p *game.Player) {
 				return
 			} else {
 				// Near core planet - defend it
-				p.Orbiting = corePlanet.ID
-				corePlanet.Info |= p.Team // Update planet info
-				p.DesSpeed = 0
+				s.enterOrbit(p, corePlanet)
 				// Use proper threat assessment for shield decisions
 				s.assessAndActivateShields(p)
 				// Combat handled by priority check above, no need for duplicate logic

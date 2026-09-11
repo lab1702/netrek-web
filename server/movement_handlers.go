@@ -66,7 +66,7 @@ func (c *Client) handleMove(data json.RawMessage) {
 		// Formula from original Netrek: maxspeed = (max + 2) - (max + 1) * (damage / maxdamage)
 		damageRatio := float64(p.Damage) / float64(shipStats.MaxDamage)
 		maxSpeed = float64(shipStats.MaxSpeed+2) - float64(shipStats.MaxSpeed+1)*damageRatio
-		maxSpeed = math.Max(1, maxSpeed) // Minimum speed of 1
+		maxSpeed = math.Max(1, math.Min(float64(shipStats.MaxSpeed), maxSpeed))
 	}
 
 	// Clamp speed to damage-adjusted maximum
@@ -179,32 +179,9 @@ func (c *Client) handleOrbit(data json.RawMessage) {
 	}
 
 	if closestPlanet >= 0 {
-		p.Orbiting = closestPlanet
-		p.Speed = 0
-		p.DesSpeed = 0
-
-		// Clear lock when entering orbit
-		p.LockType = "none"
-		p.LockTarget = -1
-
-		// Clear tractor/pressor beams when entering orbit (from original)
-		p.Tractoring = -1
-		p.Pressoring = -1
-
-		// Calculate initial orbit position at correct radius
 		planet := c.server.gameState.Planets[closestPlanet]
-		angle := math.Atan2(p.Y-planet.Y, p.X-planet.X)
-		p.X = planet.X + float64(game.OrbitDist)*math.Cos(angle)
-		p.Y = planet.Y + float64(game.OrbitDist)*math.Sin(angle)
-
-		// Set direction tangent to orbit (perpendicular to radius)
-		// In original: dir + 64 where 256 units = 2*PI, so 64 = PI/2
-		p.Dir = angle + math.Pi/2
-		p.DesDir = p.Dir
-
-		// Update planet info - team now has scouted this planet
 		oldInfo := planet.Info
-		planet.Info |= p.Team
+		c.server.enterOrbit(p, planet)
 		log.Printf("Player %s (team %d) orbited planet %s. Info updated from %d to %d",
 			p.Name, p.Team, planet.Name, oldInfo, planet.Info)
 	}
