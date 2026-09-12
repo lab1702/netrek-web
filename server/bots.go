@@ -886,7 +886,7 @@ func (s *Server) findMostThreatenedFriendlyPlanet(p *game.Player) *game.Planet {
 		// Calculate threat level based on nearby enemies
 		threatLevel := 0.0
 		for _, enemy := range s.gameState.Players {
-			if enemy.Team == p.Team || enemy.Status != game.StatusAlive {
+			if enemy.Team == p.Team || enemy.Status != game.StatusAlive || enemy.Cloaked {
 				continue
 			}
 			dist := game.Distance(planet.X, planet.Y, enemy.X, enemy.Y)

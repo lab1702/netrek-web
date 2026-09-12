@@ -287,7 +287,7 @@ func (s *Server) findPlanetToDefend(p *game.Player) *game.Planet {
 		// Check for threats
 		threatLevel := 0.0
 		for _, enemy := range s.gameState.Players {
-			if enemy.Status == game.StatusAlive && enemy.Team != p.Team {
+			if enemy.Status == game.StatusAlive && enemy.Team != p.Team && !enemy.Cloaked {
 				dist := game.Distance(planet.X, planet.Y, enemy.X, enemy.Y)
 				if dist < 10000 {
 					threatLevel += (10000 - dist) / 1000
@@ -339,7 +339,7 @@ func (s *Server) findPlanetToRaid(p *game.Player) *game.Planet {
 		// Look for undefended planets
 		defenders := 0
 		for _, enemy := range s.gameState.Players {
-			if enemy.Status == game.StatusAlive && enemy.Team == planet.Owner {
+			if enemy.Status == game.StatusAlive && enemy.Team == planet.Owner && !enemy.Cloaked {
 				if game.Distance(planet.X, planet.Y, enemy.X, enemy.Y) < 5000 {
 					defenders++
 				}
