@@ -1,10 +1,38 @@
 package server
 
 import (
+	"math"
 	"testing"
 
 	"github.com/lab1702/netrek-web/game"
 )
+
+func TestFuelShortageSlowsTravelAndRefuelingRestoresSpeed(t *testing.T) {
+	for _, shields := range []bool{false, true} {
+		s, _, p := newTestClientAndPlayer(game.TeamFed, game.ShipCruiser)
+		p.X, p.Y, p.Dir, p.DesDir = 50000, 50000, 0, 0
+		p.Speed, p.DesSpeed = 9, 9
+		p.Fuel, p.Shields_up = 0, shields
+		for tick := 0; tick < 100; tick++ {
+			s.updatePlayerSystems(p, p.ID)
+			s.updatePlayerPhysics(p, p.ID)
+		}
+		if distance := p.X - 50000; distance >= 15000 {
+			t.Fatalf("shields=%v: fuel-starved cruiser traveled %v units; full-speed travel is 18000", shields, distance)
+		}
+		if p.DesSpeed != 9 {
+			t.Fatal("temporary fuel shortage changed the pilot's speed command")
+		}
+		p.Fuel = game.ShipData[p.Ship].MaxFuel
+		for tick := 0; tick < 100; tick++ {
+			s.updatePlayerSystems(p, p.ID)
+			s.updatePlayerPhysics(p, p.ID)
+		}
+		if p.FuelStarved || math.Abs(p.Speed-9) > 0.001 {
+			t.Fatalf("refueled cruiser failed to recover requested speed: %v", p.Speed)
+		}
+	}
+}
 
 // TestRepairStartMessageIsPrivate verifies that the "is repairing damage"
 // notice sent when a ship begins repairing is addressed only to the repairing

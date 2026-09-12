@@ -56,6 +56,8 @@ func (s *Server) updatePlayerSystems(p *game.Player, playerIndex int) {
 		// p_etemp += j->p_speed
 		p.ETemp += int(p.Speed)
 	}
+	// Preserve shortages across the recharge below so physics can slow the ship.
+	p.FuelStarved = fuelUsage > p.Fuel
 	p.Fuel = int(math.Max(0, float64(p.Fuel-fuelUsage)))
 
 	// Decloak if out of fuel

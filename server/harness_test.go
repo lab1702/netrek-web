@@ -155,7 +155,7 @@ func runAccuracyTest(t *testing.T, iterations int, speed float64, pattern string
 
 		// Simulate torpedo flight and find closest approach
 		closestDist, timeToClosest := simulateClosestApproach(torpedo, target, targetVel)
-		hit := closestDist <= 600 // Standard torpedo hit radius
+		hit := closestDist <= game.ExplosionDist
 
 		// Record launch data
 		launch := TorpedoLaunchData{

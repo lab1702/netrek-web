@@ -450,7 +450,8 @@ type Player struct {
 	RespawnMsgSent bool `json:"-"`            // True if "cannot respawn" message was sent (not sent to client)
 
 	// Engine overheat tracking
-	OverheatTimer int `json:"-"` // Frames left in overheat state (not sent to client)
+	OverheatTimer int  `json:"-"` // Frames left in overheat state (not sent to client)
+	FuelStarved   bool `json:"-"` // Current tick's fuel demand exceeded the available fuel
 
 	// Alert status
 	AlertLevel string `json:"alertLevel"` // "green", "yellow", or "red"

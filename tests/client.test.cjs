@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // A small DOM fixture with real textContent replacement semantics. The client
-// runs unchanged; drawing and network polling are outside these UI regressions.
+// runs unchanged; drawing and HTTP requests are outside these UI regressions.
 class Element {
     constructor(text = '') {
         this.children = [];
@@ -51,11 +51,13 @@ function fixture() {
         deliver(type, data, extra = {}) { this.onmessage?.({ data: JSON.stringify({ type, data, ...extra }) }); }
     }
     const timers = [];
+    const intervals = new Set();
+    const events = {};
     let now = 1000;
     class Clock extends Date { static now() { return now; } }
     const context = vm.createContext({
         console, Date: Clock, WebSocket: Socket,
-        window: { location: { pathname: '/game.html', protocol: 'http:', host: 'localhost' }, addEventListener() {} },
+        window: { location: { pathname: '/game.html', protocol: 'http:', host: 'localhost' }, addEventListener: (name, callback) => events[name] = callback },
         document: {
             getElementById: id => ids[id] || null,
             querySelector: selector => labels[selector] || (selector === 'input[name="team"]:checked' ? teams.find(r => r.checked) : selector === 'input[name="ship"]:checked' ? ships.find(r => r.checked) : null),
@@ -63,12 +65,13 @@ function fixture() {
             createElement: () => new Element(),
         },
         setTimeout: callback => timers.push(callback), clearTimeout() {},
-        setInterval() {}, clearInterval() {},
+        setInterval: callback => { intervals.add(callback); return callback; },
+        clearInterval: callback => intervals.delete(callback),
     });
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/netrek.js'), 'utf8'), context);
     vm.runInContext('init = async () => {}; updateDashboard = () => {}; updatePlayerList = () => {}; updateTeamStats = () => {};', context);
     const read = expression => vm.runInContext(expression, context);
-    return { context, ids, labels, teams, ships, sockets, timers, read, advance: ms => now += ms };
+    return { context, ids, labels, teams, ships, sockets, timers, intervals, events, read, advance: ms => now += ms };
 }
 
 function accepted(f, slot = 0) {
@@ -261,5 +264,24 @@ test('intentional socket closure returns dead pilots to a usable lobby', () => {
         assert.equal(f.read('gameState.quitRequested'), false);
         assert.equal(f.read('gameState.myPlayerID'), 1);
         assert.equal(f.ids.game.style.display, 'block');
+    }
+});
+
+test('lobby polling resumes after every return from the game', () => {
+    const f = fixture();
+    let refreshes = 0;
+    f.context.updateTeamStats = () => refreshes++;
+    f.events.DOMContentLoaded();
+    assert.equal(refreshes, 1);
+    for (let visit = 0; visit < 2; visit++) {
+        accepted(f);
+        const beforeGameTick = refreshes;
+        for (const tick of f.intervals) tick();
+        assert.equal(refreshes, beforeGameTick);
+        f.context.showLoginScreenAfterReset();
+        const beforeLobbyTick = refreshes;
+        for (const tick of f.intervals) tick();
+        assert.equal(refreshes, beforeLobbyTick + 1);
+        assert.equal(f.intervals.size, 1);
     }
 });

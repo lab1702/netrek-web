@@ -204,11 +204,9 @@ function updateTeamStats() {
 window.addEventListener('DOMContentLoaded', () => {
     updateTeamStats();
     // Update every 5 seconds while on login screen
-    const statsInterval = setInterval(() => {
+    setInterval(() => {
         if (document.getElementById('login').style.display !== 'none') {
             updateTeamStats();
-        } else {
-            clearInterval(statsInterval);
         }
     }, 5000);
 });
