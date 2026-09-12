@@ -195,12 +195,12 @@ func (s *Server) checkTournamentMode() {
 				}
 			}
 
-			if winningTeams > 0 {
-				s.gameState.GameOver = true
-				s.gameState.Winner = winningTeams
-				s.gameState.WinType = "timeout"
-				s.announceVictory()
-			}
+			// A galaxy with no owned planets ends in a draw (no winning teams).
+			// Always finish the round so the timer cannot leave it stuck in T-mode.
+			s.gameState.GameOver = true
+			s.gameState.Winner = winningTeams
+			s.gameState.WinType = "timeout"
+			s.announceVictory()
 		}
 
 		// Announce time warnings

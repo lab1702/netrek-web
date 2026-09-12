@@ -74,7 +74,8 @@ func (s *Server) checkVictoryConditions() {
 		if p.Team <= 0 {
 			continue
 		}
-		willRespawn := p.Connected && (p.Status == game.StatusDead ||
+		// Planetless teams cannot respawn in tournament mode.
+		willRespawn := p.Connected && s.teamCanSpawn(p.Team) && (p.Status == game.StatusDead ||
 			(p.Status == game.StatusExplode && p.WhyDead != game.KillQuit))
 		if p.Status == game.StatusAlive || willRespawn {
 			inPlayFlags |= p.Team
@@ -225,7 +226,9 @@ func (s *Server) announceVictory() {
 			message = fmt.Sprintf("🏆 DOMINATION! %s team controls all owned planets and enemies have no armies! Victory!", teamNameStr)
 		}
 	} else if s.gameState.WinType == "timeout" {
-		if len(teamNames) > 1 {
+		if len(teamNames) == 0 {
+			message = "⏱️ TIME LIMIT! DRAW — no team owns any planets."
+		} else if len(teamNames) > 1 {
 			message = fmt.Sprintf("⏱️ TIME LIMIT! %s teams share victory by controlling the most planets!", teamNameStr)
 		} else {
 			message = fmt.Sprintf("⏱️ TIME LIMIT! %s team wins by controlling the most planets!", teamNameStr)

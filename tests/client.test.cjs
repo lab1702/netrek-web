@@ -319,3 +319,27 @@ test('round reset closes all game overlays before showing the lobby', () => {
     socket.deliver('login_success', {player_id:1});
     assert.equal(f.ids.game.style.display, 'block');
 });
+
+test('zero-planet timeouts render as draws and winning timeouts retain their result', () => {
+    // Zero winners are omitted by the server snapshot's omitempty encoding.
+    for (const winner of [undefined, 0, 1, 3]) {
+        const f = fixture();
+        const socket = accepted(f);
+        const labels = [];
+        f.context.testCanvasContext = new Proxy({fillText: text => labels.push(text)}, {
+            get: (target, key) => target[key] || (() => {}),
+        });
+        f.read('canvases.tactical = {width:600, height:600}; canvases.tacticalCtx = testCanvasContext;');
+        socket.deliver('update', {
+            players:[{status:2, team:1}], planets:[], torps:[], plasmas:[],
+            gameOver:true, winType:'timeout', winner,
+        });
+        f.context.renderTactical();
+        if (!winner) {
+            assert.deepEqual(labels.slice(0, 2), ['TIME LIMIT — DRAW', 'No team owns any planets']);
+        } else {
+            assert.equal(labels[0], 'TIME LIMIT VICTORY!');
+            assert.ok(labels[1].includes(winner === 1 ? 'WINS!' : 'WIN!'));
+        }
+    }
+});

@@ -1425,6 +1425,7 @@ function renderTactical() {
         const winnerNames = getTeamNamesFromFlag(gameState.winner);
         const winnerText = formatTeamNames(winnerNames);
         const winnerColor = getRepresentativeColor(gameState.winner);
+        const isDraw = gameState.winType === 'timeout' && winnerNames.length === 0;
         
         ctx.fillStyle = winnerColor;
         ctx.font = 'bold 48px monospace';
@@ -1439,14 +1440,14 @@ function renderTactical() {
         } else if (gameState.winType === 'domination') {
             winText = 'DOMINATION VICTORY!';
         } else if (gameState.winType === 'timeout') {
-            winText = 'TIME LIMIT VICTORY!';
+            winText = isDraw ? 'TIME LIMIT — DRAW' : 'TIME LIMIT VICTORY!';
         }
         
         ctx.fillText(winText, centerX, centerY - 50);
         ctx.font = 'bold 36px monospace';
         
         // Handle plural vs singular for multiple winners
-        const victoryText = winnerNames.length > 1 ? 
+        const victoryText = isDraw ? 'No team owns any planets' : winnerNames.length > 1 ?
             `${winnerText} WIN!` : 
             `${winnerText} WINS!`;
         ctx.fillText(victoryText, centerX, centerY + 10);
