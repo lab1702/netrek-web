@@ -201,17 +201,28 @@
         }
 
         .stat {
-            flex: 1 0 auto;
+            /* Values must never change box sizes or move neighboring stats. */
+            flex: 0 0 80px;
+            height: 52px;
             text-align: center;
             padding: 5px 15px;
             background: var(--bg-0);
             border: 1px solid var(--border-1);
             border-radius: var(--radius-1);
-            min-width: 80px;
+            min-width: 0;
         }
+
+        .stat-resource { flex-basis: 130px; }
+        .stat-fuel { flex-basis: 180px; }
+        .stat-capacity { flex-basis: 110px; }
+        .stat-status { flex-basis: 320px; }
+        .stat-kda { flex-basis: 140px; }
+        .stat-compression { flex-basis: 100px; }
+        .stat-centroid { flex-basis: 90px; }
 
         .stat-label {
             font-size: 10px;
+            line-height: 12px;
             color: var(--fg-3);
             letter-spacing: var(--tracking-label);
             text-transform: uppercase;
@@ -221,9 +232,13 @@
 
         .stat-value {
             font-size: 18px;
+            line-height: 22px;
             color: var(--fg-1);
             font-weight: 600;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         
@@ -619,15 +634,15 @@
         </div>
         <div id="alert-status" style="display: none;"></div>
         <div id="dashboard" role="region" aria-label="Ship status" tabindex="0">
-            <div class="stat">
+            <div class="stat stat-resource">
                 <div class="stat-label">SHIELDS</div>
                 <div class="stat-value" id="shields">100</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-resource">
                 <div class="stat-label">DAMAGE</div>
                 <div class="stat-value" id="damage" style="color: #fa0">0</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-fuel">
                 <div class="stat-label">FUEL</div>
                 <div class="stat-value" id="fuel" style="color: #0ff">10000</div>
             </div>
@@ -639,19 +654,19 @@
                 <div class="stat-label">ETEMP</div>
                 <div class="stat-value" id="etemp" style="color: #ff0">0</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-capacity">
                 <div class="stat-label">SPEED</div>
                 <div class="stat-value" id="speed">0</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-capacity">
                 <div class="stat-label">ARMIES</div>
                 <div class="stat-value" id="armies" style="color: #0f0">0</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-status">
                 <div class="stat-label">STATUS</div>
                 <div class="stat-value" id="status" style="font-size: 11px"></div>
             </div>
-            <div class="stat">
+            <div class="stat stat-kda">
                 <div class="stat-label">KS/K/D</div>
                 <div class="stat-value" id="kda-stats" style="font-size: 11px; color: #8f8">0/0/0</div>
             </div>
@@ -663,11 +678,11 @@
                 <div class="stat-label">TICK</div>
                 <div class="stat-value" id="network-delay" style="font-size: 11px; color: #0f0; text-align: right;">0ms</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-compression">
                 <div class="stat-label">COMPRESSION</div>
                 <div class="stat-value" id="compression-indicator" style="font-size: 11px; color: #888;">OFF</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-centroid">
                 <div class="stat-label">CENTROID</div>
                 <div class="stat-value" id="centroid-indicator" style="font-size: 11px; color: #888;">OFF</div>
             </div>
