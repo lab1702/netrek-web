@@ -481,15 +481,18 @@ function resizeCanvases() {
     const padding = 40; // Account for padding and borders
     
     // Calculate the maximum square size that fits in the viewport
-    const availableWidth = window.innerWidth - padding * 3; // Space for two squares plus gap
-    const availableHeight = window.innerHeight - dashboardHeight - padding * 2;
+    const stackedPanels = window.innerWidth <= 1200;
+    const sidePanelsWidth = stackedPanels ? 0 : 360;
+    const bottomPanelsHeight = stackedPanels ? 170 : 0; // 160px panels plus grid gap
+    const availableWidth = window.innerWidth - sidePanelsWidth - padding * 3;
+    const availableHeight = window.innerHeight - dashboardHeight - bottomPanelsHeight - padding * 2;
     
     // Each canvas gets half the width (minus gap), but both need to fit vertically
     const maxSizeFromWidth = Math.floor(availableWidth / 2);
     const maxSizeFromHeight = availableHeight;
     
     // Use the smaller dimension to ensure squares fit
-    const canvasSize = Math.min(maxSizeFromWidth, maxSizeFromHeight, 600); // Cap at 600px
+    const canvasSize = Math.max(1, Math.min(maxSizeFromWidth, maxSizeFromHeight, 600)); // Cap at 600px
     
     // Resizing canvases
     
@@ -710,7 +713,30 @@ function handleKeyPress(key) {
     }
 
     const player = gameState.players[gameState.myPlayerID];
-    if (!player || player.status !== 2) return;
+    if (!player) return;
+
+    // Session controls remain available while waiting to respawn.
+    if (key.toLowerCase() === 'a' || key === '/' || key === 'T') {
+        showMessageInput(key === 'T' ? 'team' : 'all', key === '/' ? '/' : '');
+        return;
+    }
+
+    // Handle capital Q for quit/self-destruct (before toLowerCase)
+    // Requires double-tap within 2 seconds to confirm (avoids blocking confirm() dialog)
+    if (key === 'Q') {
+        const now = Date.now();
+        if (gameState._quitPending && now - gameState._quitPending < 2000) {
+            delete gameState._quitPending;
+            sendMessage({ type: 'quit', data: {} });
+            gameState.quitRequested = true;
+        } else {
+            gameState._quitPending = now;
+            addMessage(`Press Q again within 2 seconds to ${player.status === 2 ? 'self-destruct' : 'quit'}.`, 'warning', null, null, 'messages-server');
+        }
+        return;
+    }
+
+    if (player.status !== 2) return;
 
     // Speed control - numbers set speed
     if (key >= '0' && key <= '9') {
@@ -726,21 +752,6 @@ function handleKeyPress(key) {
         else if (key === '@') speed = 11; // Shift+2 = speed 11
         else if (key === '#') speed = 12; // Shift+3 = speed 12
         updateMovement(player, speed);
-        return;
-    }
-    
-    // Handle capital Q for quit/self-destruct (before toLowerCase)
-    // Requires double-tap within 2 seconds to confirm (avoids blocking confirm() dialog)
-    if (key === 'Q') {
-        const now = Date.now();
-        if (gameState._quitPending && now - gameState._quitPending < 2000) {
-            delete gameState._quitPending;
-            sendMessage({ type: 'quit', data: {} });
-            gameState.quitRequested = true;
-        } else {
-            gameState._quitPending = now;
-            addMessage('Press Q again within 2 seconds to self-destruct.', 'warning', null, null, 'messages-server');
-        }
         return;
     }
     
@@ -783,37 +794,24 @@ function handleKeyPress(key) {
                 sendMessage({ type: 'pressor', data: { targetId: nearestPressor } });
             }
             break;
-        case 'a':
-            // All message
-            showMessageInput('all');
-            break;
-        case '/':
-            // Slash command shortcut - open All message window with '/' pre-filled
-            showMessageInput('all', '/');
-            break;
         case 't':
-            // Check if original key was uppercase T (Shift+T) for Team message
-            if (key === 'T') {
-                showMessageInput('team');
-            } else {
-                // Find nearest enemy for tractor beam
-                let nearestEnemy = -1;
-                let nearestDistSq = getMaxStat(player.ship, 'beamRange') ** 2;
-                for (let i = 0; i < gameState.players.length; i++) {
-                    const other = gameState.players[i];
-                    if (other && other.status === 2 && other.team !== player.team) {
-                        const dx = other.x - player.x;
-                        const dy = other.y - player.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq <= nearestDistSq) {
-                            nearestDistSq = distSq;
-                            nearestEnemy = i;
-                        }
+            // Find nearest enemy for tractor beam
+            let nearestEnemy = -1;
+            let nearestDistSq = getMaxStat(player.ship, 'beamRange') ** 2;
+            for (let i = 0; i < gameState.players.length; i++) {
+                const other = gameState.players[i];
+                if (other && other.status === 2 && other.team !== player.team) {
+                    const dx = other.x - player.x;
+                    const dy = other.y - player.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq <= nearestDistSq) {
+                        nearestDistSq = distSq;
+                        nearestEnemy = i;
                     }
                 }
-                if (nearestEnemy >= 0) {
-                    sendMessage({ type: 'tractor', data: { targetId: nearestEnemy } });
-                }
+            }
+            if (nearestEnemy >= 0) {
+                sendMessage({ type: 'tractor', data: { targetId: nearestEnemy } });
             }
             break;
         case 'o':

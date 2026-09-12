@@ -226,3 +226,17 @@ test('lobby balances surviving teams and disables eliminated teams', () => {
     assert.deepEqual(f.teams.map(r => r.disabled), [true, false, false, true]);
     assert.ok(f.teams.some(r => r.checked && !r.disabled));
 });
+
+test('dead and exploding pilots can chat and quit while ship controls stay inactive', () => {
+    for (const status of [3, 4]) {
+        const f = fixture();
+        const socket = accepted(f);
+        f.context.chatCalls = [];
+        f.read(`gameState.players = [{status:${status}, team:1}]; showMessageInput = (mode, text = '') => chatCalls.push({mode, text});`);
+        socket.sent.length = 0;
+        for (const key of ['a', 'T', '/', 's', 'c', '0', 'p', 'Q', 'Q']) f.context.handleKeyPress(key);
+        assert.equal(JSON.stringify(f.context.chatCalls), JSON.stringify([{mode:'all', text:''}, {mode:'team', text:''}, {mode:'all', text:'/'}]));
+        assert.deepEqual(socket.sent.map(message => message.type), ['quit']);
+        assert.equal(f.read('gameState.quitRequested'), true);
+    }
+});
