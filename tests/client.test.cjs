@@ -240,3 +240,26 @@ test('dead and exploding pilots can chat and quit while ship controls stay inact
         assert.equal(f.read('gameState.quitRequested'), true);
     }
 });
+
+test('intentional socket closure returns dead pilots to a usable lobby', () => {
+    for (const status of [3, 4]) {
+        const f = fixture();
+        const socket = accepted(f);
+        f.read(`gameState.players = [{status:${status}, team:1, ship:2}];`);
+        f.context.handleKeyPress('Q');
+        f.context.handleKeyPress('Q');
+        socket.close();
+        assert.equal(f.ids.login.style.display, 'block');
+        assert.equal(f.ids.game.style.display, 'none');
+        assert.equal(f.read('gameState.myPlayerID'), -1);
+        assert.equal(f.read('uiState.inOutfitScreen'), true);
+        assert.equal(f.timers.length, 0);
+        f.context.connect();
+        const replacement = f.sockets.at(-1);
+        replacement.open();
+        replacement.deliver('login_success', {player_id:1});
+        assert.equal(f.read('gameState.quitRequested'), false);
+        assert.equal(f.read('gameState.myPlayerID'), 1);
+        assert.equal(f.ids.game.style.display, 'block');
+    }
+});

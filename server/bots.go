@@ -595,11 +595,19 @@ func (s *Server) updateBotHard(p *game.Player) {
 						p.BotCooldown = 5
 					}
 				} else {
-					// Approach at high speed with torpedo dodging
+					// Leave the old orbit and brake as we approach the new planet.
+					p.Orbiting = -1
+					p.Bombing, p.Beaming, p.BeamingUp = false, false, false
+					p.Repairing, p.RepairRequest = false, false
 					dx := planet.X - p.X
 					dy := planet.Y - p.Y
 					baseDir := math.Atan2(dy, dx)
-					desiredSpeed := float64(shipStats.MaxSpeed)
+					desiredSpeed := s.getOptimalSpeed(p, dist)
+					// Keep braking if we overshot or must turn back toward the target.
+					// Accelerating away makes the turn radius grow faster than we turn.
+					if AngleDifference(p.Dir, baseDir) > math.Pi/4 {
+						desiredSpeed = float64(game.ORBSPEED)
+					}
 
 					// Use safe navigation with torpedo dodging
 					s.applySafeNavigation(p, baseDir, desiredSpeed)

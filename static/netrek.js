@@ -1028,6 +1028,8 @@ function reconnect() {
 
 function beginLogin(name, team, ship) {
     pendingLogin = { name, team, ship };
+    gameState.quitRequested = false;
+    delete gameState._quitPending;
     gameState.myPlayerID = -1;
     uiState.inOutfitScreen = false;
     document.getElementById('login-error').textContent = '';
@@ -1094,6 +1096,11 @@ function openWebSocket(name, team, ship) {
     const thisWs = ws;
     ws.onclose = () => {
         pendingLogin = null;
+        if (gameState.quitRequested) {
+            showLoginScreenAfterReset();
+            gameState.myPlayerID = -1;
+            return;
+        }
         gameState.myPlayerID = -1;
         // Disconnected from server
         addMessage('Disconnected from server', 'warning', null, null, 'messages-server');
