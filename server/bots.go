@@ -996,6 +996,7 @@ func (s *Server) AutoBalanceBots() {
 	// Balance teams by adding bots with appropriate ship types
 	botsAdded := make(map[int]int)
 	totalBotsAdded := 0
+	balanceBlocked := false
 
 	for _, team := range teams {
 		deficit := maxCount - teamCounts[team]
@@ -1004,7 +1005,10 @@ func (s *Server) AutoBalanceBots() {
 			s.gameState.Mu.RLock()
 			ship := s.selectBotShipType(team)
 			s.gameState.Mu.RUnlock()
-			s.AddBot(team, ship)
+			if !s.AddBot(team, ship) {
+				balanceBlocked = true
+				break
+			}
 			botsAdded[team]++
 			totalBotsAdded++
 			deficit--
@@ -1013,7 +1017,11 @@ func (s *Server) AutoBalanceBots() {
 
 	// Send feedback message
 	if totalBotsAdded == 0 {
-		s.broadcastInfo("Auto-balance: teams already balanced, no bots added")
+		if balanceBlocked {
+			s.broadcastInfo("Auto-balance: no bots added; server full or a team cannot spawn")
+		} else {
+			s.broadcastInfo("Auto-balance: teams already balanced, no bots added")
+		}
 	} else {
 		// Build a descriptive message about what was added
 		var messages []string
@@ -1035,6 +1043,9 @@ func (s *Server) AutoBalanceBots() {
 		}
 
 		messageText := fmt.Sprintf("Auto-balance: added %s", strings.Join(messages, ", "))
+		if balanceBlocked {
+			messageText += "; balance incomplete: server full or a team cannot spawn"
+		}
 		s.broadcastInfo(messageText)
 	}
 }

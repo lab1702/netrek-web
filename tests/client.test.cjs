@@ -13,7 +13,12 @@ class Element {
         this.style = {};
         this.dataset = {};
         this.classes = new Set();
-        this.classList = { toggle: (name, on) => on ? this.classes.add(name) : this.classes.delete(name) };
+        this.classList = {
+            toggle: (name, on) => on ? this.classes.add(name) : this.classes.delete(name),
+            add: name => this.classes.add(name),
+            remove: name => this.classes.delete(name),
+            contains: name => this.classes.has(name),
+        };
     }
     get textContent() { return this.text + this.children.map(c => c.textContent).join(''); }
     set textContent(value) { this.text = String(value); this.children = []; }
@@ -284,4 +289,33 @@ test('lobby polling resumes after every return from the game', () => {
         assert.equal(refreshes, beforeLobbyTick + 1);
         assert.equal(f.intervals.size, 1);
     }
+});
+
+test('round reset closes all game overlays before showing the lobby', () => {
+    const f = fixture();
+    const socket = accepted(f);
+    for (const id of ['help-window', 'practice-panel', 'message-input']) f.ids[id] = new Element();
+    f.read(`dashboardEls.helpWindow = document.getElementById('help-window');
+        dashboardEls.practicePanel = document.getElementById('practice-panel');
+        dashboardEls.messageInput = document.getElementById('message-input');`);
+    f.context.handleKeyPress('?');
+    assert.equal(f.ids['help-window'].style.display, 'block');
+    f.ids['practice-panel'].classList.add('show');
+    f.ids['message-input'].style.display = 'block';
+    f.read('messageMode = "team";');
+    let infoClosed = false;
+    f.context.window.infoWindow = {
+        destroy: () => infoClosed = true,
+        isVisible: () => !infoClosed,
+    };
+    socket.deliver('update', {players:[], planets:[], torps:[], plasmas:[]}, {player_id:-1});
+    assert.equal(f.ids.login.style.display, 'block');
+    assert.equal(f.ids['help-window'].style.display, 'none');
+    assert.equal(f.ids['practice-panel'].classList.contains('show'), false);
+    assert.equal(f.ids['message-input'].style.display, 'none');
+    assert.equal(f.read('messageMode'), '');
+    assert.equal(infoClosed, true);
+    f.context.connect();
+    socket.deliver('login_success', {player_id:1});
+    assert.equal(f.ids.game.style.display, 'block');
 });

@@ -927,6 +927,12 @@ function showLoginScreenAfterReset() {
     // Prevent duplicate calls
     if (uiState.inOutfitScreen) return;
     uiState.inOutfitScreen = true;
+
+    // These overlays live outside #game and must close with the game session.
+    if (dashboardEls.helpWindow) dashboardEls.helpWindow.style.display = 'none';
+    if (dashboardEls.practicePanel) dashboardEls.practicePanel.classList.remove('show');
+    if (dashboardEls.messageInput) hideMessageInput();
+    if (window.infoWindow && window.infoWindow.destroy) window.infoWindow.destroy();
     
     // Hide game interface, show login screen
     document.getElementById('game').style.display = 'none';
